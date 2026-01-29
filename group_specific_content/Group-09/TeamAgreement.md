@@ -1,5 +1,3 @@
-git commit -m "Uploaded team agreement file for group 9 (Database)"Team Agreement for group 9
-
 Date: 1/23/26
 
 Team Members 
