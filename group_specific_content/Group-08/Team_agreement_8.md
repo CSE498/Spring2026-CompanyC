@@ -30,9 +30,9 @@ This agreement serves to outline the roles, responsibilities, and expectations o
 
 ## Team Expectations:
 
-1. **Communication**: We agree to maintain open, respectful, and timely communication within our team. We will use [specified communication tool] for our discussions.
+1. **Communication**: We agree to maintain open, respectful, and timely communication within our team. We will use Discord for our discussions.
    
-2. **Meetings**: Regular team meetings will be held on [specific day/time]. Attendance is mandatory unless a valid reason is provided in advance.
+2. **Meetings**: Regular team meetings will be held whenever needed and defenitely days before due dates. Attendance is mandatory unless a valid reason is provided in advance.
    
 3. **Conflict Resolution**: Any conflicts that arise will be addressed openly in the team setting. If a resolution still cannot be reached after a substantial good-faith attempt, we agree to consult the course instructors to help resolve the dispute.
 
