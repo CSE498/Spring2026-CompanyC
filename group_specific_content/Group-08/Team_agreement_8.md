@@ -46,10 +46,10 @@ This agreement serves to outline the roles, responsibilities, and expectations o
 
 We, the undersigned, have mutually agreed upon the roles and responsibilities as stated above. We commit to upholding this agreement for the duration of the project and understand that any failure to do so may have consequences on our project's success and our individual assessments.
 
-| **Name**       | **Date** |
-| -------------- | -------- |
-| Jose Hernandez         | 1/27/2026         |
-| George Almeida         | 1/27/2026          |
-| Benjamin Forbes            | 1/27/2026       |
-| Truong Phan          | 1/27/2026      |
-| John Masterman          | 1/27/2026      |
+| **Name**       | **Signatures** | **Date** |
+| -------------- | -------------- | -------- |
+| Jose Hernandez         | JH | 1/27/2026         |
+| George Almeida         | GA | 1/27/2026          |
+| Benjamin Forbes            | BF | 1/27/2026       |
+| Truong Phan          | TP | 1/27/2026      |
+| John Masterman          | JM | 1/27/2026      |
