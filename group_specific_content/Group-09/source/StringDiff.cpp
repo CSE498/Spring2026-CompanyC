@@ -57,6 +57,31 @@ StringDiff::Diff StringDiff::MakeDiff(const std::string& base, const std::string
 }
 
 
+std::optional<std::string> StringDiff::ApplyDiff(const std::string& base, const Diff& patch) {
+    //length verification
+    if (base.length() != patch.base_length) {
+        return std::nullopt;
+    }
+
+    //hash verification
+    if (ComputeHash(base) != patch.base_hash) {
+        return std::nullopt;
+    }
+
+    //validate prefix + suffix within base length
+    if (patch.prefix_length + patch.suffix_length > base.length()) {
+        return std::nullopt;
+    }
+
+    std::string prefix = base.substr(0, patch.prefix_length);
+    std::size_t suffix_start = base.length() - patch.suffix_length;
+    std::string suffix = base.substr(suffix_start);
+
+    std::string result = prefix + patch.replacement + suffix;
+    return result;
+}
+
+
 
 
 
