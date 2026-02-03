@@ -7,7 +7,6 @@
 
 #include "StringDiff.hpp"
 #include <functional> // for std::hash
-#include <algorithm>  // for std::min
 #include <sstream>    // for std::ostringstream, std::istringstream
 
 namespace sim {
@@ -81,8 +80,25 @@ std::optional<std::string> StringDiff::ApplyDiff(const std::string& base, const 
     return result;
 }
 
+//FORMAT: HASH | BASE_LEN | PREFIX_LEN | SUFFIX_LEN | REPLACEMENT(middle)_LEN | REPLACEMENT
+//EX: 
+//  Base = "Hello World" (len 11)
+//  Updated = "Hello C++ World"
+//  MakeDiff gives: prefix = 6, suffix = 5, replacement = "C++"
+//  
+//EX ENCODED OUTPUT: 9876543210|11|6|5|4|C++ 
+std::string StringDiff::EncodeDiff(const StringDiff::Diff& patch) {
+    std::ostringstream oss;
 
+    oss << patch.base_hash << '|';
+    oss << patch.base_length << '|';
+    oss << patch.prefix_length << '|';
+    oss << patch.suffix_length << '|';
+    oss << patch.replacement.length() << '|';
+    oss << patch.replacement;
 
+    return oss.str();
+}
 
 
 
