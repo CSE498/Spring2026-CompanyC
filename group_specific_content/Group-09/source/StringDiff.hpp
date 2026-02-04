@@ -15,20 +15,32 @@
 
 namespace sim {
 
+/**
+ * @class StringDiff
+ * @brief Class for computing and applying string diffs
+ */
 class StringDiff {
 
 public:
+    /**
+     * @struct Diff
+     * @brief Represents a string diff patch
+     */
     struct Diff {
-        // Signature of base string for verification later
-        std::size_t base_hash;      // Hash of original base string
-        std::size_t base_length;    // Length of base string
+        /// Hash of original base string
+        std::size_t base_hash;      
 
-        // Prefix/suffix 
-        std::size_t prefix_length;  // Original starting bytes
-        std::size_t suffix_length;  // Original ending bytes
+        /// Length of base string
+        std::size_t base_length;    
 
-        // Middle portion between prefix and suffix
-        std::string replacement;    // New data to insert into middle
+        /// Length of the unchanged start
+        std::size_t prefix_length;  
+
+        /// Length of the unchanged end
+        std::size_t suffix_length;  
+
+        /// New data to insert into middle
+        std::string replacement;    
     };
 
     /**
