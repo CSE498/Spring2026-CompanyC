@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <vector>
+
 struct Point
 {
     double x = 0.0;
@@ -26,23 +28,9 @@ public:
 private:
     std::vector<Point> mPoints;
 
-    double mTotalLength = 0.0;
-    bool mLengthDirty = false;
+    static void ValidatePoint(const Point& point);
 
-    bool mSelfIntersectKnown = true;
-    bool mSelfIntersectValue - false;
+    static double Dist(const Point& a, const Point& b);
 
-    void ValidatePoint(const Point& point);
-
-    double Dist(const Point& a, const Point& b);
-    double Dist2(const Point& a, const Point& b);
-
-    void RebuildCachesFromScratch() const;
-    void RebuildLengthCache() const;
-
-    double Cross(const Point& a, const Point& b, const Point& c);
-    bool OnSegment(const Point& a, const Point& b, const Point& p);
-    int Sign(double v);
-    bool SegmentsIntersect(const Point& a, const Point& b, const Point& c, const Point& d);
-    bool ComputeSelfIntersect() const;
+    static bool SegmentsIntersect(const Point& a, const Point& b, const Point& c, const Point& d);
 };
