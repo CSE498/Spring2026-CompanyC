@@ -8,6 +8,7 @@
 #include "StringDiff.hpp"
 #include <functional> // for std::hash
 #include <sstream>    // for std::ostringstream, std::istringstream
+#include <stdexcept> //  for decode try/catch
 
 namespace sim {
 
@@ -80,13 +81,13 @@ std::optional<std::string> StringDiff::ApplyDiff(const std::string& base, const 
     return result;
 }
 
-//FORMAT: HASH | BASE_LEN | PREFIX_LEN | SUFFIX_LEN | REPLACEMENT(middle)_LEN | REPLACEMENT
-//EX: 
+//FORMAT: HASH | BASE_LEN | PREFIX_LEN | SUFFIX_LEN | REPLACEMENT
+//EX:
 //  Base = "Hello World" (len 11)
 //  Updated = "Hello C++ World"
 //  MakeDiff gives: prefix = 6, suffix = 5, replacement = "C++"
-//  
-//EX ENCODED OUTPUT: 9876543210|11|6|5|4|C++ 
+//
+//EX ENCODED OUTPUT: 9876543210|11|6|5|C++
 std::string StringDiff::EncodeDiff(const StringDiff::Diff& patch) {
     std::ostringstream oss;
 
@@ -94,7 +95,6 @@ std::string StringDiff::EncodeDiff(const StringDiff::Diff& patch) {
     oss << patch.base_length << '|';
     oss << patch.prefix_length << '|';
     oss << patch.suffix_length << '|';
-    oss << patch.replacement.length() << '|';
     oss << patch.replacement;
 
     return oss.str();
@@ -103,6 +103,86 @@ std::string StringDiff::EncodeDiff(const StringDiff::Diff& patch) {
 
 
 
+// HASH | BASE_LEN | PREFIX_LEN | SUFFIX_LEN | REPLACEMENT
+// 4 seperators
+std::optional<StringDiff::Diff> StringDiff::DecodeDiff(const std::string& encoded) {
+    Diff patch;
+    std::size_t start = 0;
 
+    // HASH
+    std::size_t sep_1 = encoded.find('|', start);
+    if (sep_1 == std::string::npos) {
+        return std::nullopt;
+    }
+
+    std::string hash_str = encoded.substr(start, sep_1 - start);
+    std::size_t hash;    
+    try {
+        hash = std::stoull(hash_str);
+        patch.base_hash = hash;
+    } catch (...) {
+        return std::nullopt;
+    }
+
+    start = sep_1 + 1;
+
+    // BASE_LEN
+    std::size_t sep_2 = encoded.find('|', start);
+    if (sep_2 == std::string::npos) {
+        return std::nullopt;
+    }
+
+    std::string base_len_str = encoded.substr(start, sep_2 - start);
+    std::size_t base_len;
+    try {
+            base_len = std::stoull(base_len_str);
+            patch.base_length = base_len;
+    } catch (...) {
+        return std::nullopt;
+    }
+
+    start = sep_2 + 1;
+
+    // PREFIX_LEN
+    std::size_t sep_3 = encoded.find('|', start);
+    if (sep_3 == std::string::npos) {
+        return std::nullopt;
+    }
+
+    std::string prefix_len_str = encoded.substr(start, sep_3 - start);
+    std::size_t prefix_len;
+    try {
+        prefix_len = std::stoull(prefix_len_str);
+        patch.prefix_length = prefix_len;
+    } catch (...) {
+        return std::nullopt;
+    }
+
+    start = sep_3 + 1;
+
+    // SUFFIX_LEN
+    std::size_t sep_4 = encoded.find('|', start);
+    if (sep_4 == std::string::npos) {
+        return std::nullopt;
+    }
+
+    std::string suffix_len_str = encoded.substr(start, sep_4 - start);
+    std::size_t suffix_len;
+    try {
+        suffix_len = std::stoull(suffix_len_str);
+        patch.suffix_length = suffix_len;
+    } catch (...) {
+        return std::nullopt;
+    }
+
+    start = sep_4 + 1;
+
+    // REPLACEMENT
+    std::string replacement = encoded.substr(start);
+    patch.replacement = replacement;
+
+    return patch;
 
 }
+
+} //namespace sim
