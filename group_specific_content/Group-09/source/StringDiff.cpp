@@ -1,10 +1,3 @@
-/**
- * @file StringDiff.cpp
- * @author Andrew Shilman
- * 
- * @brief Implementation of StringDiff for computing string diffs
- */
-
 #include "StringDiff.hpp"
 #include <functional> // for std::hash
 #include <sstream>    // for std::ostringstream, std::istringstream

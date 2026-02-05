@@ -1,11 +1,3 @@
-/**
- * @file StringDiff.hpp
- * @author Andrew Shilman
- * 
- * @brief Computes string diffs for fast incremental updates
- * Uses simple prefix/suffix heuristics (right now)
- */
-
 #pragma once
 
 #include <string>
