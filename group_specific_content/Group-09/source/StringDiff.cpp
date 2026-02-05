@@ -169,6 +169,11 @@ std::optional<StringDiff::Diff> StringDiff::DecodeDiff(const std::string& encode
         return std::nullopt;
     }
 
+    //validate prefix/suffix
+    if (patch.prefix_length + patch.suffix_length > patch.base_length) {
+        return std::nullopt;
+    }
+
     start = sep_4 + 1;
 
     // REP_LEN
@@ -191,10 +196,13 @@ std::optional<StringDiff::Diff> StringDiff::DecodeDiff(const std::string& encode
     if (start + rep_len > encoded.size()) {
         return std::nullopt;
     }
+
+    if (start + rep_len != encoded.size()) {
+        return std::nullopt; //makes sure no trailing garbage
+    }
+
     patch.replacement = encoded.substr(start, rep_len);
-
     return patch;
-
 }
 
 } //namespace sim
