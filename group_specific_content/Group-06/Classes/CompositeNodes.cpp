@@ -1,0 +1,18 @@
+#include "CompositeNodes.hpp"
+
+/**
+ * @brief Executes children sequentially.
+ * * @return Status::Success if all children succeed, otherwise returns the status
+ * of the first child that fails or is running.
+ * * @details
+ * Will stop immediately
+ * if any child returns Failure or Running, ensuring the agent doesn't
+ * perform subsequent tasks until the current one succeeds.
+ */
+Status Sequence::tick() {
+    for (auto& child : children) {
+        Status s = child->tick();
+        if (s != Status::Success) return s;
+    }
+    return Status::Success;
+}
