@@ -74,13 +74,13 @@ std::optional<std::string> StringDiff::ApplyDiff(const std::string& base, const 
     return result;
 }
 
-//FORMAT: HASH | BASE_LEN | PREFIX_LEN | SUFFIX_LEN | REPLACEMENT
+//FORMAT: HASH | BASE_LEN | PREFIX_LEN | SUFFIX_LEN | REP_LEN | REPLACEMENT
 //EX:
 //  Base = "Hello World" (len 11)
 //  Updated = "Hello C++ World"
 //  MakeDiff gives: prefix = 6, suffix = 5, replacement = "C++"
 //
-//EX ENCODED OUTPUT: 9876543210|11|6|5|C++
+//EX ENCODED OUTPUT: 9876543210|11|6|5|3|C++
 std::string StringDiff::EncodeDiff(const StringDiff::Diff& patch) {
     std::ostringstream oss;
 
@@ -88,6 +88,7 @@ std::string StringDiff::EncodeDiff(const StringDiff::Diff& patch) {
     oss << patch.base_length << '|';
     oss << patch.prefix_length << '|';
     oss << patch.suffix_length << '|';
+    oss << patch.replacement.size() << '|';
     oss << patch.replacement;
 
     return oss.str();
@@ -96,8 +97,8 @@ std::string StringDiff::EncodeDiff(const StringDiff::Diff& patch) {
 
 
 
-// HASH | BASE_LEN | PREFIX_LEN | SUFFIX_LEN | REPLACEMENT
-// 4 seperators
+// HASH | BASE_LEN | PREFIX_LEN | SUFFIX_LEN | REP_LEN | REPLACEMENT
+// 5 separators
 std::optional<StringDiff::Diff> StringDiff::DecodeDiff(const std::string& encoded) {
     Diff patch;
     std::size_t start = 0;
@@ -170,9 +171,27 @@ std::optional<StringDiff::Diff> StringDiff::DecodeDiff(const std::string& encode
 
     start = sep_4 + 1;
 
+    // REP_LEN
+    std::size_t sep_5 = encoded.find('|', start);
+    if (sep_5 == std::string::npos) {
+        return std::nullopt;
+    }
+
+    std::string rep_len_str = encoded.substr(start, sep_5 - start);
+    std::size_t rep_len;
+    try {
+        rep_len = std::stoull(rep_len_str);
+    } catch (...) {
+        return std::nullopt;
+    }
+
+    start = sep_5 + 1;
+
     // REPLACEMENT
-    std::string replacement = encoded.substr(start);
-    patch.replacement = replacement;
+    if (start + rep_len > encoded.size()) {
+        return std::nullopt;
+    }
+    patch.replacement = encoded.substr(start, rep_len);
 
     return patch;
 
