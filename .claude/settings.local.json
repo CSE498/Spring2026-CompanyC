@@ -3,7 +3,14 @@
     "allow": [
       "Bash(python -c:*)",
       "Bash(powershell -Command \"Add-Type -AssemblyName System.IO.Compression; $zip = [System.IO.Compression.ZipFile]::OpenRead\\(''Class Descrptions \\(1\\).docx''\\); $entry = $zip.Entries | Where-Object {$_Name -eq ''document.xml''}; $reader = New-Object System.IO.StreamReader\\($entry.Open\\(\\)\\); $content = $reader.ReadToEnd\\(\\); $reader.Close\\(\\); $zip.Dispose\\(\\); $content\")",
-      "Bash(tar:*)"
+      "Bash(tar:*)",
+      "Bash(tree:*)",
+      "Bash(git -C /Users/stdmitry/Spring2026-CompanyC log --oneline -20)",
+      "Bash(g++-14:*)",
+      "Bash(make clean:*)",
+      "Bash(make:*)",
+      "Bash(g++:*)",
+      "Bash(git checkout:*)"
     ]
   }
 }

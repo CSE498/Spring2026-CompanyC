@@ -7,7 +7,7 @@ FLAGS_opt     = $(FLAGS_all) -O3 -DNDEBUG           # Fastest possible executabl
 FLAGS_quick   = $(FLAGS_all) -DNDEBUG               # Fastest possible compilation
 FLAGS_grumpy  = $(FLAGS_all) -Wconversion -Weffc++  # Some extra picky warnings
 
-CXX = c++
+CXX = g++-14
 
 # Find all headers
 HEADERS := $(shell find Agents core Interfaces tools Worlds -name '*.hpp')
