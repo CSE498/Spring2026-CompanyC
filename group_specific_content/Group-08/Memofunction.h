@@ -1,8 +1,8 @@
 /**
  * @file Memofunction.h
  * @author Jose Antonio Hernandez- Martinez
- *
- *
+ * @brief This Memofunction class is a wraps a function and acts like a cache. 
+ * It has a FIFO eviction policy and fixed slot size.
  */
 
 #ifndef CAPSTONE_MEMOFUNCTION_H
@@ -24,14 +24,31 @@ private:
     std::queue<int> order; // helps in FIFO system
 public:
 
-    /// Constructor
-    Memofunction( std::function <int(int)> func);
+    /** 
+    *@brief Creates Memofunction around a function (as of right just a int(int type of functions))
+    *@param func Function to memorize
+    * Starts empty and has fixed capacity
+    */
+    Memofunction( std::function <int(int)> func); ///< Constructor
 
-    /// Call wrapper (this is what lets you do: memo(5); )
-    int operator()(int x);
+    /**
+     * @brief Compute f(x) using the cache when possible.
+     * @param x Input to the wrapped function.
+     * @return f(x), either from cache (hit) or newly computed (miss).
+     */
+    int operator()(int x); ///< Call wrapper (this is what lets you do: memo(5); )
 
-    /// helpers
+
+    /*HELPERS - more to come */
+    /**
+     * @brief Clear all cached values and reset insertion order.
+     */
     void Clear();
+    
+    /**
+     * @brief Current number of cached entries.
+     * @return Number of keys stored in the cache.
+     */
     std::size_t Size() const;
 
 };
