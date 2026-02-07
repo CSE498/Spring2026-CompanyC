@@ -3,7 +3,6 @@
 #include <string>
 #include <optional>
 #include <cstdint>
-#include <vector>
 
 namespace sim {
 
@@ -33,6 +32,9 @@ public:
 
         /// New data to insert into middle
         std::string replacement;    
+
+        /// equality operator for debugging/testing later
+        bool operator==(const Diff&) const = default;
     };
 
     /**
