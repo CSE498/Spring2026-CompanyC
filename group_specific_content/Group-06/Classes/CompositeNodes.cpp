@@ -16,3 +16,17 @@ Status Sequence::tick() {
     }
     return Status::Success;
 }
+
+Status Selector::tick(){
+    for(auto& child : children){
+       Status s = child->tick();
+
+       // If the child succeeds or is running,
+       // the Selector is satisfied and stops looking.
+       if (s != Status::Success){
+           return s;
+       }
+    }
+    // Every child failed
+    return Status::Failure;
+}
