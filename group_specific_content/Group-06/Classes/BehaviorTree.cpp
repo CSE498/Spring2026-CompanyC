@@ -1,3 +1,9 @@
+/**
+ * @file BehaviorTree.cpp
+ * @author Dillan Kowalski
+ * @brief Implementation of the core Behavior Tree base classes.
+ */
+
 #include "BehaviorTree.hpp"
 
 /**

@@ -1,3 +1,9 @@
+/**
+ * @file CompositeNodes.cpp
+ * @author Dillan Kowalski
+ * @brief Implementation of Sequence and Selector tick logic.
+ */
+
 #include "CompositeNodes.hpp"
 
 /**
@@ -23,7 +29,7 @@ Status Selector::tick(){
 
        // If the child succeeds or is running,
        // the Selector is satisfied and stops looking.
-       if (s != Status::Success){
+       if (s == Status::Success || s == Status::Running){
            return s;
        }
     }

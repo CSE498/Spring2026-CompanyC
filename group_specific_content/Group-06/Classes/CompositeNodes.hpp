@@ -1,3 +1,9 @@
+/**
+ * @file CompositeNodes.hpp
+ * @author Dillan Kowalski
+ * @brief Logic for Sequence and Selector behavior tree nodes.
+ */
+
 #ifndef COMPOSITE_NODES_HPP
 #define COMPOSITE_NODES_HPP
 

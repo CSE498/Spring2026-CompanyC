@@ -1,3 +1,11 @@
+/**
+ * @file BehaviorTree.hpp
+ * @author Dillan Kowalski
+ * @brief Base class and interface definitions for the Behavior Tree system.
+ * * This file defines the Status enum and the abstract Node base class
+ * that all Composite and Leaf nodes must implement.
+ */
+
 #ifndef BEHAVIOR_TREE_HPP
 #define BEHAVIOR_TREE_HPP
 
