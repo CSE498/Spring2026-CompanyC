@@ -25,6 +25,7 @@ add_executable(AgentSim
     Classes/WorldPath.cpp
     Classes/PathGenerator.cpp
     Classes/LeafNodes.cpp
+    Classes/DecoratorNodes.cpp
 )
 
 # Ensure the compiler can find the headers in the Classes folder
@@ -36,6 +37,7 @@ add_executable(unit_tests
     Classes/BehaviorTree.cpp
     Classes/CompositeNodes.cpp
     Classes/LeafNodes.cpp
+    Classes/DecoratorNodes.cpp
 )
 
 # Link Catch2 to the test executable

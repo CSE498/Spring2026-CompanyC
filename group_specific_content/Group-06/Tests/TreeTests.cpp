@@ -7,6 +7,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include "../Classes/CompositeNodes.hpp"
 #include "../Classes/LeafNodes.hpp"
+#include "../Classes/DecoratorNodes.hpp"
 
 /**
  * @brief A simple node for testing that returns a fixed status.
@@ -77,5 +78,24 @@ TEST_CASE("Action Node Basic Logic", "[leaf]") {
     SECTION("Action node returns success and correct name") {
         REQUIRE(moveNode.tick() == Status::Success);
         REQUIRE(moveNode.getName() == "MoveToTarget");
+    }
+}
+
+TEST_CASE("Inverter Decorator Logic", "[decorator]"){
+    auto inverter = std::make_shared<Inverter>("TestInverter");
+
+    SECTION("Inverter turns Success into Failure"){
+        inverter->setChild(std::make_shared<StubNode>(Status::Success));
+        REQUIRE(inverter->tick() == Status::Failure);
+    }
+
+    SECTION("Inverter turns Failure into Success"){
+        inverter->setChild(std::make_shared<StubNode>(Status::Failure));
+        REQUIRE(inverter->tick() == Status::Success);
+    }
+
+    SECTION("Inverter passes through Running status"){
+        inverter->setChild(std::make_shared<StubNode>(Status::Running));
+        REQUIRE(inverter->tick() == Status::Running);
     }
 }
