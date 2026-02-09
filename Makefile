@@ -45,8 +45,6 @@ clean:
 	$(MAKE) -C source clean
 	$(MAKE) -C tests clean
 
-# ---------- Explicit forwarding (optional but convenient) ----------
-
 # Forward anything to source/ by prefixing with src-
 #   make src-simple
 #   make src-debug
@@ -71,4 +69,4 @@ help:
 	@echo
 	@echo "Forwarding targets:"
 	@echo "  make src-<tgt>         Run 'make <tgt>' in source/"
-	@echo "  make test-<tgt>         Run 'make <tgt>' in tests/"
+	@echo "  make test-<tgt>        Run 'make <tgt>' in tests/"
