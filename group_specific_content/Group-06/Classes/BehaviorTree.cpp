@@ -19,7 +19,9 @@ void BehaviorTree::setRoot(std::shared_ptr<Node> node) {
  * @return The resulting Status (Success, Failure, or Running) of the root node.
  */
 Status BehaviorTree::update() {
-    return root ? root->tick() : Status::Failure;
+    // We pass the internal blackboard map into the root node.
+    // This starts the chain reaction where every node gets access to the same memory.
+    return root ? root->tick(blackboard) : Status::Failure;
 }
 
 /**

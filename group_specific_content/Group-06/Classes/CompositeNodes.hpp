@@ -31,7 +31,7 @@ public:
      */
     void addChild(std::shared_ptr<Node> child) {children.push_back(child); }
 
-    Status tick() override;
+    Status tick(Blackboard& bb) override;
 
     /**
      * @brief Returns the name of this sequence.
@@ -63,7 +63,7 @@ public:
      */
     void addChild(std::shared_ptr<Node> child) {children.push_back(child); }
 
-    Status tick() override;
+    Status tick(Blackboard& bb) override;
 
     /** @brief Returns the node name.
      ** @return The string name.

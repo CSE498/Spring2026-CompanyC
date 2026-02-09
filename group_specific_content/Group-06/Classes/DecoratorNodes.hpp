@@ -28,6 +28,6 @@ public:
 class Inverter : public DecoratorNode {
 public:
     using DecoratorNode::DecoratorNode;  // Use parent constructor
-    Status tick() override;
+    Status tick(Blackboard& bb) override;
 };
 #endif

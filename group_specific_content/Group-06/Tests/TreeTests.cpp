@@ -9,6 +9,9 @@
 #include "../Classes/LeafNodes.hpp"
 #include "../Classes/DecoratorNodes.hpp"
 
+// Global test blackboard - Used by all tests to satisfy the compiler
+Blackboard dummyBB;
+
 /**
  * @brief A simple node for testing that returns a fixed status.
  */
@@ -16,7 +19,7 @@ class StubNode : public Node {
     Status status;
 public:
     StubNode(Status s) : status(s) {}
-    Status tick() override {return status; }
+    Status tick(Blackboard& bb) override {return status; }
     std::string getName() const override {return "Stub"; }
 };
 
@@ -28,7 +31,7 @@ TEST_CASE("Sequence Node Logic", "[sequence]"){
         seq->addChild(std::make_shared<StubNode>(Status::Failure)); // The "Failure" that stops the chain
         seq->addChild(std::make_shared<StubNode>(Status::Success));
 
-        REQUIRE(seq->tick() == Status::Failure);
+        REQUIRE(seq->tick(dummyBB) == Status::Failure);
     }
 
     SECTION("Sequence returns Running and stops if a child is Running") {
@@ -36,7 +39,7 @@ TEST_CASE("Sequence Node Logic", "[sequence]"){
         seq->addChild(runningNode);
         seq->addChild(std::make_shared<StubNode>(Status::Success)); // Should not be reached
 
-        REQUIRE(seq->tick() == Status::Running);
+        REQUIRE(seq->tick(dummyBB) == Status::Running);
     }
 }
 
@@ -49,26 +52,26 @@ TEST_CASE("Selector Node Logic", "[composite]"){
     SECTION("Selector succeeds if the first child succeeds"){
         selector->addChild(successNode);
         selector->addChild(failureNode); //Shouldn't be reached
-        REQUIRE(selector->tick() == Status::Success);
+        REQUIRE(selector->tick(dummyBB) == Status::Success);
     }
 
     SECTION("Selector falls back and succeeds if the first child fails"){
         selector->addChild(failureNode);
         selector->addChild(successNode);
-        REQUIRE(selector->tick() == Status::Success);
+        REQUIRE(selector->tick(dummyBB) == Status::Success);
     }
 
     SECTION("Selector fails if all children fail") {
         selector->addChild(failureNode);
         selector->addChild(failureNode);
-        REQUIRE(selector->tick() == Status::Failure);
+        REQUIRE(selector->tick(dummyBB) == Status::Failure);
     }
 
     SECTION("Selector returns Running and stops if a child is Running") {
         selector->addChild(runningNode);
         selector->addChild(successNode); // Should not be reached
 
-        REQUIRE(selector->tick() == Status::Running);
+        REQUIRE(selector->tick(dummyBB) == Status::Running);
     }
 }
 
@@ -76,7 +79,7 @@ TEST_CASE("Action Node Basic Logic", "[leaf]") {
     ActionNode moveNode("MoveToTarget");
 
     SECTION("Action node returns success and correct name") {
-        REQUIRE(moveNode.tick() == Status::Success);
+        REQUIRE(moveNode.tick(dummyBB) == Status::Success);
         REQUIRE(moveNode.getName() == "MoveToTarget");
     }
 }
@@ -86,16 +89,16 @@ TEST_CASE("Inverter Decorator Logic", "[decorator]"){
 
     SECTION("Inverter turns Success into Failure"){
         inverter->setChild(std::make_shared<StubNode>(Status::Success));
-        REQUIRE(inverter->tick() == Status::Failure);
+        REQUIRE(inverter->tick(dummyBB) == Status::Failure);
     }
 
     SECTION("Inverter turns Failure into Success"){
         inverter->setChild(std::make_shared<StubNode>(Status::Failure));
-        REQUIRE(inverter->tick() == Status::Success);
+        REQUIRE(inverter->tick(dummyBB) == Status::Success);
     }
 
     SECTION("Inverter passes through Running status"){
         inverter->setChild(std::make_shared<StubNode>(Status::Running));
-        REQUIRE(inverter->tick() == Status::Running);
+        REQUIRE(inverter->tick(dummyBB) == Status::Running);
     }
 }

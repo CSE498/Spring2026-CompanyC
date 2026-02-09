@@ -15,17 +15,17 @@
  * if any child returns Failure or Running, ensuring the agent doesn't
  * perform subsequent tasks until the current one succeeds.
  */
-Status Sequence::tick() {
+Status Sequence::tick(Blackboard& bb) {
     for (auto& child : children) {
-        Status s = child->tick();
+        Status s = child->tick(bb);  // forwards the memory to the next level down
         if (s != Status::Success) return s;
     }
     return Status::Success;
 }
 
-Status Selector::tick(){
+Status Selector::tick(Blackboard& bb){
     for(auto& child : children){
-       Status s = child->tick();
+       Status s = child->tick(bb);
 
        // If the child succeeds or is running,
        // the Selector is satisfied and stops looking.

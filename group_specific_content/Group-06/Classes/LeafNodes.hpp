@@ -21,7 +21,7 @@ class ActionNode : public Node {
 public:
     ActionNode(std::string a) : action(a){}
 
-    Status tick() override;
+    Status tick(Blackboard& bb) override;
 
     /** @brief Returns the name of the action. */
     std::string getName() const override { return action; }

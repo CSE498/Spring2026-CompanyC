@@ -22,6 +22,8 @@ enum class Status {
     Running = -1
 };
 
+using BBValue = std::variant<int, double, std::string, bool>;
+using Blackboard = std::unordered_map<std::string, BBValue>;
 /**
  * @brief Abstract base class for all nodes in the Behavior Tree.
  * Any custom action or condition must inherit from this and implement tick().
@@ -32,9 +34,9 @@ public:
 
     /**
      * @brief Executes the node's specific logic.
-     * @return The resulting Status of the execution.
+     * @param bb Reference to the agent's memory
      */
-    virtual Status tick() = 0;
+    virtual Status tick(Blackboard& bb) = 0;
 
     /**
      * @brief Returns the identifier for the node.
@@ -54,10 +56,7 @@ public:
 class BehaviorTree {
 private:
     std::shared_ptr<Node> root;
-
-    /** @brief Variant-based memory map for agent state data. */
-    using BBValue = std::variant<int, double, std::string, bool>;
-    std::unordered_map<std::string, BBValue> blackboard;
+    Blackboard blackboard;  //The actual memory
 public:
     void setRoot(std::shared_ptr<Node> node);
 
