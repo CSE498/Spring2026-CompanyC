@@ -227,8 +227,8 @@ TEST_CASE("EncodeDiff: Verify encode ends with replacement text", "[StringDiff][
     auto patch = StringDiff::MakeDiff(base, updated);
     std::string encoded = StringDiff::EncodeDiff(patch);
 
-    //should end in 'C++'
-    REQUIRE(encoded.size() >= 3);
+    //should end in 'C++ '
+    REQUIRE(encoded.size() >= 4);
     //std::cout << "Encoded: " << encoded.substr(encoded.size() - 3) << std::endl;
     REQUIRE(encoded.substr(encoded.size() - 4) == "C++ ");
 }
@@ -245,9 +245,55 @@ TEST_CASE("EncodeDiff: Manual build comparison", "[StringDiff][EncodeDiff]") {
     oss << patch.base_hash << '|';
     oss << base.size() << '|';
     oss << 6 << '|';    // prefix length 6 "Hello "
-    oss << 5 << '|';    // suffix length 5 " World"
-    oss << 4 << '|';    // replacement len 3 "C++ "
+    oss << 5 << '|';    // suffix length 5 "World"
+    oss << 4 << '|';    // replacement len 4 "C++ "
     oss << "C++ ";       // replacement is "C++ "
 
     REQUIRE(encoded == oss.str());
+}
+
+
+// ************************************************************************
+// Test Cases for DecodeDiff
+// ************************************************************************
+
+//test full decode flow with a valid encoding
+TEST_CASE("DecodeDiff: Full flow, encode then decode", "[StringDiff][DecodeDiff]") {
+    std::string base = "Hello World";
+    std::string updated = "Hello C++ World";
+
+    auto patch = StringDiff::MakeDiff(base, updated);
+    std::string encoded = StringDiff::EncodeDiff(patch);
+    auto decoded = StringDiff::DecodeDiff(encoded);
+
+    REQUIRE(decoded.has_value());
+    REQUIRE(decoded.value() == patch);
+}
+
+
+//test full decode flow with no replacement text
+TEST_CASE("DecodeDiff: Full flow, no replacement", "[StringDiff][DecodeDiff]") {
+    std::string base = "Hello C++ World";
+    std::string updated = "Hello World";
+
+    auto patch = StringDiff::MakeDiff(base, updated);
+    std::string encoded = StringDiff::EncodeDiff(patch);
+    auto decoded = StringDiff::DecodeDiff(encoded);
+
+    REQUIRE(decoded.has_value());
+    REQUIRE(decoded.value() == patch);
+}
+
+
+//test full decode flow with no base
+TEST_CASE("DecodeDiff: Full flow, empty base", "[StringDiff][DecodeDiff]") {
+    std::string base = "";
+    std::string updated = "Hello World";
+
+    auto patch = StringDiff::MakeDiff(base, updated);
+    std::string encoded = StringDiff::EncodeDiff(patch);
+    auto decoded = StringDiff::DecodeDiff(encoded);
+
+    REQUIRE(decoded.has_value());
+    REQUIRE(decoded.value() == patch);
 }
