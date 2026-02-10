@@ -56,6 +56,64 @@ TEST_CASE("MakeDiff: string to empty", "[StringDiff][MakeDiff]") {
 
 
 
+// ************************
+// Test Cases for ApplyDiff
+// ************************
 
+//tests making a diff then applying it gives the same updated string
+TEST_CASE("ApplyDiff: Reconstructs updated string", "[StringDiff][ApplyDiff]") {
+    std::string base = "Hello World";
+    std::string updated = "Hello C++ World";
 
+    auto patch = StringDiff::MakeDiff(base, updated);
+    auto result = StringDiff::ApplyDiff(base, patch);
 
+    REQUIRE(result.has_value());            //makes sure something even gets returned
+    REQUIRE(result.value() == updated);     //makes sure the resulted patch actually returns updated
+}
+
+//confirms applying a patch with no changes gives the same string and actually does no change
+TEST_CASE("ApplyDiff: No change patch makes no change", "[StringDiff][ApplyDiff]") {
+    std::string base = "Hello World";
+    auto patch = StringDiff::MakeDiff(base, base);
+    auto result = StringDiff::ApplyDiff(base, patch);
+
+    REQUIRE(result.has_value());    //makes sure something gets returned
+    REQUIRE(result.value() == base);   //makes sure returned the same string
+}
+
+//tests applying diff with empty base has result of new non empty string
+TEST_CASE("ApplyDiff: Complete diff apply with empty base", "[StringDiff][ApplyDiff]") {
+    std::string base = "";
+    std::string updated = "Hello World";
+
+    auto patch = StringDiff::MakeDiff(base, updated);
+    auto result = StringDiff::ApplyDiff(base, patch);
+
+    REQUIRE(result.has_value());            //makes sure something gets returned
+    REQUIRE(result.value() == updated);     //makes sure result from empty is entire updated
+}
+
+//tests applying diff with empty updated string and has result of empty
+TEST_CASE("ApplyDiff: Complete diff apply with empty updated", "[StringDiff][ApplyDiff]") {
+    std::string base = "Hello World";
+    std::string updated = "";
+
+    auto patch = StringDiff::MakeDiff(base, updated);
+    auto result = StringDiff::ApplyDiff(base, patch);
+
+    REQUIRE(result.has_value());            //makes sure something gets returned
+    REQUIRE(result.value() == updated);     //makes sure result is the new empty updated
+}
+
+//full test of both empty, should have value just empty
+TEST_CASE("ApplyDiff: Complete diff apply with both empty", "[StringDiff][ApplyDiff]") {
+    std::string base = "";
+    std::string updated = "";
+
+    auto patch = StringDiff::MakeDiff(base, updated);
+    auto result = StringDiff::ApplyDiff(base, patch);
+
+    REQUIRE(result.has_value());        //should still have value
+    REQUIRE(result.value().empty());    //empty result
+}
