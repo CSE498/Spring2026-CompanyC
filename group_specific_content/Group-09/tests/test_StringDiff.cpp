@@ -158,3 +158,41 @@ TEST_CASE("ApplyDiff: prefix + suffix > base_length returns nullopt", "[StringDi
 
     REQUIRE_FALSE(result.has_value());  //should fail due to prefix + suffix > base_length
 }
+
+
+//test complete ApplyDiff flow with a complete string replacement
+TEST_CASE("ApplyDiff: complete flow, complete string replacement", "[StringDiff][ApplyDiff]") {
+    std::string base = "abc";
+    std::string updated = "xyz";
+
+    auto patch = StringDiff::MakeDiff(base, updated);
+    auto result = StringDiff::ApplyDiff(base, patch);
+
+    REQUIRE(result.has_value());
+    REQUIRE(result.value() == updated);
+}
+
+
+//complete ApplyDiff flow adding string
+TEST_CASE("ApplyDiff: complete flow, append string", "[StringDiff][ApplyDiff]") {
+    std::string base = "Hello";
+    std::string updated = "Hello World";
+
+    auto patch = StringDiff::MakeDiff(base, updated);
+    auto result = StringDiff::ApplyDiff(base, patch);
+
+    REQUIRE(result.has_value());
+    REQUIRE(result.value() == updated);
+}
+
+//complete ApplyDiff flow removing string
+TEST_CASE("ApplyDiff: complete flow, deleting string", "[StringDiff][ApplyDiff]") {
+    std::string base = "Hello World";
+    std::string updated = "Hello";
+
+    auto patch = StringDiff::MakeDiff(base, updated);
+    auto result = StringDiff::ApplyDiff(base, patch);
+
+    REQUIRE(result.has_value());
+    REQUIRE(result.value() == updated);
+}
