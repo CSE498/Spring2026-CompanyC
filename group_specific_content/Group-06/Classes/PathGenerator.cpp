@@ -5,6 +5,7 @@
 #include <algorithm>
 
 
+
 void PathGenerator::SetWorldView(const WorldView& world)
 {
     world_view = &world;
@@ -86,10 +87,22 @@ WorldPath PathGenerator::GenerateShortestPath(
     path.Add(start);
 
     // Reverse to start → goal
-    std::reverse(
-        path.Points().begin(),
-        path.Points().end()
-    );
+    path.Reverse();
 
     return path;
+}
+
+WorldPath PathGenerator::GeneratePatrolPath(Position start, int max_length) {
+    (void)start; (void)max_length;
+    return WorldPath{};
+}
+
+WorldPath PathGenerator::GenerateAvoidPath(Position start, Position goal, std::vector<Position> avoid) {
+    (void)start; (void)goal; (void)avoid;
+    return WorldPath{};
+}
+
+WorldPath PathGenerator::GenerateExplorePath(Position start, int max_length) {
+    (void)start; (void)max_length;
+    return WorldPath{};
 }
