@@ -76,11 +76,22 @@ TEST_CASE("Selector Node Logic", "[composite]"){
 }
 
 TEST_CASE("Action Node Basic Logic", "[leaf]") {
-    ActionNode moveNode("MoveToTarget");
+    // Initial state
+    dummyBB["gold"] = 10;
 
-    SECTION("Action node returns success and correct name") {
+    // Define logic that increments gold
+    auto gatherGold =  [](Blackboard& bb) {
+        int current = std::get<int>(bb.at("gold"));
+        bb["gold"] = current + 5;
+        return Status::Success;
+    };
+
+    ActionNode moveNode("GatherGold", gatherGold);
+
+    SECTION("Action node executes logic and modifies blackboard") {
         REQUIRE(moveNode.tick(dummyBB) == Status::Success);
-        REQUIRE(moveNode.getName() == "MoveToTarget");
+        REQUIRE(std::get<int>(dummyBB["gold"]) == 15);
+        REQUIRE(moveNode.getName() == "GatherGold");
     }
 }
 
@@ -100,5 +111,67 @@ TEST_CASE("Inverter Decorator Logic", "[decorator]"){
     SECTION("Inverter passes through Running status"){
         inverter->setChild(std::make_shared<StubNode>(Status::Running));
         REQUIRE(inverter->tick(dummyBB) == Status::Running);
+    }
+}
+
+TEST_CASE("Condition Node Logic", "[leaf]") {
+    dummyBB["is_hungry"] = true;
+
+    auto checkHunger = [](const Blackboard& bb){
+        return std::get<bool>(bb.at("is_hungry"));
+    };
+
+    ConditionNode hungerNode("HungryCheck", checkHunger);
+
+    SECTION("Returns Success when condition is true"){
+        REQUIRE(hungerNode.tick(dummyBB) == Status::Success);
+    }
+
+    SECTION("Returns Failure when condition is changed to false"){
+        dummyBB["is_hungry"] = false;
+        REQUIRE(hungerNode.tick(dummyBB) == Status::Failure);
+    }
+}
+
+TEST_CASE("Blackboard Edge Cases - Missing Keys", "[blackboard]") {
+    Blackboard emptyBB; // Totally empty
+
+    auto riskyAction = [](Blackboard& bb) {
+        // This will throw an exception if "ammo" isn't there
+        try {
+            int ammo = std::get<int>(bb.at("ammo"));
+            return Status::Success;
+        } catch (...) {
+            return Status::Failure; // We caught the crash!
+        }
+    };
+
+    ActionNode node("RiskyNode", riskyAction);
+
+    SECTION("Node handles missing keys gracefully") {
+        // If your logic catches the error, this passes.
+        // If not, your test suite crashes here.
+        REQUIRE(node.tick(emptyBB) == Status::Failure);
+    }
+}
+
+TEST_CASE("Blackboard Edge Cases - Wrong Type", "[blackboard]") {
+    Blackboard confusedBB;
+    confusedBB["health"] = "Full Health"; // It's a string!
+
+    auto readHealth = [](Blackboard& bb) {
+        // attempting to get int from a string variant
+        try {
+            int hp = std::get<int>(bb.at("health"));
+            return Status::Success;
+        } catch (const std::bad_variant_access&) {
+            return Status::Failure; // Correctly identified wrong type
+        }
+    };
+
+    ActionNode node("TypeCheck", readHealth);
+
+    SECTION("Node fails when types mismatch") {
+        REQUIRE(node.tick(confusedBB) == Status::Failure);
     }
 }

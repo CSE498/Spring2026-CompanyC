@@ -7,6 +7,15 @@
 #include "LeafNodes.hpp"
 
 Status ActionNode::tick(Blackboard& bb) {
-    std::cout << "  Agent is: " << action << std::endl;
-    return Status::Success;
+    if(action){
+        return action(bb);
+    }
+    return Status::Failure;
+}
+
+Status ConditionNode::tick(Blackboard& bb){
+    if(condition && condition(bb)){  //Checks if function exists and if the function returns true
+        return Status::Success;
+    }
+    return Status::Failure;
 }

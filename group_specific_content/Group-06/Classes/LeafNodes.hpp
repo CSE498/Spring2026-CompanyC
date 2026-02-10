@@ -12,19 +12,47 @@
 #include "BehaviorTree.hpp"
 #include <string>
 #include <iostream>
+#include <functional>
+#include <cassert>
 
 /**
- * @brief A basic action node that prints a message to the console.
+ * @brief A Leaf Node that executes a function and returns a Status.
  */
 class ActionNode : public Node {
-    std::string action;
 public:
-    ActionNode(std::string a) : action(a){}
+    using ActionFunc = std::function<Status(Blackboard&)>;
+
+    ActionNode(std::string n, ActionFunc func) : nodeName(n), action(func) {
+        assert(func && "ActionNode must be initialized with a valid function");
+    }
 
     Status tick(Blackboard& bb) override;
 
     /** @brief Returns the name of the action. */
-    std::string getName() const override { return action; }
+    std::string getName() const override { return nodeName; }
+
+private:
+    std::string nodeName;
+    ActionFunc action;
+};
+
+/**
+ * @brief A Leaf Node that returns Success or Failure based on a Blackboard check.
+ */
+class ConditionNode : public Node {
+public:
+    // A function pointer/lambda that takes a Blackboard and returns a bool
+    using ConditionFunc = std::function<bool(const Blackboard&)>;
+
+    ConditionNode(std::string n, ConditionFunc func) : name(n), condition(func) {
+        assert(func && "ConditionNode must be initialized with a valid function");
+    }
+
+    Status tick(Blackboard& bb) override;
+    std::string getName() const override { return name; }
+private:
+    std::string name;
+    ConditionFunc condition;
 };
 
 #endif
