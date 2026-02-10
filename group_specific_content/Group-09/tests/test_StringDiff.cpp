@@ -117,3 +117,44 @@ TEST_CASE("ApplyDiff: Complete diff apply with both empty", "[StringDiff][ApplyD
     REQUIRE(result.has_value());        //should still have value
     REQUIRE(result.value().empty());    //empty result
 }
+
+//tests to make sure properly fails with wrong base inputed
+TEST_CASE("ApplyDiff: wrong base string returns nullopt", "[StringDiff][ApplyDiff]") {
+    std::string base = "Hello World";
+    std::string updated = "Hello C++ World";
+    std::string wrong_base = "Hello Borld";
+
+    auto patch = StringDiff::MakeDiff(base, updated);
+    auto result = StringDiff::ApplyDiff(wrong_base, patch);
+
+    REQUIRE_FALSE(result.has_value());  //makes sure no output
+}
+
+//tests different base length error is properly handled
+TEST_CASE("ApplyDiff: wrong base length returns nullopt", "[StringDiff][ApplyDiff]") {
+    std::string base = "Hello World";
+    std::string updated = "Hello C++ World";
+    std::string shorter_base = "Hell rld";
+
+    auto patch = StringDiff::MakeDiff(base, updated);
+    auto result = StringDiff::ApplyDiff(shorter_base, patch);
+
+    REQUIRE_FALSE(result.has_value());  //makes sure no output
+}
+
+
+//manual invalid patch where prefix + suffix > base_length should return nullopt
+TEST_CASE("ApplyDiff: prefix + suffix > base_length returns nullopt", "[StringDiff][ApplyDiff]") {
+    StringDiff::Diff invalid_patch;
+    std::string base = "Hello World";
+
+    invalid_patch.base_hash = 0;
+    invalid_patch.base_length = base.length();
+    invalid_patch.prefix_length = 12;
+    invalid_patch.suffix_length = 12;
+    invalid_patch.replacement = "c";
+
+    auto result = StringDiff::ApplyDiff(base, invalid_patch);
+
+    REQUIRE_FALSE(result.has_value());  //should fail due to prefix + suffix > base_length
+}
