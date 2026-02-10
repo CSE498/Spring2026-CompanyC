@@ -78,9 +78,9 @@ std::optional<std::string> StringDiff::ApplyDiff(const std::string& base, const 
 //EX:
 //  Base = "Hello World" (len 11)
 //  Updated = "Hello C++ World"
-//  MakeDiff gives: prefix = 6, suffix = 5, replacement = "C++"
+//  MakeDiff gives: prefix = 6, suffix = 5, replacement = "C++ "
 //
-//EX ENCODED OUTPUT: 9876543210|11|6|5|3|C++
+//EX ENCODED OUTPUT: 9876543210|11|6|5|4|C++ 
 std::string StringDiff::EncodeDiff(const StringDiff::Diff& patch) {
     std::ostringstream oss;
 

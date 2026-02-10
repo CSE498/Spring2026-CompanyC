@@ -6,9 +6,9 @@ using sim::StringDiff;
 
 
 
-// ************************
+// ************************************************************************
 // Test Cases for MakeDiff
-// ************************
+// ************************************************************************
 
 //makes sure that diffing a string against itself produces no replacement and the full string is treated as prefix
 TEST_CASE("MakeDiff: identical strings produce empty replacement", "[StringDiff][MakeDiff]") {
@@ -56,9 +56,9 @@ TEST_CASE("MakeDiff: string to empty", "[StringDiff][MakeDiff]") {
 
 
 
-// ************************
+// ************************************************************************
 // Test Cases for ApplyDiff
-// ************************
+// ************************************************************************
 
 //tests making a diff then applying it gives the same updated string
 TEST_CASE("ApplyDiff: Reconstructs updated string", "[StringDiff][ApplyDiff]") {
@@ -195,4 +195,59 @@ TEST_CASE("ApplyDiff: complete flow, deleting string", "[StringDiff][ApplyDiff]"
 
     REQUIRE(result.has_value());
     REQUIRE(result.value() == updated);
+}
+
+
+// ************************************************************************
+// Test Cases for EncodeDiff
+// ************************************************************************
+
+//makes sure encode diff properly returns a format that has 5 '|' separators
+TEST_CASE("EncodeDiff: Verify 5 seperators", "[StringDiff][EncodeDiff]") {
+    std::string base = "Hello World";
+    std::string updated = "Hello C++ World";
+    
+    auto patch = StringDiff::MakeDiff(base, updated);
+    std::string encoded = StringDiff::EncodeDiff(patch);
+
+    int sep_count = 0;
+    for (char c : encoded) {
+        if (c == '|') {
+            sep_count++;
+        }
+    }
+    REQUIRE(sep_count == 5);
+}
+
+//makes sure the actual encoded text has the correct replacement text at the end
+TEST_CASE("EncodeDiff: Verify encode ends with replacement text", "[StringDiff][EncodeDiff]") {
+    std::string base = "Hello World";
+    std::string updated = "Hello C++ World";
+    
+    auto patch = StringDiff::MakeDiff(base, updated);
+    std::string encoded = StringDiff::EncodeDiff(patch);
+
+    //should end in 'C++'
+    REQUIRE(encoded.size() >= 3);
+    //std::cout << "Encoded: " << encoded.substr(encoded.size() - 3) << std::endl;
+    REQUIRE(encoded.substr(encoded.size() - 4) == "C++ ");
+}
+
+//full encoding full with manual build confirmation
+TEST_CASE("EncodeDiff: Manual build comparison", "[StringDiff][EncodeDiff]") {
+    std::string base = "Hello World";
+    std::string updated = "Hello C++ World";
+    
+    auto patch = StringDiff::MakeDiff(base, updated);
+    std::string encoded = StringDiff::EncodeDiff(patch);
+
+    std::ostringstream oss;
+    oss << patch.base_hash << '|';
+    oss << base.size() << '|';
+    oss << 6 << '|';    // prefix length 6 "Hello "
+    oss << 5 << '|';    // suffix length 5 " World"
+    oss << 4 << '|';    // replacement len 3 "C++ "
+    oss << "C++ ";       // replacement is "C++ "
+
+    REQUIRE(encoded == oss.str());
 }
