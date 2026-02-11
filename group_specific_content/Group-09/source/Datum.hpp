@@ -29,10 +29,12 @@ public:
     Datum operator*(const Datum& rhs) const;
     Datum operator/(const Datum& rhs) const;
 
-    //bool operator==(const Datum& rhs) const;
-    //bool operator!=(const Datum& rhs) const;
-    //bool operator<(const Datum& rhs) const;
-    //bool operator>(const Datum& rhs) const;
+    bool operator==(const Datum& rhs) const;
+    bool operator!=(const Datum& rhs) const;
+    bool operator<(const Datum& rhs) const;
+    bool operator>(const Datum& rhs) const;
+    bool operator>=(const Datum& rhs) const;
+    bool operator<=(const Datum& rhs) const;
 
 private:
 
