@@ -297,3 +297,83 @@ TEST_CASE("DecodeDiff: Full flow, empty base", "[StringDiff][DecodeDiff]") {
     REQUIRE(decoded.has_value());
     REQUIRE(decoded.value() == patch);
 }
+
+
+//decode fail test, should fail on empty encoded input
+TEST_CASE("DecodeDiff: empty encoded string returns nullopt", "[StringDiff][DecodeDiff]") {
+    auto decoded = StringDiff::DecodeDiff("");
+
+    REQUIRE_FALSE(decoded.has_value());
+}
+
+//decode fail test, missing separators
+TEST_CASE("DecodeDiff: no separators returns nullopt", "[StringDiff][DecodeDiff]") {
+    std::string encoded = "Hello_World";
+    auto decoded = StringDiff::DecodeDiff(encoded);
+
+    REQUIRE_FALSE(decoded.has_value());
+}
+
+//decode fail test, separators but not enough
+TEST_CASE("DecodeDiff: Not enough separators returns nullopt", "[StringDiff][DecodeDiff]") {
+    std::string encoded = "420|21|9";
+    auto decoded = StringDiff::DecodeDiff(encoded);
+
+    REQUIRE_FALSE(decoded.has_value());
+}
+
+//decode fail test, bad hash
+TEST_CASE("DecodeDiff: Bad hash input returns nullopt", "[StringDiff][DecodeDiff]") {
+    std::string encoded = "abadhash|11|6|5|4|C++";
+    auto decoded = StringDiff::DecodeDiff(encoded);
+
+    REQUIRE_FALSE(decoded.has_value());
+}
+
+//decode fail test, bad base_length
+TEST_CASE("DecodeDiff: Bad base_length input returns nullopt", "[StringDiff][DecodeDiff]") {
+    std::string encoded = "123|abc|6|5|3|C++";
+    auto decoded = StringDiff::DecodeDiff(encoded);
+
+    REQUIRE_FALSE(decoded.has_value());
+}
+
+//decode fail test, bad prefix length
+TEST_CASE("DecodeDiff: Bad prefix_length input returns nullopt", "[StringDiff][DecodeDiff]") {
+    std::string encoded = "123|11|xyz|5|3|C++";
+    auto decoded = StringDiff::DecodeDiff(encoded);
+
+    REQUIRE_FALSE(decoded.has_value());
+}
+
+//decode fail test, bad suffix length
+TEST_CASE("DecodeDiff: Bad suffix_length input returns nullopt", "[StringDiff][DecodeDiff]") {
+    std::string encoded = "123|11|6|xyz|3|C++";
+    auto decoded = StringDiff::DecodeDiff(encoded);
+
+    REQUIRE_FALSE(decoded.has_value());
+}
+
+//decode fail test, bad rep_length 
+TEST_CASE("DecodeDiff: Bad rep_length input returns nullopt", "[StringDiff][DecodeDiff]") {
+    std::string encoded = "123|11|6|5|xyz|C++";
+    auto decoded = StringDiff::DecodeDiff(encoded);
+
+    REQUIRE_FALSE(decoded.has_value());
+}
+
+//decode fail test, random trailing stuff after replacement returns nullopt
+TEST_CASE("DecodeDiff: Trailing garbage after replacement", "[StringDiff][DecodeDiff]") {
+    std::string encoded = "123|11|6|5|3|C++EXTRA";
+    auto decoded = StringDiff::DecodeDiff(encoded);
+
+    REQUIRE_FALSE(decoded.has_value());
+}
+
+//decode fail test, prefix + suffix > base_length
+TEST_CASE("DecodeDiff: prefix + suffix > base_length returns nullopt", "[StringDiff][DecodeDiff]") {
+    std::string encoded = "123|5|4|4|1|x";
+    auto decoded = StringDiff::DecodeDiff(encoded);
+
+    REQUIRE_FALSE(decoded.has_value());
+}
