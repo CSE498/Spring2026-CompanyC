@@ -183,10 +183,13 @@ bool Datum::operator>(const Datum& rhs)const{
 
 }
 bool Datum::operator>=(const Datum& rhs) const{
-
+    if (IsDouble() && std::isnan(std::get<double>(mValue))) return false;
+    if (rhs.IsDouble() && std::isnan(std::get<double>(rhs.mValue))) return false;
     return !(*this < rhs);
 
 }
 bool Datum::operator<=(const Datum& rhs) const{
+    if (IsDouble() && std::isnan(std::get<double>(mValue))) return false;
+    if (rhs.IsDouble() && std::isnan(std::get<double>(rhs.mValue))) return false;
     return !(rhs < *this);
 }
