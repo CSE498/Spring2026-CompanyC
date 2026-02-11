@@ -1,13 +1,17 @@
 #include "StringDiff.hpp"
-#include <functional> // for std::hash
 #include <sstream>    // for std::ostringstream, std::istringstream
-#include <stdexcept> //  for decode try/catch
 
 namespace sim {
 
 //Private helper
-std::size_t StringDiff::ComputeHash(const std::string& str) {
-    return std::hash<std::string>{}(str);
+uint64_t StringDiff::ComputeHash(const std::string& str) {
+    uint64_t hash = 14695981039346656037ULL; 
+    for (unsigned char byte : str) {
+        hash ^= byte;
+        hash *= 1099511628211ULL; 
+    }
+
+    return hash;
 }
 
 
@@ -20,7 +24,7 @@ StringDiff::Diff StringDiff::MakeDiff(const std::string& base, const std::string
     patch.base_length = base.length();
 
     // prefix length
-    std::size_t prefix_length = 0;
+    uint64_t prefix_length = 0;
     while (prefix_length < base.length() && prefix_length < updated.length() && base[prefix_length] == updated[prefix_length]) {
         prefix_length++;
     }
@@ -29,9 +33,9 @@ StringDiff::Diff StringDiff::MakeDiff(const std::string& base, const std::string
 
 
     // suffix length
-    std::size_t suffix_length = 0;
-    std::size_t base_remaining = base.length() - prefix_length;
-    std::size_t updated_remaining = updated.length() - prefix_length;
+    uint64_t suffix_length = 0;
+    uint64_t base_remaining = base.length() - prefix_length;
+    uint64_t updated_remaining = updated.length() - prefix_length;
 
     while (suffix_length < base_remaining && suffix_length < updated_remaining && base[base.length() - 1 - suffix_length] == updated[updated.length() - 1 - suffix_length]) {
         suffix_length++;
@@ -41,33 +45,33 @@ StringDiff::Diff StringDiff::MakeDiff(const std::string& base, const std::string
 
 
     //get new middle part
-    std::size_t start_pos = prefix_length;
-    std::size_t end_pos = updated.length() - suffix_length;
-    std::size_t middle_length = end_pos - start_pos;
+    uint64_t start_pos = prefix_length;
+    uint64_t end_pos = updated.length() - suffix_length;
+    uint64_t middle_length = end_pos - start_pos;
 
     patch.replacement = updated.substr(start_pos, middle_length);
     return patch;
 }
 
 
-std::optional<std::string> StringDiff::ApplyDiff(const std::string& base, const Diff& patch) {
+std::expected<std::string, DiffError> StringDiff::ApplyDiff(const std::string& base, const Diff& patch) {
     //length verification
     if (base.length() != patch.base_length) {
-        return std::nullopt;
+        return std::unexpected(DiffError::BaseLengthMismatch);
     }
 
     //hash verification
     if (ComputeHash(base) != patch.base_hash) {
-        return std::nullopt;
+        return std::unexpected(DiffError::BaseHashMismatch);
     }
 
     //validate prefix + suffix within base length
     if (patch.prefix_length + patch.suffix_length > base.length()) {
-        return std::nullopt;
+        return std::unexpected(DiffError::InvalidPatchInvariant);
     }
 
     std::string prefix = base.substr(0, patch.prefix_length);
-    std::size_t suffix_start = base.length() - patch.suffix_length;
+    uint64_t suffix_start = base.length() - patch.suffix_length;
     std::string suffix = base.substr(suffix_start);
 
     std::string result = prefix + patch.replacement + suffix;
@@ -99,106 +103,106 @@ std::string StringDiff::EncodeDiff(const StringDiff::Diff& patch) {
 
 // HASH | BASE_LEN | PREFIX_LEN | SUFFIX_LEN | REP_LEN | REPLACEMENT
 // 5 separators
-std::optional<StringDiff::Diff> StringDiff::DecodeDiff(const std::string& encoded) {
+std::expected<StringDiff::Diff, DiffError> StringDiff::DecodeDiff(const std::string& encoded) {
     Diff patch;
-    std::size_t start = 0;
+    uint64_t start = 0;
 
     // HASH
-    std::size_t sep_1 = encoded.find('|', start);
+    uint64_t sep_1 = encoded.find('|', start);
     if (sep_1 == std::string::npos) {
-        return std::nullopt;
+        return std::unexpected(DiffError::MalformedEncoding);
     }
 
     std::string hash_str = encoded.substr(start, sep_1 - start);
-    std::size_t hash;    
+    uint64_t hash;
     try {
         hash = std::stoull(hash_str);
         patch.base_hash = hash;
     } catch (...) {
-        return std::nullopt;
+        return std::unexpected(DiffError::InvalidNumberField);
     }
 
     start = sep_1 + 1;
 
     // BASE_LEN
-    std::size_t sep_2 = encoded.find('|', start);
+    uint64_t sep_2 = encoded.find('|', start);
     if (sep_2 == std::string::npos) {
-        return std::nullopt;
+        return std::unexpected(DiffError::MalformedEncoding);
     }
 
     std::string base_len_str = encoded.substr(start, sep_2 - start);
-    std::size_t base_len;
+    uint64_t base_len;
     try {
             base_len = std::stoull(base_len_str);
             patch.base_length = base_len;
     } catch (...) {
-        return std::nullopt;
+        return std::unexpected(DiffError::InvalidNumberField);
     }
 
     start = sep_2 + 1;
 
     // PREFIX_LEN
-    std::size_t sep_3 = encoded.find('|', start);
+    uint64_t sep_3 = encoded.find('|', start);
     if (sep_3 == std::string::npos) {
-        return std::nullopt;
+        return std::unexpected(DiffError::MalformedEncoding);
     }
 
     std::string prefix_len_str = encoded.substr(start, sep_3 - start);
-    std::size_t prefix_len;
+    uint64_t prefix_len;
     try {
         prefix_len = std::stoull(prefix_len_str);
         patch.prefix_length = prefix_len;
     } catch (...) {
-        return std::nullopt;
+        return std::unexpected(DiffError::InvalidNumberField);
     }
 
     start = sep_3 + 1;
 
     // SUFFIX_LEN
-    std::size_t sep_4 = encoded.find('|', start);
+    uint64_t sep_4 = encoded.find('|', start);
     if (sep_4 == std::string::npos) {
-        return std::nullopt;
+        return std::unexpected(DiffError::MalformedEncoding);
     }
 
     std::string suffix_len_str = encoded.substr(start, sep_4 - start);
-    std::size_t suffix_len;
+    uint64_t suffix_len;
     try {
         suffix_len = std::stoull(suffix_len_str);
         patch.suffix_length = suffix_len;
     } catch (...) {
-        return std::nullopt;
+        return std::unexpected(DiffError::InvalidNumberField);
     }
 
     //validate prefix/suffix
     if (patch.prefix_length + patch.suffix_length > patch.base_length) {
-        return std::nullopt;
+        return std::unexpected(DiffError::InvalidPatchInvariant);
     }
 
     start = sep_4 + 1;
 
     // REP_LEN
-    std::size_t sep_5 = encoded.find('|', start);
+    uint64_t sep_5 = encoded.find('|', start);
     if (sep_5 == std::string::npos) {
-        return std::nullopt;
+        return std::unexpected(DiffError::MalformedEncoding);
     }
 
     std::string rep_len_str = encoded.substr(start, sep_5 - start);
-    std::size_t rep_len;
+    uint64_t rep_len;
     try {
         rep_len = std::stoull(rep_len_str);
     } catch (...) {
-        return std::nullopt;
+        return std::unexpected(DiffError::InvalidNumberField);
     }
 
     start = sep_5 + 1;
 
     // REPLACEMENT
     if (start + rep_len > encoded.size()) {
-        return std::nullopt;
+        return std::unexpected(DiffError::ReplacementLengthMismatch);
     }
 
     if (start + rep_len != encoded.size()) {
-        return std::nullopt; //makes sure no trailing garbage
+        return std::unexpected(DiffError::ReplacementLengthMismatch); //makes sure no trailing garbage
     }
 
     patch.replacement = encoded.substr(start, rep_len);
