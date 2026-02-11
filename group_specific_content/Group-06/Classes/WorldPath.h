@@ -28,9 +28,10 @@ public:
 private:
     std::vector<Point> mPoints;
 
-    static void ValidatePoint(const Point& point);
-
     static double Dist(const Point& a, const Point& b);
-
     static bool SegmentsIntersect(const Point& a, const Point& b, const Point& c, const Point& d);
+
+    static double Cross(const Point& o, const Point& a, const Point& b);
+    static bool OnSegment(const Point& p, const Point& a, const Point& b);
+
 };
