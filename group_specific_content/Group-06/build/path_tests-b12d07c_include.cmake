@@ -1,0 +1,5 @@
+if(EXISTS "/Users/joshthomas/cse498/Spring2026-CompanyC/group_specific_content/Group-06/build/path_tests-b12d07c_tests.cmake")
+  include("/Users/joshthomas/cse498/Spring2026-CompanyC/group_specific_content/Group-06/build/path_tests-b12d07c_tests.cmake")
+else()
+  add_test(path_tests_NOT_BUILT-b12d07c path_tests_NOT_BUILT-b12d07c)
+endif()

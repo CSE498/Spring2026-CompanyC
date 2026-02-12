@@ -1,0 +1,35 @@
+Start testing: Feb 11 22:27 EST
+----------------------------------------------------------
+Unable to find executable: unit_tests_NOT_BUILT-b12d07c
+1/2 Testing: unit_tests_NOT_BUILT-b12d07c
+1/2 Test: unit_tests_NOT_BUILT-b12d07c
+Command: ""
+Directory: /Users/joshthomas/cse498/Spring2026-CompanyC/group_specific_content/Group-06/build
+"unit_tests_NOT_BUILT-b12d07c" start time: 
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"unit_tests_NOT_BUILT-b12d07c" end time: Feb 11 22:27 EST
+"unit_tests_NOT_BUILT-b12d07c" time elapsed: 00:00:00
+----------------------------------------------------------
+
+Unable to find executable: path_tests_NOT_BUILT-b12d07c
+2/2 Testing: path_tests_NOT_BUILT-b12d07c
+2/2 Test: path_tests_NOT_BUILT-b12d07c
+Command: ""
+Directory: /Users/joshthomas/cse498/Spring2026-CompanyC/group_specific_content/Group-06/build
+"path_tests_NOT_BUILT-b12d07c" start time: 
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"path_tests_NOT_BUILT-b12d07c" end time: Feb 11 22:27 EST
+"path_tests_NOT_BUILT-b12d07c" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Feb 11 22:27 EST
