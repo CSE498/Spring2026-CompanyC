@@ -1,53 +1,72 @@
+/**
+ * A coordinate position in a StateGrid (grid cell coordinates + facing).
+ * 
+ */
+
 #pragma once
 
 #include <cassert>
+#include <compare>
+#include <cstddef>
+#include <cstdint>
+#include <optional>
 #include <string>
 
-/**
- * Direction an agent is facing in the grid.
- */
-enum class Direction {
-    North,
-    East,
-    South,
-    West
-};
+namespace companyc {
 
-class StateGrid;
+  class StateGrid;   
 
-/**
- * Represents a single position inside a StateGrid.
- * Stores (x, y) coordinates and an orientation.
- */
-class StateGridPosition {
-public:
-    // Constructors
-    StateGridPosition();
-    StateGridPosition(int x, int y, Direction facing = Direction::North);
+  enum class Direction : std::uint8_t { North=0, East=1, South=2, West=3 };
 
-    // Getters
-    int X() const;
-    int Y() const;
-    Direction Facing() const;
+  /// Represents an agent position within a grid.
+  class StateGridPosition {
+  private:
+    int x = 0;   
+    int y = 0;   
+    Direction facing = Direction::North;
 
-    void SetFacing(Direction d);
+  public:
+    StateGridPosition() = default;
+    StateGridPosition(int x, int y, Direction f = Direction::North)
+      : x(x), y(y), facing(f)
+    {
+      assert(x >= 0 && y >= 0 && "Negative cell coordinates are programmer error.");
+    }
 
-    // Movement
-    StateGridPosition Moved(Direction d) const;
-    // Add move if valid func when stategrid done
-    // Add can move func when stategrid done
+    StateGridPosition(const StateGridPosition&) = default;
+    StateGridPosition& operator=(const StateGridPosition&) = default;
 
-    // Comparisons
-    bool operator==(const StateGridPosition& other) const;
-    bool operator!=(const StateGridPosition& other) const;
+    // -- Accessors --
+    [[nodiscard]] int X() const { return x; }
+    [[nodiscard]] int Y() const { return y; }
+    [[nodiscard]] Direction Facing() const { return facing; }
 
-    // String Representation
-    std::string ToString() const;
+    void SetFacing(Direction d) { facing = d; }
 
-private:
-    int mX;
-    int mY;
-    Direction mFacing;
+    // Enable all comparison operators (==, !=, <, <=, >, >=)
+    auto operator<=>(const StateGridPosition&) const = default;
 
+    // -- Movement helpers --
+    [[nodiscard]] StateGridPosition Moved(Direction d, int steps=1) const;
+    [[nodiscard]] StateGridPosition Forward(int steps=1) const { return Moved(facing, steps); }
+
+    [[nodiscard]] StateGridPosition RotatedLeft() const;
+    [[nodiscard]] StateGridPosition RotatedRight() const;
+
+    // -- Grid-aware checks --
+    [[nodiscard]] bool CanMove(Direction d, const StateGrid& grid) const;
+    bool MoveIfValid(Direction d, const StateGrid& grid);
+
+    [[nodiscard]] std::optional<StateGridPosition> Neighbor(Direction d, const StateGrid& grid) const;
+
+    // -- Utility --
+    [[nodiscard]] int ManhattanDistanceTo(const StateGridPosition& other) const;
+    [[nodiscard]] std::string ToString() const;
+
+  private:
     static void Delta(Direction d, int& dx, int& dy);
-};
+    static Direction TurnLeft(Direction d);
+    static Direction TurnRight(Direction d);
+  };
+
+} 

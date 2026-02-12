@@ -1,57 +1,77 @@
-#include "StateGridPosition.h"
+#include "Worlds/StateGridPosition.h"
+
 
 #include <sstream>
 
-StateGridPosition::StateGridPosition()
-    : mX(0), mY(0), mFacing(Direction::North)
-{
+namespace companyc {
+
+void StateGridPosition::Delta(Direction d, int& dx, int& dy) {
+  dx = 0; dy = 0;
+  switch (d) {
+    case Direction::North: dy = -1; break;
+    case Direction::East:  dx =  1; break;
+    case Direction::South: dy =  1; break;
+    case Direction::West:  dx = -1; break;
+    default: assert(false && "Invalid Direction");
+  }
 }
 
-StateGridPosition::StateGridPosition(int x, int y, Direction facing)
-    : mX(x), mY(y), mFacing(facing)
-{
-    // Negative coordinates are programmer error
-    assert(mX >= 0 && mY >= 0);
+Direction StateGridPosition::TurnLeft(Direction d) {
+  return static_cast<Direction>((static_cast<std::uint8_t>(d) + 3) % 4);
 }
 
-int StateGridPosition::X() const {
-    return mX;
+Direction StateGridPosition::TurnRight(Direction d) {
+  return static_cast<Direction>((static_cast<std::uint8_t>(d) + 1) % 4);
 }
 
-int StateGridPosition::Y() const {
-    return mY;
+StateGridPosition StateGridPosition::Moved(Direction d, int steps) const {
+  assert(steps >= 0 && "Negative steps are programmer error.");
+  int dx, dy;
+  Delta(d, dx, dy);
+  return StateGridPosition{x + dx*steps, y + dy*steps, facing};
 }
 
-Direction StateGridPosition::Facing() const {
-    return mFacing;
+StateGridPosition StateGridPosition::RotatedLeft() const {
+  StateGridPosition out = *this;
+  out.facing = TurnLeft(out.facing);
+  return out;
 }
 
-void StateGridPosition::SetFacing(Direction d) {
-    mFacing = d;
+StateGridPosition StateGridPosition::RotatedRight() const {
+  StateGridPosition out = *this;
+  out.facing = TurnRight(out.facing);
+  return out;
 }
 
-StateGridPosition StateGridPosition::Moved(Direction d) const {
-    int dx, dy;
-    Delta(d, dx, dy);
-    return StateGridPosition(mX + dx, mY + dy, mFacing);
+bool StateGridPosition::CanMove(Direction d, const StateGrid& grid) const {
+  StateGridPosition nxt = Moved(d, 1);
+  return grid.InBounds(nxt.X(), nxt.Y());
 }
 
-/* Add a can move function tied to state grid class */
+bool StateGridPosition::MoveIfValid(Direction d, const StateGrid& grid) {
+  StateGridPosition nxt = Moved(d, 1);
+  if (!grid.InBounds(nxt.X(), nxt.Y())) return false;
 
-/* Add a moveifvalid function tied to state grid class */
-
-bool StateGridPosition::operator==(const StateGridPosition& other) const {
-    return mX == other.mX &&
-           mY == other.mY &&
-           mFacing == other.mFacing;
+  x = nxt.x;
+  y = nxt.y;
+  return true;
 }
 
-bool StateGridPosition::operator!=(const StateGridPosition& other) const {
-    return !(*this == other);
+std::optional<StateGridPosition> StateGridPosition::Neighbor(Direction d, const StateGrid& grid) const {
+  StateGridPosition nxt = Moved(d, 1);
+  if (!grid.InBounds(nxt.X(), nxt.Y())) return std::nullopt;
+  return nxt;
+}
+
+int StateGridPosition::ManhattanDistanceTo(const StateGridPosition& other) const {
+  auto abs = [](int v){ return v < 0 ? -v : v; };
+  return abs(x - other.x) + abs(y - other.y);
 }
 
 std::string StateGridPosition::ToString() const {
-    std::ostringstream oss;
-    oss << "(x=" << mX << ", y=" << mY << ")";
-    return oss.str();
+  std::ostringstream oss;
+  oss << "(x=" << x << ",y=" << y << ")";
+  return oss.str();
 }
+
+} 
