@@ -1,9 +1,9 @@
 #include "Worlds/StateGridPosition.h"
+#include "Worlds/DynamicWorld/StateGrid.hpp"
 
 
 #include <sstream>
 
-namespace companyc {
 
 void StateGridPosition::Delta(Direction d, int& dx, int& dy) {
   dx = 0; dy = 0;
@@ -45,23 +45,24 @@ StateGridPosition StateGridPosition::RotatedRight() const {
 
 bool StateGridPosition::CanMove(Direction d, const StateGrid& grid) const {
   StateGridPosition nxt = Moved(d, 1);
-  return grid.InBounds(nxt.X(), nxt.Y());
+  /// return grid.InBounds(nxt.X(), nxt.Y());
 }
 
 bool StateGridPosition::MoveIfValid(Direction d, const StateGrid& grid) {
   StateGridPosition nxt = Moved(d, 1);
-  if (!grid.InBounds(nxt.X(), nxt.Y())) return false;
+  // if (!grid.InBounds(nxt.X(), nxt.Y())) return false;
 
-  x = nxt.x;
-  y = nxt.y;
+  // x = nxt.x;
+  // y = nxt.y;
   return true;
 }
 
 std::optional<StateGridPosition> StateGridPosition::Neighbor(Direction d, const StateGrid& grid) const {
   StateGridPosition nxt = Moved(d, 1);
-  if (!grid.InBounds(nxt.X(), nxt.Y())) return std::nullopt;
+  // if (!grid.InBounds(nxt.X(), nxt.Y())) return std::nullopt;
   return nxt;
 }
+
 
 int StateGridPosition::ManhattanDistanceTo(const StateGridPosition& other) const {
   auto abs = [](int v){ return v < 0 ? -v : v; };
@@ -74,4 +75,4 @@ std::string StateGridPosition::ToString() const {
   return oss.str();
 }
 
-} 
+
