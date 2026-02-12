@@ -105,6 +105,13 @@ public:
     static std::expected<Diff, DiffError> DecodeDiff(const std::string& encoded);
 
 private:
+
+    //in bytes
+    static constexpr uint64_t MaxReplacementSize = 1024 * 1024;         //1 MiB
+    static constexpr uint64_t MaxEncodedDiffSize = 1024 * 1024;         //1 MiB
+    static constexpr uint64_t MaxPatchedStringSize = 8 * 1024 * 1024;   //8 MiB
+
+
     /**
      * @brief Helper that computes a hash signature for a string
      * 
@@ -112,6 +119,18 @@ private:
      * @param std::uint64_t The computed hash value
      */
     static std::uint64_t ComputeHash(const std::string& str);
+
+
+    /**
+     * @brief Helper to try and parse uint64_t
+     * 
+     * @param begin Pointer to start of char range
+     * @param end Poitner to end of char range
+     * @param out The parsed output
+     * 
+     * @return bool if parsed successfully
+     */
+    static bool TryParseU64(const char* begin, const char* end, uint64_t& out);
 
 };
  

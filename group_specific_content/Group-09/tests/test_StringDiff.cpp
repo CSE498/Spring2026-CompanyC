@@ -393,6 +393,83 @@ TEST_CASE("DecodeDiff: prefix + suffix > base_length returns InvalidPatchInvaria
 
 
 // ************************************************************************
+// tests to make sure proper uint64_t parsing
+// ************************************************************************
+
+//trailing letters should be rejected - ex: "123abc" as hash
+TEST_CASE("DecodeDiff: hash with suffix junk returns InvalidNumberField", "[StringDiff][DecodeDiff][Strict]") {
+    std::string encoded = "123abc|11|6|5|3|C++";
+    auto decoded = StringDiff::DecodeDiff(encoded);
+
+    REQUIRE_FALSE(decoded.has_value());
+    REQUIRE(decoded.error() == DiffError::InvalidNumberField);
+}
+
+//trailing letters in base_length field
+TEST_CASE("DecodeDiff: base_length with suffix junk returns InvalidNumberField", "[StringDiff][DecodeDiff][Strict]") {
+    std::string encoded = "123|11x|6|5|3|C++";
+    auto decoded = StringDiff::DecodeDiff(encoded);
+
+    REQUIRE_FALSE(decoded.has_value());
+    REQUIRE(decoded.error() == DiffError::InvalidNumberField);
+}
+
+//trailing letters in prefix_length field
+TEST_CASE("DecodeDiff: prefix_length with suffix junk returns InvalidNumberField", "[StringDiff][DecodeDiff][Strict]") {
+    std::string encoded = "123|11|6z|5|3|C++";
+    auto decoded = StringDiff::DecodeDiff(encoded);
+
+    REQUIRE_FALSE(decoded.has_value());
+    REQUIRE(decoded.error() == DiffError::InvalidNumberField);
+}
+
+//trailing letters in suffix_length field
+TEST_CASE("DecodeDiff: suffix_length with suffix junk returns InvalidNumberField", "[StringDiff][DecodeDiff][Strict]") {
+    std::string encoded = "123|11|6|5q|3|C++";
+    auto decoded = StringDiff::DecodeDiff(encoded);
+
+    REQUIRE_FALSE(decoded.has_value());
+    REQUIRE(decoded.error() == DiffError::InvalidNumberField);
+}
+
+//trailing letters in rep_length field
+TEST_CASE("DecodeDiff: rep_length with suffix junk returns InvalidNumberField", "[StringDiff][DecodeDiff][Strict]") {
+    std::string encoded = "123|11|6|5|3r|C++";
+    auto decoded = StringDiff::DecodeDiff(encoded);
+
+    REQUIRE_FALSE(decoded.has_value());
+    REQUIRE(decoded.error() == DiffError::InvalidNumberField);
+}
+
+//empty between separators should be rejected
+TEST_CASE("DecodeDiff: empty hash token returns InvalidNumberField", "[StringDiff][DecodeDiff][Strict]") {
+    std::string encoded = "|11|6|5|3|C++";
+    auto decoded = StringDiff::DecodeDiff(encoded);
+
+    REQUIRE_FALSE(decoded.has_value());
+    REQUIRE(decoded.error() == DiffError::InvalidNumberField);
+}
+
+//empty base_length between separators should be rejected
+TEST_CASE("DecodeDiff: empty base_length token returns InvalidNumberField", "[StringDiff][DecodeDiff][Strict]") {
+    std::string encoded = "123||6|5|3|C++";
+    auto decoded = StringDiff::DecodeDiff(encoded);
+
+    REQUIRE_FALSE(decoded.has_value());
+    REQUIRE(decoded.error() == DiffError::InvalidNumberField);
+}
+
+//negative value should be rejected
+TEST_CASE("DecodeDiff: negative number returns InvalidNumberField", "[StringDiff][DecodeDiff][Strict]") {
+    std::string encoded = "123|11|-1|5|3|C++";
+    auto decoded = StringDiff::DecodeDiff(encoded);
+
+    REQUIRE_FALSE(decoded.has_value());
+    REQUIRE(decoded.error() == DiffError::InvalidNumberField);
+}
+
+
+// ************************************************************************
 // COMPLETE FLOW TESTS
 // MakeDiff -> EncodeDiff -> DecodeDiff -> ApplyDiff
 // ************************************************************************

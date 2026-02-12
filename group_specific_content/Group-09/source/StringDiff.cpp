@@ -1,5 +1,6 @@
 #include "StringDiff.hpp"
-#include <sstream>    // for std::ostringstream, std::istringstream
+#include <sstream>    // for std::ostringstream
+#include <charconv>   // for std::from_chars
 
 namespace sim {
 
@@ -12,6 +13,21 @@ uint64_t StringDiff::ComputeHash(const std::string& str) {
     }
 
     return hash;
+}
+
+// validates input, Rejects empty, partial parses like "123abc", and overflow.
+bool StringDiff::TryParseU64(const char* begin, const char* end, uint64_t& out) {
+    if (begin == end) return false;
+
+    //attempt to parse
+    const auto result = std::from_chars(begin, end, out);
+    const char* parsed_end = result.ptr;
+    const std::errc error = result.ec;
+
+    const bool ok = (error == std::errc{});
+    const bool consumed_all = (parsed_end == end);
+
+    return ok && consumed_all;
 }
 
 
@@ -113,12 +129,7 @@ std::expected<StringDiff::Diff, DiffError> StringDiff::DecodeDiff(const std::str
         return std::unexpected(DiffError::MalformedEncoding);
     }
 
-    std::string hash_str = encoded.substr(start, sep_1 - start);
-    uint64_t hash;
-    try {
-        hash = std::stoull(hash_str);
-        patch.base_hash = hash;
-    } catch (...) {
+    if (!TryParseU64(encoded.data() + start, encoded.data() + sep_1, patch.base_hash)) {
         return std::unexpected(DiffError::InvalidNumberField);
     }
 
@@ -130,12 +141,7 @@ std::expected<StringDiff::Diff, DiffError> StringDiff::DecodeDiff(const std::str
         return std::unexpected(DiffError::MalformedEncoding);
     }
 
-    std::string base_len_str = encoded.substr(start, sep_2 - start);
-    uint64_t base_len;
-    try {
-            base_len = std::stoull(base_len_str);
-            patch.base_length = base_len;
-    } catch (...) {
+    if (!TryParseU64(encoded.data() + start, encoded.data() + sep_2, patch.base_length)) {
         return std::unexpected(DiffError::InvalidNumberField);
     }
 
@@ -147,12 +153,7 @@ std::expected<StringDiff::Diff, DiffError> StringDiff::DecodeDiff(const std::str
         return std::unexpected(DiffError::MalformedEncoding);
     }
 
-    std::string prefix_len_str = encoded.substr(start, sep_3 - start);
-    uint64_t prefix_len;
-    try {
-        prefix_len = std::stoull(prefix_len_str);
-        patch.prefix_length = prefix_len;
-    } catch (...) {
+    if (!TryParseU64(encoded.data() + start, encoded.data() + sep_3, patch.prefix_length)) {
         return std::unexpected(DiffError::InvalidNumberField);
     }
 
@@ -164,12 +165,7 @@ std::expected<StringDiff::Diff, DiffError> StringDiff::DecodeDiff(const std::str
         return std::unexpected(DiffError::MalformedEncoding);
     }
 
-    std::string suffix_len_str = encoded.substr(start, sep_4 - start);
-    uint64_t suffix_len;
-    try {
-        suffix_len = std::stoull(suffix_len_str);
-        patch.suffix_length = suffix_len;
-    } catch (...) {
+    if (!TryParseU64(encoded.data() + start, encoded.data() + sep_4, patch.suffix_length)) {
         return std::unexpected(DiffError::InvalidNumberField);
     }
 
@@ -186,23 +182,15 @@ std::expected<StringDiff::Diff, DiffError> StringDiff::DecodeDiff(const std::str
         return std::unexpected(DiffError::MalformedEncoding);
     }
 
-    std::string rep_len_str = encoded.substr(start, sep_5 - start);
     uint64_t rep_len;
-    try {
-        rep_len = std::stoull(rep_len_str);
-    } catch (...) {
+    if (!TryParseU64(encoded.data() + start, encoded.data() + sep_5, rep_len)) {
         return std::unexpected(DiffError::InvalidNumberField);
     }
 
     start = sep_5 + 1;
 
-    // REPLACEMENT
-    if (start + rep_len > encoded.size()) {
+    if (rep_len != encoded.size() - start) {
         return std::unexpected(DiffError::ReplacementLengthMismatch);
-    }
-
-    if (start + rep_len != encoded.size()) {
-        return std::unexpected(DiffError::ReplacementLengthMismatch); //makes sure no trailing garbage
     }
 
     patch.replacement = encoded.substr(start, rep_len);
