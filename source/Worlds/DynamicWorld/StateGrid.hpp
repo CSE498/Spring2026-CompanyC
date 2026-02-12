@@ -1,14 +1,12 @@
+#pragma once
+
 #include <vector>
+#include "StateGridPosition.h"
 
 // A grid representation of the environment that the agent simulation will run in.
 
 class StateGrid {
 public:
-    struct StateGridPosition {
-      size_t X;
-      size_t Y;
-    };
-
     struct State {
       int stateID;
     };
@@ -25,15 +23,15 @@ public:
 
     // Public Member Functions
     State const &GetState(StateGridPosition pos) { 
-      return mGrid[ToIndex(pos.X, pos.Y)];
+      return mGrid[ToIndex(pos.X(), pos.Y())];
     };
     
     void SetState(StateGridPosition pos, State state) {
-      mGrid[ToIndex(pos.X, pos.Y)] = state;
+      mGrid[ToIndex(pos.X(), pos.Y())] = state;
     };
     
     bool InBounds(StateGridPosition pos) {
-      return pos.X < mWidth && pos.Y < mHeight;
+      return pos.X() < mWidth && pos.Y() < mHeight;
     };
 
 private:
