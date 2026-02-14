@@ -6,26 +6,34 @@
 //on the amount being added. Tags can also be checked for membership whether it be
 //only one or multiple. 
 
-#include "group_specific_content/Group-05/AnnotationSet.h" //Have to change this later
+#include "../../source/core/AnnotationSet.hpp"
 #include <set>
 #include <string>
 
 
 //new constructor initializes object Id and tags with a default value of {}
-AnnotationSet::AnnotationSet(int obj, std::set<std::string> inTags={}){
-    objectId=obj;
-    tags=inTags;
+AnnotationSet::AnnotationSet(int obj, std::set<std::string> inTags){
+    objectId = obj;
+    tags = inTags;
 }
+
 
 //adds a tag to the tags
 void AnnotationSet::AddTag(std::string tag){
-    tags.insert(tag);
+    tag.erase(std::remove_if(tag.begin(), tag.end(), [](unsigned char x){ return std::isspace(x); }), tag.end());
+    if (!tag.empty()){
+        tags.insert(tag);
+    }
 }
 
 //adds tags to the set of tags
 void AnnotationSet::AddTags(std::vector<std::string> addedTags){
     for(int i=0;i<addedTags.size();i++){
-        tags.insert(addedTags[i]);
+        std::string tag=addedTags[i];
+        tag.erase(std::remove_if(tag.begin(), tag.end(), [](unsigned char x){ return std::isspace(x); }), tag.end());
+        if (!tag.empty()){
+            tags.insert(addedTags[i]);
+        }
     }
 }
 
@@ -98,4 +106,8 @@ int AnnotationSet::GetObjId(){
 //returns the set containing all tags
 std::set<std::string> AnnotationSet::GetTags(){
     return tags;
+}
+
+int AnnotationSet::Size(){
+    return tags.size();
 }

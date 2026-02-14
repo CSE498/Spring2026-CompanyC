@@ -20,5 +20,6 @@ class AnnotationSet{
         bool FindAllTags(std::vector<std::string>);
         void DeleteAllTags();
         int GetObjId();
+        int Size();
         std::set<std::string> GetTags();
 };
