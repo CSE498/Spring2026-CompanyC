@@ -13,6 +13,7 @@
 
 #pragma once
 
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <limits>
@@ -20,6 +21,20 @@
 #include <unordered_map>
 
 namespace cse498 {
+
+enum ProcessTier { CRITICAL, GAMEPLAY, ECONOMY, COSMETIC, COUNT };
+
+struct Budget {
+  double weight;
+};
+
+const std::array<Budget, static_cast<size_t>(ProcessTier::COUNT)>
+    scheduler_budget = {{
+        {0.5}, // CRITICAL - 50% time
+        {0.3}, // GAMEPLAY - 30% time
+        {0.2}, // ECONOMY  - 20% time
+        {0.1}  // COUNT    - 10% time
+    }};
 
 class Scheduler {
 public:
@@ -37,21 +52,24 @@ private:
     size_t id;
 
     // Sort by pass first. Use id as tiebreaker so behavior is deterministic.
-    bool operator<(const ProcessEntry& other) const {
-      if (pass != other.pass) return pass < other.pass;
+    bool operator<(const ProcessEntry &other) const {
+      if (pass != other.pass)
+        return pass < other.pass;
       return id < other.id;
     }
   };
 
   // Everything we need to know about a process.
   struct ProcessInfo {
-    double priority;  // What the user set
-    double stride;    // How much pass increases each time (smaller = more frequent)
-    double pass;      // Current position in virtual time
+    double priority; // What the user set
+    double
+        stride;  // How much pass increases each time (smaller = more frequent)
+    double pass; // Current position in virtual time
   };
 
   // Sorted container - begin() is always the next process to run.
-  // Using set instead of priority_queue because we need to remove/update entries.
+  // Using set instead of priority_queue because we need to remove/update
+  // entries.
   std::set<ProcessEntry> schedule_;
 
   // Quick lookup of process info by ID.
@@ -60,7 +78,8 @@ private:
   // Get the lowest pass value, or 0 if empty.
   // New processes start here so they don't immediately hog the scheduler.
   [[nodiscard]] double GetMinPass() const {
-    if (schedule_.empty()) return 0.0;
+    if (schedule_.empty())
+      return 0.0;
     return schedule_.begin()->pass;
   }
 
@@ -85,7 +104,8 @@ public:
   }
 
   // Get the next process to run. Returns NULL_ID if scheduler is empty.
-  // This also advances that process's virtual time (so it won't run again immediately).
+  // This also advances that process's virtual time (so it won't run again
+  // immediately).
   [[nodiscard]] size_t GetNext() {
     if (schedule_.empty()) {
       return NULL_ID;
@@ -95,7 +115,7 @@ public:
     size_t id = it->id;
     schedule_.erase(it);
 
-    ProcessInfo& info = processes_.at(id);
+    ProcessInfo &info = processes_.at(id);
     info.pass += info.stride;
 
     schedule_.insert(ProcessEntry{info.pass, id});
@@ -104,12 +124,13 @@ public:
   }
 
   // Change a process's priority on the fly.
-  // Useful when something becomes more/less important (e.g., player walks near it).
+  // Useful when something becomes more/less important (e.g., player walks near
+  // it).
   void UpdatePriority(size_t id, double new_priority) {
     assert(new_priority > 0.0 && "Priority must be positive");
     assert(processes_.find(id) != processes_.end() && "Process not found");
 
-    ProcessInfo& info = processes_.at(id);
+    ProcessInfo &info = processes_.at(id);
 
     schedule_.erase(ProcessEntry{info.pass, id});
 
@@ -123,7 +144,7 @@ public:
   void RemoveProcess(size_t id) {
     assert(processes_.find(id) != processes_.end() && "Process not found");
 
-    ProcessInfo& info = processes_.at(id);
+    ProcessInfo &info = processes_.at(id);
     schedule_.erase(ProcessEntry{info.pass, id});
     processes_.erase(id);
   }
@@ -134,7 +155,9 @@ public:
 
   [[nodiscard]] size_t GetNumProcesses() const { return processes_.size(); }
   [[nodiscard]] bool IsEmpty() const { return processes_.empty(); }
-  [[nodiscard]] bool HasProcess(size_t id) const { return processes_.find(id) != processes_.end(); }
+  [[nodiscard]] bool HasProcess(size_t id) const {
+    return processes_.find(id) != processes_.end();
+  }
 
   [[nodiscard]] double GetPriority(size_t id) const {
     assert(processes_.find(id) != processes_.end() && "Process not found");
@@ -143,7 +166,8 @@ public:
 
   // See what's next without actually running it.
   [[nodiscard]] size_t PeekNext() const {
-    if (schedule_.empty()) return NULL_ID;
+    if (schedule_.empty())
+      return NULL_ID;
     return schedule_.begin()->id;
   }
 

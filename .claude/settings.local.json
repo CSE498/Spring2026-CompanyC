@@ -10,7 +10,9 @@
       "Bash(make clean:*)",
       "Bash(make:*)",
       "Bash(g++:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(git branch:*)",
+      "Bash(git update-index:*)"
     ]
   }
 }
