@@ -8,6 +8,7 @@
 # include <unordered_map>
 # include <string>
 # include <any>
+# include <stdexcept>
 
  class DataMap{
     // membver variables
@@ -21,7 +22,13 @@
 
         // function to get data from the map
         template<typename T>
-        T GetData(const std::string& key) const;
+        T GetData(const std::string& key) const{
+            auto it = data_map.find(key);
+            if (it != data_map.end()) {
+                return std::any_cast<T>(it->second);
+            }
+            throw std::runtime_error("Key not found in DataMap");
+        }
 
 
         // function to check if a key exists in the map
