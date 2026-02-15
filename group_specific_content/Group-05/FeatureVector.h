@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -15,11 +16,27 @@ public:
   const std::string& Name(std::size_t i) const;
 
   [[nodiscard]] bool TryIndexOf(std::string_view name, std::size_t& out) const;
-  bool operator==(const FeatureSchema& other) const noexcept;
+  [[nodiscard]] bool operator==(const FeatureSchema& other) const noexcept;
 
 private:
+  struct StringHash {
+    using is_transparent = void;
+
+    std::size_t operator()(std::string_view value) const noexcept {
+      return std::hash<std::string_view>{}(value);
+    }
+
+    std::size_t operator()(const std::string& value) const noexcept {
+      return (*this)(std::string_view{value});
+    }
+
+    std::size_t operator()(const char* value) const noexcept {
+      return (*this)(std::string_view{value});
+    }
+  };
+
   std::vector<std::string> names_;
-  std::unordered_map<std::string, std::size_t> index_by_name_;
+  std::unordered_map<std::string, std::size_t, StringHash, std::equal_to<>> index_by_name_;
 };
 
 class FeatureVector final {

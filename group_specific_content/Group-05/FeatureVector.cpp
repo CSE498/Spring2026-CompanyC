@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <numeric>
 #include <stdexcept>
+#include <utility>
 
 FeatureSchema::FeatureSchema(std::vector<std::string> names)
     : names_(std::move(names)) {
@@ -24,7 +25,7 @@ const std::string& FeatureSchema::Name(std::size_t i) const {
 }
 
 bool FeatureSchema::TryIndexOf(std::string_view name, std::size_t& out) const {
-  const auto it = index_by_name_.find(std::string(name));
+  const auto it = index_by_name_.find(name);
   if (it == index_by_name_.end()) {
     return false;
   }
