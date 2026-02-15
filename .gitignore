@@ -40,4 +40,9 @@
 # debug information files
 *.dwo
 
+# IDE files
+.vscode/
 **/.DS_Store
+
+# JetBrains IDE
+.idea
