@@ -2,7 +2,7 @@
 // WorldPath.cpp by Bryent
 //
 
-#include "WorldPath.h"
+#include "WorldPath.hpp"
 
 #include <cmath>
 
@@ -10,15 +10,6 @@ WorldPath::WorldPath() = default;
 
 WorldPath::WorldPath(std::vector<Point> points) : mPoints(std::move(points)) {}
 
-void WorldPath::clear()
-{
-    mPoints.clear();
-}
-
-void WorldPath::addPoint(const Point& point)
-{
-    mPoints.push_back(point);
-}
 
 double WorldPath::length() const
 {
