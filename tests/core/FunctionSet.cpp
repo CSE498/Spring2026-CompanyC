@@ -1,6 +1,5 @@
-#define CATCH_CONFIG_MAIN
 #include "../../third-party/Catch/single_include/catch2/catch.hpp"
-#include "../../source/core/FunctionSet.hpp"
+#include "../../source/tools/FunctionSet.hpp"
 
 #include <string>
 #include <vector>
