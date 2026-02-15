@@ -1,0 +1,47 @@
+#pragma once
+
+#include <cstddef>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <unordered_map>
+#include <vector>
+
+class FeatureSchema final {
+public:
+  explicit FeatureSchema(std::vector<std::string> names);
+
+  std::size_t Size() const noexcept { return names_.size(); }
+  const std::string& Name(std::size_t i) const;
+
+  [[nodiscard]] bool TryIndexOf(std::string_view name, std::size_t& out) const;
+  bool operator==(const FeatureSchema& other) const noexcept;
+
+private:
+  std::vector<std::string> names_;
+  std::unordered_map<std::string, std::size_t> index_by_name_;
+};
+
+class FeatureVector final {
+public:
+  explicit FeatureVector(std::shared_ptr<const FeatureSchema> schema);
+
+  const FeatureSchema& Schema() const noexcept { return *schema_; }
+
+  void Clear() noexcept;
+  std::size_t Size() const noexcept { return values_.size(); }
+
+  double Get(std::size_t i) const;
+  void Set(std::size_t i, double v);
+
+  [[nodiscard]] bool TryGet(std::string_view name, double& out) const;
+  [[nodiscard]] bool TrySet(std::string_view name, double v);
+
+  double Dot(const FeatureVector& other) const;
+
+private:
+  void RequireSameSchema_(const FeatureVector& other) const;
+
+  std::shared_ptr<const FeatureSchema> schema_;
+  std::vector<double> values_;
+};
