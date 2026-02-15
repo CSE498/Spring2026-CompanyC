@@ -35,6 +35,7 @@ target_include_directories(AgentSim PRIVATE Classes)
 add_executable(unit_tests
     Tests/TreeTests.cpp
     Tests/PathGeneratorTests.cpp
+    Tests/MemoryFactoryTests.cpp
     Classes/BehaviorTree.cpp
     Classes/CompositeNodes.cpp
     Classes/LeafNodes.cpp
