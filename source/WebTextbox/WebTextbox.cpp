@@ -2,6 +2,7 @@
  * Spring 2026, CSE 498 Sec 2 - Company C
  * WebTextbox implementation - Emscripten JS bridge + native stubs.
  *
+ * Citation - LLM (OpenAI) was used to help generate parts of this file, and maintain consistency with the project. The code was then reviewed and heavily edited by the author to ensure correctness and suitability for the project.
  * Under Emscripten we create a real <div> in the DOM and control it
  * through a small JS bridge. Under native builds everything is a
  * no-op stub so we can still run unit tests without a brower.

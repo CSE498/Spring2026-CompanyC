@@ -3,6 +3,7 @@
  * WebTextbox - manages an HTML text block (div) from C++.
  * Handles font, color, position, and content through a
  * simple interface that works with Emscripten or natively.
+ * Citation - LLM (OpenAI) was used to help generate parts of this file, and maintain consistency with the project. The code was then reviewed and heavily edited by the author to ensure correctness and suitability for the project.
  *
  * @author Prijam Khanal
  */

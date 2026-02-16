@@ -6,6 +6,7 @@
  * has native stubs that let us exercise all the C++ logic
  * without an actual browser.
  *
+ * Citation - LLM (OpenAI) was used to help generate parts of this file, and maintain consistency with the project. The code was then reviewed and heavily edited by the author to ensure correctness and suitability for the project.
  * @author Prijam Khanal
  */
 
