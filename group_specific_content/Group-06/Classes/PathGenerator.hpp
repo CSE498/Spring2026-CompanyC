@@ -27,7 +27,7 @@ struct Position {
     }
 };
 
-// Optional: print Position nicely
+// Print Position nicely
 inline std::ostream& operator<<(std::ostream& os, const Position& p) {
     return os << "(" << p.x << "," << p.y << ")";
 }
@@ -48,9 +48,9 @@ struct PositionHash {
 };
 
 // Sample World Path
-class WorldPath {
+class SampleWorldPath {
 public:
-    WorldPath() = default;
+    SampleWorldPath() = default;
 
     void Add(const Position& p) {
         points.push_back(p);
@@ -76,8 +76,8 @@ private:
     std::vector<Position> points;
 };
 
-// Print WorldPath as: WorldPath(len=3): (0,0) -> (1,0) -> (1,1)
-inline std::ostream& operator<<(std::ostream& os, const WorldPath& path) {
+// Print WorldPath
+inline std::ostream& operator<<(std::ostream& os, const SampleWorldPath& path) {
     os << "WorldPath(len=" << path.Length() << "): ";
     if (path.Empty()) {
         os << "<empty>";
@@ -93,17 +93,20 @@ inline std::ostream& operator<<(std::ostream& os, const WorldPath& path) {
 }
 
 
-
+// Sample World View
 class WorldView {
 public:
 
+    // Init
     WorldView(int w, int h) : width(w), height(h) {}
 
+    // Get if position is walkable
     bool IsWalkable(Position p) const{
         if (p.x < 0 || p.x >= width || p.y < 0 || p.y >= height) return false;
         return true;
     }
 
+    // Get 4 neighbors of each point
     void GetNeighbors(Position p, std::vector<Position>& out) const {
         out.clear();
         Position candidates[4] = {
@@ -122,6 +125,7 @@ private:
     int width, height;
 };
 
+// Print wolrd
 inline std::ostream& operator<<(std::ostream& os, const WorldView& w) {
     os << "WorldView(" << w.Width() << "x" << w.Height() << ")";
     return os;
@@ -144,27 +148,27 @@ class PathGenerator {
 public:
     void SetWorldView(const WorldView& world);
 
-    WorldPath GeneratePath(
+    SampleWorldPath GeneratePath(
         const PathRequest& req
     );
 
-    WorldPath GenerateShortestPath (
+    SampleWorldPath GenerateShortestPath (
         Position start,
         Position goal
     );
 
-    WorldPath GeneratePatrolPath(
+    SampleWorldPath GeneratePatrolPath(
         Position start,
         int max_length
     );
 
-    WorldPath GenerateAvoidPath(
+    SampleWorldPath GenerateAvoidPath(
         Position start,
         Position goal,
         std::vector<Position> avoid
     );
 
-    WorldPath GenerateExplorePath(
+    SampleWorldPath GenerateExplorePath(
         Position start, 
         int max_length
     );
