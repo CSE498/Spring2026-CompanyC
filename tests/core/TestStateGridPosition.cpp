@@ -1,5 +1,5 @@
 #include "../../third-party/Catch/single_include/catch2/catch.hpp"
-#include "../../source/Worlds/StateGridPosition.hpp"
+#include "../../source/tools/StateGridPosition.hpp"
 
 
 TEST_CASE("Test StateGridPosition Construction + getters", "[worlds]") {
