@@ -1,6 +1,6 @@
 /**
  * @file DataMap.hpp
- * @author Sehaj Gupta -Group 07
+ * @author Sehaj Gupta - Group 07
  * @brief A dynamic map that can match names to arbitrary types of data.
  */
 
