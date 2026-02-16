@@ -35,14 +35,14 @@ namespace cse498
     }
 
     /**
-     * Comparison operator
+     * Comparison operator, this function was written with the help of ChatGPT
      * @param a The first event
      * @param b The second event
      * @return Whether or not a should come after b in the heap
      * References: 
      * https://stackoverflow.com/questions/63331546/how-to-customize-stdmake-heap-comparison-function-based-on-some-data-structure
-     * "ChatGPT - "How do I change the comparison for a heap in c++?",
-     * "ChatGPT - "How should I tiebreak a priority queue if both of them are the same priority? Should it be the time it was added?"
+     * ChatGPT - "How do I change the comparison for a heap in c++?",
+     * ChatGPT - "How should I tiebreak a priority queue if both of them are the same priority? Should it be the time it was added?"
      */
     bool EventQueue::Comparator::operator()(const Event& a, const Event& b) const
     {
@@ -64,7 +64,7 @@ namespace cse498
     }
 
     /**
-     * Push an event onto the EventQueue
+     * Push an event onto the EventQueue, this function was written with the help of ChatGPT
      * @param event The event to be added
      * References:
      * ChatGPT - "Can you check the const correctness of this function? void Push(const Event& event)"
