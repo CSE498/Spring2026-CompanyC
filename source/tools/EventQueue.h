@@ -11,53 +11,56 @@
 #include <vector>   // For heap container
 #include <string>  // For event data type
 
-/*
- * Struct for an Event
- */
-struct Event
+namespace cse498
 {
-    // Event data
-    std::string mData;
-
-    // Priority of the event
-    int mPriority;
-
-    // Insertion index used for tiebreaker 
-    size_t mTiebreaker;
-
-    Event();
-
-    Event(const std::string& data, int priority);
-};
-
-/*
- * Class for an EventQueue
- */
-class EventQueue 
-{
-private:
-    // Heap container holding all events
-    std::vector<Event> mHeap;
-    
-    // Insertion index
-    size_t mInsertionIndex = 0;
-
-    // Comparator
-    struct Comparator
+    /*
+    * Struct for an Event
+    */
+    struct Event
     {
-        bool operator() (const Event& a, const Event& b) const;
+        // Event data
+        std::string mData;
+
+        // Priority of the event
+        int mPriority;
+
+        // Insertion index used for tiebreaker 
+        size_t mTiebreaker;
+
+        Event();
+
+        Event(const std::string& data, int priority);
     };
 
-public:
-    EventQueue();
-    
-    void Push(const Event& event);
+    /*
+    * Class for an EventQueue
+    */
+    class EventQueue 
+    {
+    private:
+        // Heap container holding all events
+        std::vector<Event> mHeap;
+        
+        // Insertion index
+        size_t mInsertionIndex = 0;
 
-    void Pop();
+        // Comparator
+        struct Comparator
+        {
+            bool operator() (const Event& a, const Event& b) const;
+        };
 
-    const Event& Top() const;
+    public:
+        EventQueue();
+        
+        void Push(const Event& event);
 
-    size_t Size() const;
+        void Pop();
 
-    bool Empty() const;
-};
+        const Event& Top() const;
+
+        size_t Size() const;
+
+        bool Empty() const;
+    };
+}
