@@ -9,6 +9,8 @@ namespace cse498 {
 
 enum class ProcessTier { CRITICAL, GAMEPLAY, ECONOMY, COSMETIC, COUNT };
 
+constexpr double SOFT_LIMIT_MS = 250.0;
+
 class TieredScheduler {
 public:
   /**
@@ -53,10 +55,12 @@ public:
     // Loop through tiers: CRITICAL -> GAMEPLAY -> ECONOMY -> COSMETIC
     for (size_t i = 0; i < static_cast<size_t>(ProcessTier::COUNT); ++i) {
       bool is_critical = (i == static_cast<size_t>(ProcessTier::CRITICAL));
+      bool within_soft_budget =
+          is_critical && m_tier_configs[i].remaining_ms > -SOFT_LIMIT_MS;
       // Check if this tier has any budget left
       // soft budget for CRITICAL to make the simulation smooth
       // hard budget for other tiers
-      if (m_tier_configs[i].remaining_ms > 0 || is_critical) {
+      if (m_tier_configs[i].remaining_ms > 0 || within_soft_budget) {
         size_t id = m_tiers[i].GetNext();
 
         if (id != Scheduler::NULL_ID) {

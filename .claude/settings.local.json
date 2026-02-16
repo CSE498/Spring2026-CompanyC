@@ -12,7 +12,9 @@
       "Bash(g++:*)",
       "Bash(git checkout:*)",
       "Bash(git branch:*)",
-      "Bash(git update-index:*)"
+      "Bash(git update-index:*)",
+      "Bash(clang++:*)",
+      "Bash(./tests/scheduler_tests:*)"
     ]
   }
 }
