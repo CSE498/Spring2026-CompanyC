@@ -8,7 +8,7 @@
 # include <unordered_map>
 # include <string>
 # include <any>
-# include <expected>
+# include <stdexcept>
 
 namespace cse498 {
 
@@ -24,17 +24,12 @@ namespace cse498 {
 
         // function to get data from the map
         template<typename T>
-        std::expected<T, std::string> GetData(const std::string& key) const {
+        T GetData(const std::string& key) const{
             auto it = data_map.find(key);
-            if (it == data_map.end()) {
-                return std::unexpected("Key not found: " + key);
-            }
-            
-            try {
+            if (it != data_map.end()) {
                 return std::any_cast<T>(it->second);
-            } catch (const std::bad_any_cast&) {
-                return std::unexpected("Type mismatch for key: " + key);
             }
+            throw std::runtime_error("Key not found in DataMap");
         }
 
 

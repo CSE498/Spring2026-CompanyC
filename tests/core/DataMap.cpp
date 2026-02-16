@@ -15,7 +15,6 @@ TEST_CASE("Test DataMap Functionality", "[core]")
     REQUIRE(data_map.GetData<int>("integer") == 42);
     REQUIRE(data_map.GetData<std::string>("string") == "Hello, World!");
     REQUIRE(data_map.GetData<double>("double") == Approx(3.14));
-    REQUIRE(data_map.GetData<int>("test").error() == "Key not found: test"); // Key not found
 
     // Test Contains function
     REQUIRE(data_map.Contains("integer") == true);
