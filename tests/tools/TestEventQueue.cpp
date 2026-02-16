@@ -1,3 +1,11 @@
+/** 
+ * @file TestEventQueue.cpp
+ * @author Truong Phan
+ *
+ * This file contains unit tests for the EventQueue class. It was written with the help of
+ * ChatGPT and GitHub Copilot. 
+ */
+
 #define CATCH_CONFIG_MAIN
 #include "../../third-party/Catch/single_include/catch2/catch.hpp"
 

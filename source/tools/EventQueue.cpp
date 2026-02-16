@@ -2,6 +2,7 @@
  * @file EventQueue.cpp
  * @author Truong Phan
  * 
+ * The implementation of the EventQueue class
  */
 
 // Include statements
