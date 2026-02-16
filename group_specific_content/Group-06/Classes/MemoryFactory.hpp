@@ -2,6 +2,7 @@
 #pragma once
 #include "FreeList.hpp"
 #include <cstddef>
+#include <memory>
 #include <new>
 // #include <type_traits>
 #include <utility>
@@ -36,6 +37,21 @@ public:
       throw;
     }
   }
+  // Start: Code taken from AI
+  struct Deleter {
+    MemoryFactory *pool{};
+    void operator()(T *p) const noexcept {
+      if (p)
+        pool->Delete(p);
+    }
+  };
+
+  using UniquePtr = std::unique_ptr<T, Deleter>;
+
+  template <typename... Args> UniquePtr MakeUnique(Args &&...args) {
+    return UniquePtr(Make(std::forward<Args>(args)...), Deleter{this});
+  }
+  // End: Code taken from AI
 
   void Delete(T *ptr) noexcept {
     if (!ptr)

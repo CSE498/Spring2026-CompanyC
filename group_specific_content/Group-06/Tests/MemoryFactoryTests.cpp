@@ -85,3 +85,37 @@ TEST_CASE("MemoryFactory works for types smaller than a pointer",
     pool.Delete(t);
   }
 }
+
+TEST_CASE("MemoryFactory MakeUnique returns slots to pool on reset/destruction",
+          "[MemoryFactory]") {
+  MemoryFactory<Foo, 8> pool(1);
+
+  void *addr1 = nullptr;
+  void *addr2 = nullptr;
+
+  {
+    auto p = pool.MakeUnique(1, 2);
+    REQUIRE(p != nullptr);
+    addr1 = static_cast<void *>(p.get());
+  }
+
+  {
+    auto q = pool.MakeUnique(3, 4);
+    REQUIRE(q != nullptr);
+    addr2 = static_cast<void *>(q.get());
+  }
+
+  REQUIRE(addr2 == addr1);
+
+  auto r = pool.MakeUnique(5, 6);
+  REQUIRE(r != nullptr);
+  void *addr3 = static_cast<void *>(r.get());
+
+  r.reset();
+
+  auto s = pool.MakeUnique(7, 8);
+  REQUIRE(s != nullptr);
+  void *addr4 = static_cast<void *>(s.get());
+
+  REQUIRE(addr4 == addr3);
+}
