@@ -6,7 +6,7 @@
 //on the amount being added. Tags can also be checked for membership whether it be
 //only one or multiple. 
 
-#include "../../source/core/AnnotationSet.hpp"
+#include "../../source/tools/AnnotationSet.hpp"
 #include <set>
 #include <string>
 

@@ -1,7 +1,7 @@
 #define CATCH_CONFIG_MAIN
 #include "../third-party/Catch/single_include/catch2/catch.hpp"
 
-#include "../source/core/AnnotationSet.hpp"
+#include "../source/tools/AnnotationSet.cpp"
 #include <algorithm>
 
 TEST_CASE("BaseFunctionality-AnnotationSet","[AnnotationSet]"){
@@ -84,5 +84,32 @@ TEST_CASE("RemovingTags-AnnotationSet","[AnnotationSet]"){
     SECTION("Deleting all tags"){
         annotationSet.DeleteAllTags();
         REQUIRE(annotationSet.GetTags().empty());
+    }
+}
+TEST_CASE("TagCheck-AnnotationSet","[AnnotationSet]"){
+    int objId=3;
+    std::set<std::string> tags={"meow","ruff","blub"};
+    AnnotationSet annotationSet(objId,tags);
+    SECTION("Finding tags base case"){
+        std::vector<std::string> findTags={"meow","ruff"};
+        REQUIRE(annotationSet.FindAllTags(findTags)==true);
+        findTags={"roar"};
+        REQUIRE(annotationSet.FindAllTags(findTags)==false);
+        findTags={"ssssssss","meow"};
+        REQUIRE(annotationSet.FindAnyTag(findTags)==true);
+        findTags={"roar","ssssssss"};
+        REQUIRE(annotationSet.FindAnyTag(findTags)==false);
+        std::string findTag="meow";
+        REQUIRE(annotationSet.FindTag(findTag)==true);
+        findTag="sssssss";
+        REQUIRE(annotationSet.FindTag(findTag)==false);
+    }
+    SECTION("Partial text match"){
+        std::vector<std::string> findTags={"meo","ru","r","blu"};
+        REQUIRE(annotationSet.FindAllTags(findTags)==false);
+        findTags={"meo","ru","r","blu"};
+        REQUIRE(annotationSet.FindAnyTag(findTags)==false);
+        std::string findTag="meo";
+        REQUIRE(annotationSet.FindTag(findTag)==false);
     }
 }
