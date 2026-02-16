@@ -11,9 +11,9 @@ void PathGenerator::SetWorldView(const WorldView& world)
     world_view = &world;
 };
 
-WorldPath PathGenerator::GeneratePath(const PathRequest& req)
+SampleWorldPath PathGenerator::GeneratePath(const PathRequest& req)
 {
-    if (!world_view) return WorldPath{};
+    if (!world_view) return SampleWorldPath{};
 
     switch (req.type) {
         case PathType::Shortest:
@@ -29,15 +29,15 @@ WorldPath PathGenerator::GeneratePath(const PathRequest& req)
             return GenerateExplorePath(req.start, req.max_length);
 
         default:
-            return WorldPath{};
+            return SampleWorldPath{};
     }
 }
 
-WorldPath PathGenerator::GenerateShortestPath(
+SampleWorldPath PathGenerator::GenerateShortestPath(
     Position start,
     Position goal
 ) {
-    WorldPath path;
+    SampleWorldPath path;
 
     if (!world_view) return path;
 
@@ -75,7 +75,7 @@ WorldPath PathGenerator::GenerateShortestPath(
     }
 
     if (!found) {
-        return WorldPath{}; // no path
+        return SampleWorldPath{}; // no path
     }
 
     // Reconstruct path: goal → start
@@ -92,17 +92,17 @@ WorldPath PathGenerator::GenerateShortestPath(
     return path;
 }
 
-WorldPath PathGenerator::GeneratePatrolPath(Position start, int max_length) {
+SampleWorldPath PathGenerator::GeneratePatrolPath(Position start, int max_length) {
     (void)start; (void)max_length;
-    return WorldPath{};
+    return SampleWorldPath{};
 }
 
-WorldPath PathGenerator::GenerateAvoidPath(Position start, Position goal, std::vector<Position> avoid) {
+SampleWorldPath PathGenerator::GenerateAvoidPath(Position start, Position goal, std::vector<Position> avoid) {
     (void)start; (void)goal; (void)avoid;
-    return WorldPath{};
+    return SampleWorldPath{};
 }
 
-WorldPath PathGenerator::GenerateExplorePath(Position start, int max_length) {
+SampleWorldPath PathGenerator::GenerateExplorePath(Position start, int max_length) {
     (void)start; (void)max_length;
-    return WorldPath{};
+    return SampleWorldPath{};
 }

@@ -17,7 +17,7 @@ TEST_CASE( "TEST" ) {
     req.goal  = {4, 4};
 
     // Complete Path
-    WorldPath path = pg.GeneratePath(req);
+    SampleWorldPath path = pg.GeneratePath(req);
 
     REQUIRE_FALSE(path.Empty());
     REQUIRE(path.Points().front() == req.start);
@@ -30,7 +30,7 @@ TEST_CASE( "TEST" ) {
     req.start = {4, 4};
     req.goal = {5, 5};
 
-    WorldPath path2 = pg.GeneratePath(req);
+    SampleWorldPath path2 = pg.GeneratePath(req);
     REQUIRE(path2.Empty() == true);
     REQUIRE(path2.Length() == 0);
 
