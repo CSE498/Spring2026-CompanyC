@@ -2,7 +2,7 @@
  * @file BehaviorTree.hpp
  * @author Dillan Kowalski
  * @brief Base class and interface definitions for the Behavior Tree system.
- * * This file defines the Status enum and the abstract Node base class
+ * This file defines the Status enum and the abstract Node base class
  * that all Composite and Leaf nodes must implement.
  */
 
@@ -24,6 +24,7 @@ enum class Status {
 
 using BBValue = std::variant<int, double, std::string, bool>;
 using Blackboard = std::unordered_map<std::string, BBValue>;
+
 /**
  * @brief Abstract base class for all nodes in the Behavior Tree.
  * Any custom action or condition must inherit from this and implement tick().
@@ -47,7 +48,6 @@ public:
 
 /**
  * @brief The primary manager for an agent's decision-making logic.
- *
  * @details
  * The BehaviorTree coordinates the execution of the node hierarchy
  * and provides a Blackboard memory system. It serves as the

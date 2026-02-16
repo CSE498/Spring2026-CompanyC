@@ -20,7 +20,7 @@ private:
 
 public:
     /**
-     * @brief Creates a sequence with a specific name.
+     * @brief Constructor that creates a sequence with a specific name.
      * @param n The string name for this node.
      */
     Sequence(std::string n) : name(n) {}
@@ -42,8 +42,7 @@ public:
 
 /**
  * @brief A Selector node (Logical OR).
- * * @details
- * Ticks children in order until one succeeds or returns 'Running'.
+ * @details Ticks children in order until one succeeds or returns 'Running'.
  * If a child returns Failure, the Selector moves to the next child.
  * It only returns Failure if ALL children fail.
  */

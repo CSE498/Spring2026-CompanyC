@@ -2,7 +2,7 @@
  * @file LeafNodes.hpp
  * @author Dillan Kowalski
  * @brief Definitions for Action and Condition nodes (Leaf nodes).
- * * Contains nodes that perform specific agent actions or check
+ * Contains nodes that perform specific agent actions or check
  * world states, serving as the terminal nodes of the tree.
  */
 

@@ -26,7 +26,7 @@ Status BehaviorTree::update() {
 
 /**
  * @brief Stores or updates a value in the agent's memory map.
- * * @param key The unique string identifier for the data.
+ * @param key The unique string identifier for the data.
  * @param value The variant value to be stored.
  */
 void BehaviorTree::setMemory(const std::string& key, BBValue value) {

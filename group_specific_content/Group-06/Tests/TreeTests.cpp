@@ -9,7 +9,7 @@
 #include "../Classes/LeafNodes.hpp"
 #include "../Classes/DecoratorNodes.hpp"
 
-// Global test blackboard - Used by all tests to satisfy the compiler
+// Global test blackboard - Used by all tests
 Blackboard dummyBB;
 
 /**
@@ -149,15 +149,15 @@ TEST_CASE("Blackboard Edge Cases - Missing Keys", "[blackboard]") {
     ActionNode node("RiskyNode", riskyAction);
 
     SECTION("Node handles missing keys gracefully") {
-        // If your logic catches the error, this passes.
-        // If not, your test suite crashes here.
+        // If logic catches the error, this passes.
+        // If not, test suite crashes here.
         REQUIRE(node.tick(emptyBB) == Status::Failure);
     }
 }
 
 TEST_CASE("Blackboard Edge Cases - Wrong Type", "[blackboard]") {
     Blackboard confusedBB;
-    confusedBB["health"] = "Full Health"; // It's a string!
+    confusedBB["health"] = "Full Health"; // It's a string
 
     auto readHealth = [](Blackboard& bb) {
         // attempting to get int from a string variant

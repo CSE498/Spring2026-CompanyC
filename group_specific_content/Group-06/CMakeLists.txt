@@ -10,7 +10,7 @@ include(FetchContent)
 FetchContent_Declare(
   Catch2
   GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-  GIT_TAG        v3.8.1 # Matches your documentation version
+  GIT_TAG        v3.8.1 # Matches our documentation version
 )
 
 # Make the library available
