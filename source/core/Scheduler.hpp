@@ -13,7 +13,6 @@
 
 #pragma once
 
-#include <array>
 #include <cassert>
 #include <cstddef>
 #include <limits>
@@ -21,20 +20,6 @@
 #include <unordered_map>
 
 namespace cse498 {
-
-enum ProcessTier { CRITICAL, GAMEPLAY, ECONOMY, COSMETIC, COUNT };
-
-struct Budget {
-  double weight;
-};
-
-const std::array<Budget, static_cast<size_t>(ProcessTier::COUNT)>
-    scheduler_budget = {{
-        {0.5}, // CRITICAL - 50% time
-        {0.3}, // GAMEPLAY - 30% time
-        {0.2}, // ECONOMY  - 20% time
-        {0.1}  // COUNT    - 10% time
-    }};
 
 class Scheduler {
 public:
