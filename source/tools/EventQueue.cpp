@@ -78,6 +78,9 @@ namespace cse498
         mHeap.push_back(temp);
         std::push_heap(mHeap.begin(), mHeap.end(), Comparator{});
 
+        // ChatGPT - "What other edge cases or asserts am I missing?"
+        assert(std::is_heap(mHeap.begin(), mHeap.end(), Comparator{}) && " EventQueue: Heap property broken");
+        assert( ((Empty() && mHeap.empty()) || (!Empty() && !mHeap.empty())) && "EventQueue: EventQueue and heap are inconsistent");
     }
 
     /**
@@ -90,6 +93,9 @@ namespace cse498
         // Remove top event
         std::pop_heap(mHeap.begin(), mHeap.end(), Comparator{});
         mHeap.pop_back();
+
+        assert(std::is_heap(mHeap.begin(), mHeap.end(), Comparator{}) && " EventQueue: Heap property broken");
+        assert( ((Empty() && mHeap.empty()) || (!Empty() && !mHeap.empty())) && "EventQueue: EventQueue and heap are inconsistent");
     }
 
     /** 
