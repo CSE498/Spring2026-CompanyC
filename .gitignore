@@ -39,3 +39,17 @@
 
 # debug information files
 *.dwo
+
+# macOS
+.DS_Store
+
+# Emscripten build outputs
+webtextbox_demo.js
+webtextbox_demo.wasm
+
+# Test binaries
+webtextbox_tests
+webtextbox_tests_grumpy
+
+# macOS debug symbols
+*.dSYM/
