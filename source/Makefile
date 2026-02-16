@@ -7,7 +7,7 @@ FLAGS_opt     = $(FLAGS_all) -O3 -DNDEBUG           # Fastest possible executabl
 FLAGS_quick   = $(FLAGS_all) -DNDEBUG               # Fastest possible compilation
 FLAGS_grumpy  = $(FLAGS_all) -Wconversion -Weffc++  # Some extra picky warnings
 
-CXX = g++-14
+CXX = c++
 
 # Find all headers
 HEADERS := $(shell find Agents core Interfaces tools Worlds -name '*.hpp')
@@ -16,6 +16,9 @@ HEADERS := $(shell find Agents core Interfaces tools Worlds -name '*.hpp')
 EXECUTABLES = simple
 
 default: simple
+debug: debug-simple
+opt: opt-simple
+grumpy: grumpy-simple
 
 .PHONY: default clean debug-% opt-% quick-% $(EXECUTABLES)
 
