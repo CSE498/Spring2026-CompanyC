@@ -4,6 +4,8 @@
 
 #include <sstream>
 
+namespace cse498 {
+
 int StateGridPosition::DistanceTo(const StateGridPosition& other) const {
   auto abs = [](int v){ return v < 0 ? -v : v; };
   return abs(mX - other.mX) + abs(mY - other.mY);
@@ -38,4 +40,6 @@ std::array<StateGridPosition, 4> StateGridPosition::Neighbors() const {
         MoveLeft(),
         MoveRight()
     };
+}
+
 }
