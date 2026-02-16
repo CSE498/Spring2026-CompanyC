@@ -10,6 +10,8 @@
 # include <any>
 # include <stdexcept>
 
+namespace cse498 {
+
  class DataMap{
     // membver variables
     private:
@@ -42,3 +44,5 @@
 
 
  };
+
+}
