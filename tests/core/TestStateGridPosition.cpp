@@ -3,10 +3,10 @@
 
 
 TEST_CASE("Test StateGridPosition Construction + getters", "[worlds]") {
-  StateGridPosition p1;          // Default ctor
-  StateGridPosition p2(3, 4);    // Direct ctor
-  StateGridPosition p3(0, 0);    // Another direct
-  StateGridPosition p4(p2);      // Copy ctor
+  cse498::StateGridPosition p1;          // Default ctor
+  cse498::StateGridPosition p2(3, 4);    // Direct ctor
+  cse498::StateGridPosition p3(0, 0);    // Another direct
+  cse498::StateGridPosition p4(p2);      // Copy ctor
 
   // Default should be (0,0)
   CHECK(p1.GetX() == 0);
@@ -26,10 +26,10 @@ TEST_CASE("Test StateGridPosition Construction + getters", "[worlds]") {
 }
 
 TEST_CASE("Test StateGridPosition Comparisons", "[worlds]") {
-  StateGridPosition a(1, 2);
-  StateGridPosition b(1, 2);
-  StateGridPosition c(2, 2);
-  StateGridPosition d(1, 3);
+  cse498::StateGridPosition a(1, 2);
+  cse498::StateGridPosition b(1, 2);
+  cse498::StateGridPosition c(2, 2);
+  cse498::StateGridPosition d(1, 3);
 
   CHECK(a == b);
   CHECK_FALSE(a != b);
@@ -40,7 +40,7 @@ TEST_CASE("Test StateGridPosition Comparisons", "[worlds]") {
 }
 
 TEST_CASE("Test StateGridPosition Move* returns new object (non-mutating)", "[worlds]") {
-  StateGridPosition p(5, 5);
+  cse498::StateGridPosition p(5, 5);
 
   auto up = p.MoveUp();
   CHECK(up.GetX() == 5);
@@ -64,7 +64,7 @@ TEST_CASE("Test StateGridPosition Move* returns new object (non-mutating)", "[wo
 }
 
 TEST_CASE("Test StateGridPosition Move* by assignment", "[worlds]") {
-  StateGridPosition p(5, 5);
+  cse498::StateGridPosition p(5, 5);
 
   p = p.MoveUp();
   CHECK(p.GetX() == 5);
@@ -84,19 +84,19 @@ TEST_CASE("Test StateGridPosition Move* by assignment", "[worlds]") {
 }
 
 TEST_CASE("Test StateGridPosition DistanceTo", "[worlds]") {
-  StateGridPosition a(0, 0);
-  StateGridPosition b(3, 4);
+  cse498::StateGridPosition a(0, 0);
+  cse498::StateGridPosition b(3, 4);
 
   CHECK(a.DistanceTo(b) == 7);
   CHECK(b.DistanceTo(a) == 7);
 
-  StateGridPosition c(10, 10);
-  StateGridPosition d(10, 10);
+  cse498::StateGridPosition c(10, 10);
+  cse498::StateGridPosition d(10, 10);
   CHECK(c.DistanceTo(d) == 0);
 }
 
 TEST_CASE("Test StateGridPosition ToString", "[worlds]") {
-  StateGridPosition p(7, 8);
+  cse498::StateGridPosition p(7, 8);
   std::string s = p.ToString();
 
   CHECK(s.find("7") != std::string::npos);
@@ -106,14 +106,14 @@ TEST_CASE("Test StateGridPosition ToString", "[worlds]") {
 }
 
 TEST_CASE("Test StateGridPosition Neighbors", "[worlds]") {
-  StateGridPosition p(5, 5);
+  cse498::StateGridPosition p(5, 5);
   auto n = p.Neighbors();
 
   // Expected order: Up, Down, Left, Right
-  CHECK(n[0] == StateGridPosition(5, 6));
-  CHECK(n[1] == StateGridPosition(5, 4));
-  CHECK(n[2] == StateGridPosition(4, 5));
-  CHECK(n[3] == StateGridPosition(6, 5));
+  CHECK(n[0] == cse498::StateGridPosition(5, 6));
+  CHECK(n[1] == cse498::StateGridPosition(5, 4));
+  CHECK(n[2] == cse498::StateGridPosition(4, 5));
+  CHECK(n[3] == cse498::StateGridPosition(6, 5));
 
   // Original unchanged
   CHECK(p.GetX() == 5);
