@@ -5,7 +5,7 @@
 
 TEST_CASE("Test DataMap Functionality", "[core]")
 {
-    DataMap data_map;
+    cse498::DataMap data_map;
 
     // Test setting and getting data
     data_map.SetData("integer", 42);
