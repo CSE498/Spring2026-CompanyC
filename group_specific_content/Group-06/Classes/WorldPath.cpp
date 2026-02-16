@@ -10,7 +10,15 @@ WorldPath::WorldPath() = default;
 
 WorldPath::WorldPath(std::vector<Point> points) : mPoints(std::move(points)) {}
 
+///Computes distance between two points
+double WorldPath::Dist(const Point& a, const Point& b)
+{
+    const double dx = a.x - b.x;
+    const double dy = a.y - b.y;
+    return std::sqrt(dx*dx + dy*dy);
+}
 
+///Finds total length of path
 double WorldPath::length() const
 {
     double sum = 0.0;
@@ -43,54 +51,58 @@ bool WorldPath::OnSegment(const Point& p, const Point& a, const Point& b)
         && std::min(a.y, b.y) <= p.y && p.y <= std::max(a.y, b.y);
 }
 
+///Helper function for floating point sign comparison
+static int SignWithEps(double v)
+{
+    const double eps = 1e-12;
+    if (v > eps) return 1;
+    if (v < -eps) return -1;
+    return 0;
+}
+
+///Uses cross product tests to determine intersection
 bool WorldPath::SegmentsIntersect(const Point& a, const Point& b, const Point& c, const Point& d)
 {
-    double d1 = Cross(c, d, a);
-    double d2 = Cross(c, d, b);
-    double d3 = Cross(a, b, c);
-    double d4 = Cross(a, b, d);
+    const double ab_c = Cross(a, b, c);
+    const double ab_d = Cross(a, b, d);
+    const double cd_a = Cross(c, d, a);
+    const double cd_b = Cross(c, d, b);
 
-    if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
-        ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0)))
-        return true;
+    const int s1 = SignWithEps(ab_c);
+    const int s2 = SignWithEps(ab_d);
+    const int s3 = SignWithEps(cd_a);
+    const int s4 = SignWithEps(cd_b);
 
-    if (d1 == 0 && OnSegment(a, c, d)) return true;
-    if (d2 == 0 && OnSegment(b, c, d)) return true;
-    if (d3 == 0 && OnSegment(c, a, b)) return true;
-    if (d4 == 0 && OnSegment(d, a, b)) return true;
+    if (s1 * s2 < 0 && s3 * s4 < 0) return true;
+
+    if (s1 == 0 && OnSegment(c, a, b)) return true;
+    if (s2 == 0 && OnSegment(d, a, b)) return true;
+    if (s3 == 0 && OnSegment(a, c, d)) return true;
+    if (s4 == 0 && OnSegment(b, c, d)) return true;
 
     return false;
 }
 
 bool WorldPath::self_intersect() const
 {
+    if (mPoints.size() < 4) return false;
+
     const size_t n = mPoints.size();
-    if (n < 4) return false;
 
-    for (int i = 1; i < n; ++i)
+    for (size_t i = 0; i + 1 < n; ++i)
     {
-        const Point& a = mPoints[i - 1];
-        const Point& b = mPoints[i];
+        const size_t i2 = i + 1;
+        if (i2 >= n) break;
 
-        for (int j = 1; j + 1 < 1; ++j)
+        for (size_t j = i + 2; j + 1 < n; ++j)
         {
-            const Point& c = mPoints[j-1];
-            const Point& d = mPoints[j];
-
-            if (SegmentsIntersect(a, b, c, d))
-            {
+            if (SegmentsIntersect(mPoints[i], mPoints[i2], mPoints[j], mPoints[j + 1]))
                 return true;
-            }
         }
     }
 
     return false;
 }
 
-double WorldPath::Dist(const Point& a, const Point& b)
-{
-    const double dx = a.x - b.x;
-    const double dy = a.y - b.y;
-    return std::sqrt(dx*dx + dy*dy);
-}
+
 
