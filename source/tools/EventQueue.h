@@ -1,5 +1,5 @@
 /**
- * @file EventQueue.cpp
+ * @file EventQueue.h
  * @author Truong Phan
  * 
  * Class for an EventQueue
@@ -7,17 +7,17 @@
 #pragma once
 
 // Include statements
-#include <algorithm>
-#include <vector>
+#include <algorithm> // For push_heap and pop_heap
+#include <vector>   // For heap container
+#include <string>  // For event data type
 
 /*
  * Struct for an Event
  */
-template<typename T>
 struct Event
 {
     // Event data
-    T mData;
+    std::string mData;
 
     // Priority of the event
     int mPriority;
@@ -25,14 +25,11 @@ struct Event
     // Insertion index used for tiebreaker 
     size_t mTiebreaker;
 
-    // Default Constructor
     Event();
 
-    // Constructor
-    Event(const T& data, int priority, int index);
+    Event(const std::string& data, int priority);
 };
 
-template<typename T>
 /*
  * Class for an EventQueue
  */
@@ -40,31 +37,27 @@ class EventQueue
 {
 private:
     // Heap container holding all events
-    std::vector<Event<T>> mHeap;
+    std::vector<Event> mHeap;
+    
     // Insertion index
     size_t mInsertionIndex = 0;
 
     // Comparator
-    struct Compare
+    struct Comparator
     {
-        bool operator() (const Event<T>& a, const Event<T>& b) const;
+        bool operator() (const Event& a, const Event& b) const;
     };
 
 public:
-    // Default Constructor
     EventQueue();
     
-    // Constructor
-    EventQueue(const std::vector<std::pair<T, int>>& events);   
-    
-    void Push(const Event<T>& event);
+    void Push(const Event& event);
 
     void Pop();
 
-    const T& Top() const;
+    const Event& Top() const;
 
     size_t Size() const;
 
     bool Empty() const;
-
 };
