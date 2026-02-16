@@ -14,7 +14,9 @@
       "Bash(git branch:*)",
       "Bash(git update-index:*)",
       "Bash(clang++:*)",
-      "Bash(./tests/scheduler_tests:*)"
+      "Bash(./tests/scheduler_tests:*)",
+      "Bash(./tests/scheduling/scheduler_tests:*)",
+      "Bash(./tests/scheduling/tiered_tests:*)"
     ]
   }
 }
