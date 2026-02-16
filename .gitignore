@@ -44,8 +44,8 @@
 .DS_Store
 
 # Emscripten build outputs
-webtextbox_demo.js
-webtextbox_demo.wasm
+# webtextbox_demo.js
+# webtextbox_demo.wasm
 
 # Test binaries
 webtextbox_tests
