@@ -1,1 +1,1 @@
-This folder holds tests, duh.
+Place test cases in this folder.
