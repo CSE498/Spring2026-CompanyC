@@ -2,18 +2,26 @@
  * Spring 2026, CSE 498 Sec 2 - Company C
  * WebTextbox implementation - Emscripten JS bridge + native stubs.
  *
- * Citation - LLM (OpenAI) was used to help generate parts of this file, and maintain consistency with the project. The code was then reviewed and heavily edited by the author to ensure correctness and suitability for the project.
+ * Citation - LLM (OpenAI) was used to help generate parts of this file,
+ * and maintain consistency with the project. The code was then reviewed
+ * and heavily edited by the author to ensure correctness and suitability
+ * for the project.
+ *
  * Under Emscripten we create a real <div> in the DOM and control it
  * through a small JS bridge. Under native builds everything is a
  * no-op stub so we can still run unit tests without a brower.
  *
  * @author Prijam Khanal
+ * Copyright (c) 2026 Prijam Khanal
+ * SPDX-License-Identifier: MIT
  */
 
 #include "WebTextbox.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <stdexcept>
+#include <string>
 #include <utility>
 
 #ifdef __EMSCRIPTEN__
@@ -55,6 +63,14 @@ EM_JS(void, cse498_wtb_destroy, (int handle), {
   if (!el) return;
   if (el.parentNode) el.remove();
   st.map.delete(handle);
+});
+
+EM_JS(void, cse498_wtb_detach, (int handle), {
+  var st = Module.__cse498WebTextbox;
+  if (!st) return;
+  var el = st.map.get(handle);
+  if (!el) return;
+  if (el.parentNode) el.remove();
 });
 
 EM_JS(void, cse498_wtb_set_text, (int handle, const char* txt_ptr), {
@@ -109,6 +125,7 @@ int g_next_handle = 1;
 
 int cse498_wtb_create() { return g_next_handle++; }
 void cse498_wtb_destroy(int) {}
+void cse498_wtb_detach(int) {}
 void cse498_wtb_set_text(int, const char*) {}
 void cse498_wtb_set_style(int, const char*, const char*) {}
 void cse498_wtb_set_id(int, const char*) {}
@@ -157,7 +174,10 @@ void WebTextbox::MoveFrom_(WebTextbox&& other) noexcept {
 
   text_color_ = std::move(other.text_color_);
   bg_color_ = std::move(other.bg_color_);
+  text_decoration_ = std::move(other.text_decoration_);
+  word_wrap_ = std::move(other.word_wrap_);
   text_align_ = std::move(other.text_align_);
+  padding_ = std::move(other.padding_);
 
   left_px_ = other.left_px_;
   top_px_ = other.top_px_;
@@ -271,6 +291,28 @@ const std::string& WebTextbox::GetBackgroundColor() const noexcept {
 }
 
 // -------------------------------------------------------
+// Text decoration & wrapping
+// -------------------------------------------------------
+
+void WebTextbox::SetTextDecoration(const std::string& decoration) {
+  text_decoration_ = decoration;
+  if (created_) PushStyle_("textDecoration", text_decoration_);
+}
+
+const std::string& WebTextbox::GetTextDecoration() const noexcept {
+  return text_decoration_;
+}
+
+void WebTextbox::SetWordWrap(const std::string& wrap_mode) {
+  word_wrap_ = wrap_mode;
+  if (created_) PushStyle_("wordWrap", word_wrap_);
+}
+
+const std::string& WebTextbox::GetWordWrap() const noexcept {
+  return word_wrap_;
+}
+
+// -------------------------------------------------------
 // Alignment
 // -------------------------------------------------------
 
@@ -315,6 +357,21 @@ void WebTextbox::SetSize(double width_px, double height_px) {
 
 double WebTextbox::GetWidthPx() const noexcept { return width_px_; }
 double WebTextbox::GetHeightPx() const noexcept { return height_px_; }
+
+void WebTextbox::SetPadding(double top, double right,
+                            double bottom, double left) {
+  assert(top >= 0 && "top padding cannot be negative");
+  assert(right >= 0 && "right padding cannot be negative");
+  assert(bottom >= 0 && "bottom padding cannot be negative");
+  assert(left >= 0 && "left padding cannot be negative");
+  padding_ = std::to_string(top) + "px " + std::to_string(right) + "px "
+           + std::to_string(bottom) + "px " + std::to_string(left) + "px";
+  if (created_) PushStyle_("padding", padding_);
+}
+
+const std::string& WebTextbox::GetPadding() const noexcept {
+  return padding_;
+}
 
 // -------------------------------------------------------
 // Visibility
@@ -374,6 +431,11 @@ void WebTextbox::EnsureCreated() {
   SyncAll_();
 }
 
+void WebTextbox::RemoveFromDom() {
+  if (!created_) return;
+  cse498_wtb_detach(handle_);
+}
+
 void WebTextbox::Destroy() {
   if (!created_) return;
   cse498_wtb_destroy(handle_);
@@ -389,9 +451,7 @@ int32_t WebTextbox::GetHandle() const noexcept { return handle_; }
 // -------------------------------------------------------
 
 double WebTextbox::ClampOpacity_(double v) noexcept {
-  if (v < 0.0) return 0.0;
-  if (v > 1.0) return 1.0;
-  return v;
+  return std::clamp(v, kMinOpacity, kMaxOpacity);
 }
 
 void WebTextbox::PushStyle_(const std::string& prop, const std::string& val) {
@@ -439,6 +499,11 @@ void WebTextbox::SyncAll_() {
   if (!bg_color_.empty())
     PushStyle_("backgroundColor", bg_color_);
 
+  // decoration and wrapping
+  if (!text_decoration_.empty())
+    PushStyle_("textDecoration", text_decoration_);
+  PushStyle_("wordWrap", word_wrap_);
+
   // alignment
   PushStyle_("textAlign", text_align_);
 
@@ -449,6 +514,10 @@ void WebTextbox::SyncAll_() {
     PushStyle_("width", std::to_string(width_px_) + "px");
   if (height_px_ > 0)
     PushStyle_("height", std::to_string(height_px_) + "px");
+
+  // padding
+  if (!padding_.empty())
+    PushStyle_("padding", padding_);
 
   // opacity + visibility (do visibility last so it appears fully styled)
   PushStyle_("opacity", std::to_string(opacity_));

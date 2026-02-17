@@ -9,7 +9,7 @@ cd "$(git rev-parse --show-toplevel)"
 
 rm -f webtextbox_demo.js webtextbox_demo.wasm
 
-em++ -std=c++17 -O0 -g -Wall -Wextra -Wpedantic \
+em++ -std=c++17 -O0 -g -Wall -Wextra -Wpedantic -Werror \
   -I./source \
   ./source/WebTextbox/WebTextbox.cpp \
   ./source/WebTextbox/webtextbox_smoke_demo.cpp \

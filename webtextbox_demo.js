@@ -1760,6 +1760,7 @@ function checkIncomingModuleAPI() {
 }
 function cse498_wtb_create() { if (!Module.__cse498WebTextbox) { Module.__cse498WebTextbox = { nextId: 1, map: new Map() }; } var st = Module.__cse498WebTextbox; var id = st.nextId++; var div = document.createElement('div'); div.style.position = 'absolute'; div.style.left = '0px'; div.style.top = '0px'; div.style.display = 'none'; div.style.opacity = '1'; st.map.set(id, div); return id; }
 function cse498_wtb_destroy(handle) { var st = Module.__cse498WebTextbox; if (!st) return; var el = st.map.get(handle); if (!el) return; if (el.parentNode) el.remove(); st.map.delete(handle); }
+function cse498_wtb_detach(handle) { var st = Module.__cse498WebTextbox; if (!st) return; var el = st.map.get(handle); if (!el) return; if (el.parentNode) el.remove(); }
 function cse498_wtb_set_text(handle,txt_ptr) { var st = Module.__cse498WebTextbox; if (!st) return; var el = st.map.get(handle); if (el) el.textContent = UTF8ToString(txt_ptr); }
 function cse498_wtb_set_style(handle,prop_ptr,val_ptr) { var st = Module.__cse498WebTextbox; if (!st) return; var el = st.map.get(handle); if (!el) return; el.style[UTF8ToString(prop_ptr)] = UTF8ToString(val_ptr); }
 function cse498_wtb_set_id(handle,id_ptr) { var st = Module.__cse498WebTextbox; if (!st) return; var el = st.map.get(handle); if (!el) return; var v = id_ptr ? UTF8ToString(id_ptr) : ""; if (v.length === 0) el.removeAttribute('id'); else el.id = v; }
