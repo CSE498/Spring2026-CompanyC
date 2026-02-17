@@ -52,7 +52,13 @@ namespace cse498
 
     public:
         EventQueue();
+
+        // Copy constructor
+        EventQueue(const EventQueue&) = default;
         
+        // Assignment operator
+        EventQueue& operator=(const EventQueue&) = default;
+
         void Push(const Event& event);
 
         void Pop();
