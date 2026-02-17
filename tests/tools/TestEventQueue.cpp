@@ -36,6 +36,18 @@ TEST_CASE("Test EventQueue Constructor", "[EventQueue]")
     EventQueue eq;
     REQUIRE(eq.Empty());
     REQUIRE(eq.Size() == 0);
+
+    // Test copy constructor
+    eq.Push(Event("Event 1", 1));
+    EventQueue copy(eq);
+    REQUIRE(!copy.Empty());
+    REQUIRE(copy.Size() == 1);
+
+    // Test assignment operator
+    EventQueue assigned;
+    assigned = eq;
+    REQUIRE(!assigned.Empty());
+    REQUIRE(assigned.Size() == 1);
 }
 
 TEST_CASE("Test Push", "[EventQueue]") 
