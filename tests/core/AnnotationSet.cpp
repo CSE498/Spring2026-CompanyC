@@ -1,7 +1,7 @@
 
 #include "../third-party/Catch/single_include/catch2/catch.hpp"
 
-#include "../source/tools/AnnotationSet.cpp"
+#include "../source/tools/AnnotationSet.hpp"
 #include <algorithm>
 
 TEST_CASE("BaseFunctionality-AnnotationSet","[AnnotationSet]"){
