@@ -43,6 +43,7 @@ add_executable(unit_tests
     Classes/PathGenerator.cpp
         Tests/WorldPathTests.cpp
         Classes/WorldPath.cpp
+        Classes/ActionMap.cpp
 )
 
 # Path Generator Tests
