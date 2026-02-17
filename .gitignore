@@ -42,3 +42,7 @@
 
 # IDE Settings
 .vscode/
+**/.DS_Store
+
+# JetBrains IDE
+.idea
