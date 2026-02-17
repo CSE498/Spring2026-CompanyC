@@ -41,17 +41,18 @@ SampleWorldPath PathGenerator::GenerateShortestPath(
 
     if (!world_view) return path;
 
-    // BFS frontier
+    // Queue for BFS
     std::queue<Position> q;
 
-    // parent map: presence == visited
+    // parent map
     std::unordered_map<Position, Position, PositionHash> parent;
 
     q.push(start);
-    parent[start] = start;  // mark visited, root points to itself
+    parent[start] = start;  // mark visited
 
     bool found = false;
 
+    // BFS search 
     while (!q.empty()) {
         Position current = q.front();
         q.pop();
@@ -62,12 +63,12 @@ SampleWorldPath PathGenerator::GenerateShortestPath(
         }
 
         std::vector<Position> neighbors;
-        world_view->GetNeighbors(current, neighbors);
+        world_view->GetNeighbors(current, neighbors); // Get neighbors, updates neighbors if neighbors
 
         for (const Position& next : neighbors) {
             if (!world_view->IsWalkable(next)) continue;
 
-            if (parent.find(next) == parent.end()) {
+            if (parent.find(next) == parent.end()) { // Make sure node isn't visited
                 parent[next] = current;
                 q.push(next);
             }
@@ -78,7 +79,7 @@ SampleWorldPath PathGenerator::GenerateShortestPath(
         return SampleWorldPath{}; // no path
     }
 
-    // Reconstruct path: goal → start
+    // Reconstruct path: goal -> start
     Position p = goal;
     while (!(p == parent[p])) {
         path.Add(p);
@@ -86,7 +87,7 @@ SampleWorldPath PathGenerator::GenerateShortestPath(
     }
     path.Add(start);
 
-    // Reverse to start → goal
+    // Reverse path: Now start -> goal
     path.Reverse();
 
     return path;

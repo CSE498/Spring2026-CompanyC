@@ -1,3 +1,8 @@
+/**
+ * This file is part of the Fall 2026, CSE 498, section 2, course project.
+ * @brief A base path finding interface for all agent types.
+ * @author Matthew Vazquez
+ **/
 
 #pragma once
 
@@ -10,11 +15,6 @@
 // Take a start position, optional goal(s), and constraints
 // Run a pathfinding or path-constructing strategy
 // Output a WorldPath 
-
-// Find shorest path
-// Generate patrol path
-// Create path that avoids _
-// Generate explore path
 
 
 // Position structure of world
@@ -50,29 +50,33 @@ struct PositionHash {
 // Sample World Path
 class SampleWorldPath {
 public:
+    // Constructor
     SampleWorldPath() = default;
 
+    // Add positions to vector
     void Add(const Position& p) {
         points.push_back(p);
     }
 
+    // Getter for vector
     const std::vector<Position>& Points() const {
         return points;
     }
-
+    // Check to see if vector is empty
     bool Empty() const {
         return points.empty();
     }
-
+    // Get length of vector
     std::size_t Length() const {
         return points.size();
     }
-
+    // Reverse vector
     void Reverse() {
         std::reverse(points.begin(), points.end());
     }
 
 private:
+    // Vector for points
     std::vector<Position> points;
 };
 
@@ -116,8 +120,9 @@ public:
             if (IsWalkable(c)) out.push_back(c);
         }
     }
-
+    // Get width
     int Width() const { return width; }
+    // Get height
     int Height() const { return height; }
 
     
@@ -125,7 +130,7 @@ private:
     int width, height;
 };
 
-// Print wolrd
+// Print world
 inline std::ostream& operator<<(std::ostream& os, const WorldView& w) {
     os << "WorldView(" << w.Width() << "x" << w.Height() << ")";
     return os;
@@ -135,9 +140,9 @@ inline std::ostream& operator<<(std::ostream& os, const WorldView& w) {
 struct PathRequest {
     PathType type;
     Position start;
-    Position goal;        // unused for patrol / explore
-    int max_length = 0;   // needed for patrol / explore
-    std::vector<Position> avoid; // stuff to avoid
+    Position goal;
+    int max_length = 0;
+    std::vector<Position> avoid;
 };
 
 
@@ -146,28 +151,34 @@ struct PathRequest {
 // Generate Path based on PathRequest, returns WorldPath
 class PathGenerator {
 public:
+    // Set world view
     void SetWorldView(const WorldView& world);
 
+    // Generate default path (shortest)
     SampleWorldPath GeneratePath(
         const PathRequest& req
     );
 
+    // Generate shortest path
     SampleWorldPath GenerateShortestPath (
         Position start,
         Position goal
     );
 
+    // Generate patrol path
     SampleWorldPath GeneratePatrolPath(
         Position start,
         int max_length
     );
 
+    // Generator avoid path
     SampleWorldPath GenerateAvoidPath(
         Position start,
         Position goal,
         std::vector<Position> avoid
     );
 
+    // Generator Explore path
     SampleWorldPath GenerateExplorePath(
         Position start, 
         int max_length
