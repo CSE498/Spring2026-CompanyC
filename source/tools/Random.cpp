@@ -3,7 +3,6 @@
  * @author Benjamin Forbes
  *
  * CITATION: LLM use for syntax, behavior is according to specifications.
- * TEST COMMIT
  */
 
 #include "Random.h"
