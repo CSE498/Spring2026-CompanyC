@@ -4,8 +4,8 @@
  * @author Tess Gonda
  */
 
-#include "../../third-party/Catch/single_include/catch2/catch.hpp"
-#include "../../source/tools/WebButton.hpp"
+#include "../../../third-party/Catch/single_include/catch2/catch.hpp"
+#include "../../../source/tools/WebButton/WebButton.hpp"
 #include <stdexcept>
 
 TEST_CASE("WebButton - Basic Construction", "[WebButton]") {
