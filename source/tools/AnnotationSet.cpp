@@ -9,7 +9,9 @@
 #include "../../source/tools/AnnotationSet.hpp"
 #include <set>
 #include <string>
-
+#include <algorithm>
+#include <cctype>
+#include <vector>
 
 //new constructor initializes object Id and tags with a default value of {}
 AnnotationSet::AnnotationSet(int obj, std::set<std::string> inTags){
@@ -27,28 +29,31 @@ void AnnotationSet::AddTag(std::string tag){
 }
 
 //adds tags to the set of tags
-void AnnotationSet::AddTags(std::vector<std::string> addedTags){
-    for(int i=0;i<addedTags.size();i++){
-        std::string tag=addedTags[i];
-        tag.erase(std::remove_if(tag.begin(), tag.end(), [](unsigned char x){ return std::isspace(x); }), tag.end());
-        if (!tag.empty()){
-            tags.insert(addedTags[i]);
+void AnnotationSet::AddTags(const std::vector<std::string>& addedTags) {
+    for (const auto& rawTag : addedTags) {
+        std::string tag = rawTag;
+        tag.erase(std::remove_if(tag.begin(), tag.end(),
+            [](unsigned char x){ return std::isspace(x); }),
+            tag.end());
+        if (!tag.empty()) {
+            tags.insert(tag);
         }
     }
 }
 
+
 //removes tags from the set of tags
 //returns true if all were successfull false otherwise
 bool AnnotationSet::RemoveTags(std::vector<std::string> removedTags){
-    bool removed=true;
-    for(int i=0;i<removedTags.size();i++){
-        bool rem=tags.erase(removedTags[i]);
-        if(rem==false){
-            removed=false;
-        }
+    bool allRemoved = true;
 
+    for (const auto& tag : removedTags) {
+        if (tags.erase(tag) == 0) {
+            allRemoved = false;
+        }
     }
-    return removed;
+
+    return allRemoved;
 }
 
 //removes a tag from the set of tags
@@ -71,9 +76,8 @@ bool AnnotationSet::FindTag(std::string tag){
 //checks if any of a given set of tags are attached to an object
 //returns true if successfull false otherwise
 bool AnnotationSet::FindAnyTag(std::vector<std::string> searchTags){
-    for(int i=0;i<searchTags.size();i++){
-        std::string currSearched=searchTags[i];
-        if (tags.count(currSearched)==1){
+    for (const auto& tag : searchTags) {
+        if (tags.contains(tag)) {
             return true;
         }
     }
@@ -82,9 +86,8 @@ bool AnnotationSet::FindAnyTag(std::vector<std::string> searchTags){
 //checks if all of a given set of tags are attached to an object
 //returns true if successfull false otherwise
 bool AnnotationSet::FindAllTags(std::vector<std::string> searchTags){
-    for(int i=0;i<searchTags.size();i++){
-        std::string currSearched=searchTags[i];
-        if (tags.count(currSearched)==0){
+    for (const auto& tag : searchTags) {
+        if (!tags.contains(tag)) {
             return false;
         }
     }
