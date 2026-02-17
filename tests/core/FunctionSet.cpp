@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-TEST_CASE("Test FunctionSet Basic Behavior", "[core]")
+TEST_CASE("Test FunctionSet Basic Behavior", "[tools]")
 {
     FunctionSet<void()> fs;
 
@@ -30,7 +30,7 @@ TEST_CASE("Test FunctionSet Basic Behavior", "[core]")
     CHECK(counter == 6);
 }
 
-TEST_CASE("Test FunctionSet Call Order", "[core]")
+TEST_CASE("Test FunctionSet Call Order", "[tools]")
 {
     FunctionSet<void(int)> fs;
     std::vector<int> results;
@@ -47,7 +47,7 @@ TEST_CASE("Test FunctionSet Call Order", "[core]")
     CHECK(results[2] == 13);
 }
 
-TEST_CASE("Test FunctionSet With Const Reference Argument", "[core]")
+TEST_CASE("Test FunctionSet With Const Reference Argument", "[tools]")
 {
     FunctionSet<void(const std::string&)> fs;
 
@@ -63,7 +63,7 @@ TEST_CASE("Test FunctionSet With Const Reference Argument", "[core]")
     CHECK(captured == "hello world");
 }
 
-TEST_CASE("Test FunctionSet Multiple Calls Preserve State", "[core]")
+TEST_CASE("Test FunctionSet Multiple Calls Preserve State", "[tools]")
 {
     FunctionSet<void()> fs;
 
