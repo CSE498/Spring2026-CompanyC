@@ -3,25 +3,32 @@
  * WebTextbox - manages an HTML text block (div) from C++.
  * Handles font, color, position, and content through a
  * simple interface that works with Emscripten or natively.
- * Citation - LLM (OpenAI) was used to help generate parts of this file, and maintain consistency with the project. The code was then reviewed and heavily edited by the author to ensure correctness and suitability for the project.
+ * Citation - LLM (OpenAI) was used to help generate parts of this file,
+ * and maintain consistency with the project. The code was then reviewed
+ * and heavily edited by the author to ensure correctness and suitability
+ * for the project.
  *
  * @author Prijam Khanal
+ * Copyright (c) 2026 Prijam Khanal
+ * SPDX-License-Identifier: MIT
  */
 
 #pragma once
 
 #include <cstdint>
 #include <string>
-#include <cassert>
-
-#ifdef __EMSCRIPTEN__
-#include <emscripten.h>
-#endif
 
 namespace cse498 {
 
 class WebTextbox final {
  public:
+  // named defaults so we avoid magic numbers scattered everywhere
+  static constexpr int kDefaultFontSize = 16;
+  static constexpr double kDefaultLineHeight = 1.4;
+  static constexpr double kDefaultOpacity = 1.0;
+  static constexpr double kMinOpacity = 0.0;
+  static constexpr double kMaxOpacity = 1.0;
+
   WebTextbox();
   ~WebTextbox();
 
@@ -35,57 +42,66 @@ class WebTextbox final {
 
   // -- Content --
   void SetText(const std::string& text);
-  const std::string& GetText() const noexcept;
+  [[nodiscard]] const std::string& GetText() const noexcept;
   void AppendText(const std::string& text);
   void ClearText();
 
   // -- Font / Typography --
   void SetFontFamily(const std::string& family);
-  const std::string& GetFontFamily() const noexcept;
+  [[nodiscard]] const std::string& GetFontFamily() const noexcept;
   void SetFontSize(int size_px);
-  int GetFontSize() const noexcept;
+  [[nodiscard]] int GetFontSize() const noexcept;
   void SetFontWeight(const std::string& weight);
-  const std::string& GetFontWeight() const noexcept;
+  [[nodiscard]] const std::string& GetFontWeight() const noexcept;
   void SetFontStyle(const std::string& style);
-  const std::string& GetFontStyle() const noexcept;
+  [[nodiscard]] const std::string& GetFontStyle() const noexcept;
   void SetLineHeight(double multiplier);
-  double GetLineHeight() const noexcept;
+  [[nodiscard]] double GetLineHeight() const noexcept;
 
   // -- Colors --
   void SetTextColor(const std::string& color);
-  const std::string& GetTextColor() const noexcept;
+  [[nodiscard]] const std::string& GetTextColor() const noexcept;
   void SetBackgroundColor(const std::string& color);
-  const std::string& GetBackgroundColor() const noexcept;
+  [[nodiscard]] const std::string& GetBackgroundColor() const noexcept;
+
+  // -- Text decoration & wrapping --
+  void SetTextDecoration(const std::string& decoration);
+  [[nodiscard]] const std::string& GetTextDecoration() const noexcept;
+  void SetWordWrap(const std::string& wrap_mode);
+  [[nodiscard]] const std::string& GetWordWrap() const noexcept;
 
   // -- Alignment --
   void SetTextAlignment(const std::string& alignment);
-  const std::string& GetTextAlignment() const noexcept;
+  [[nodiscard]] const std::string& GetTextAlignment() const noexcept;
 
   // -- Layout --
   void SetPosition(double left_px, double top_px);
-  double GetLeftPx() const noexcept;
-  double GetTopPx() const noexcept;
+  [[nodiscard]] double GetLeftPx() const noexcept;
+  [[nodiscard]] double GetTopPx() const noexcept;
   void SetSize(double width_px, double height_px);
-  double GetWidthPx() const noexcept;
-  double GetHeightPx() const noexcept;
+  [[nodiscard]] double GetWidthPx() const noexcept;
+  [[nodiscard]] double GetHeightPx() const noexcept;
+  void SetPadding(double top, double right, double bottom, double left);
+  [[nodiscard]] const std::string& GetPadding() const noexcept;
 
   // -- Visibility --
   void SetVisible(bool visible);
-  bool IsVisible() const noexcept;
+  [[nodiscard]] bool IsVisible() const noexcept;
   void SetOpacity(double opacity);
-  double GetOpacity() const noexcept;
+  [[nodiscard]] double GetOpacity() const noexcept;
 
   // -- DOM identity --
   void SetElementId(const std::string& id);
-  const std::string& GetElementId() const noexcept;
+  [[nodiscard]] const std::string& GetElementId() const noexcept;
   void SetParentId(const std::string& parent_id);
-  const std::string& GetParentId() const noexcept;
+  [[nodiscard]] const std::string& GetParentId() const noexcept;
 
   // -- Lifecycle --
   void EnsureCreated();
+  void RemoveFromDom();
   void Destroy();
-  bool IsCreated() const noexcept;
-  int32_t GetHandle() const noexcept;
+  [[nodiscard]] bool IsCreated() const noexcept;
+  [[nodiscard]] int32_t GetHandle() const noexcept;
 
  private:
   void MoveFrom_(WebTextbox&& other) noexcept;
@@ -108,21 +124,24 @@ class WebTextbox final {
 
   std::string text_;
   std::string font_family_;
-  int font_size_px_ = 16;
+  int font_size_px_ = kDefaultFontSize;
   std::string font_weight_ = "normal";
   std::string font_style_ = "normal";
-  double line_height_ = 1.4;
+  double line_height_ = kDefaultLineHeight;
 
   std::string text_color_;
   std::string bg_color_;
+  std::string text_decoration_;
+  std::string word_wrap_ = "normal";
   std::string text_align_ = "left";
+  std::string padding_;
 
   double left_px_ = 0.0;
   double top_px_ = 0.0;
   double width_px_ = 0.0;   // 0 means auto
   double height_px_ = 0.0;
   bool visible_ = true;
-  double opacity_ = 1.0;
+  double opacity_ = kDefaultOpacity;
 
   std::string element_id_;
   std::string parent_id_;

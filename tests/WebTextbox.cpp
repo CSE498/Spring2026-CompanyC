@@ -6,8 +6,14 @@
  * has native stubs that let us exercise all the C++ logic
  * without an actual browser.
  *
- * Citation - LLM (OpenAI) was used to help generate parts of this file, and maintain consistency with the project. The code was then reviewed and heavily edited by the author to ensure correctness and suitability for the project.
+ * Citation - LLM (OpenAI) was used to help generate parts of this file,
+ * and maintain consistency with the project. The code was then reviewed
+ * and heavily edited by the author to ensure correctness and suitability
+ * for the project.
+ *
  * @author Prijam Khanal
+ * Copyright (c) 2026 Prijam Khanal
+ * SPDX-License-Identifier: MIT
  */
 
 #include <cassert>
@@ -26,19 +32,22 @@ static void TestDefaults() {
 
   assert(box.GetText().empty());
   assert(box.GetFontFamily().empty());
-  assert(box.GetFontSize() == 16);
+  assert(box.GetFontSize() == WebTextbox::kDefaultFontSize);
   assert(box.GetFontWeight() == "normal");
   assert(box.GetFontStyle() == "normal");
-  assert(box.GetLineHeight() == 1.4);
+  assert(box.GetLineHeight() == WebTextbox::kDefaultLineHeight);
   assert(box.GetTextColor().empty());
   assert(box.GetBackgroundColor().empty());
+  assert(box.GetTextDecoration().empty());
+  assert(box.GetWordWrap() == "normal");
   assert(box.GetTextAlignment() == "left");
+  assert(box.GetPadding().empty());
   assert(box.GetLeftPx() == 0.0);
   assert(box.GetTopPx() == 0.0);
   assert(box.GetWidthPx() == 0.0);
   assert(box.GetHeightPx() == 0.0);
   assert(box.IsVisible());
-  assert(box.GetOpacity() == 1.0);
+  assert(box.GetOpacity() == WebTextbox::kDefaultOpacity);
   assert(box.GetElementId().empty());
   assert(box.GetParentId().empty());
   assert(!box.IsCreated());
@@ -145,6 +154,41 @@ static void TestColors() {
   assert(box.GetBackgroundColor() == "#00FF00");
 }
 
+// ----- Test: text decoration -----
+
+static void TestTextDecoration() {
+  WebTextbox box;
+
+  assert(box.GetTextDecoration().empty());
+
+  box.SetTextDecoration("underline");
+  assert(box.GetTextDecoration() == "underline");
+
+  box.SetTextDecoration("line-through");
+  assert(box.GetTextDecoration() == "line-through");
+
+  box.SetTextDecoration("none");
+  assert(box.GetTextDecoration() == "none");
+
+  // multiple decorations
+  box.SetTextDecoration("underline overline");
+  assert(box.GetTextDecoration() == "underline overline");
+}
+
+// ----- Test: word wrap -----
+
+static void TestWordWrap() {
+  WebTextbox box;
+
+  assert(box.GetWordWrap() == "normal");  // default
+
+  box.SetWordWrap("break-word");
+  assert(box.GetWordWrap() == "break-word");
+
+  box.SetWordWrap("normal");
+  assert(box.GetWordWrap() == "normal");
+}
+
 // ----- Test: alignment -----
 
 static void TestAlignment() {
@@ -188,6 +232,25 @@ static void TestLayout() {
   box.SetSize(0, 0);
   assert(box.GetWidthPx() == 0.0);
   assert(box.GetHeightPx() == 0.0);
+}
+
+// ----- Test: padding -----
+
+static void TestPadding() {
+  WebTextbox box;
+
+  assert(box.GetPadding().empty());
+
+  box.SetPadding(10, 20, 10, 20);
+  assert(!box.GetPadding().empty());
+
+  // uniform padding
+  box.SetPadding(5, 5, 5, 5);
+  assert(!box.GetPadding().empty());
+
+  // zero padding is valid
+  box.SetPadding(0, 0, 0, 0);
+  assert(!box.GetPadding().empty());
 }
 
 // ----- Test: visibility and opacity -----
@@ -290,6 +353,81 @@ static void TestLifecycle() {
   assert(h2 != 0);
 }
 
+// ----- Test: RemoveFromDom keeps handle alive -----
+
+static void TestRemoveFromDom() {
+  WebTextbox box;
+  box.SetText("detach test");
+  box.EnsureCreated();
+  assert(box.IsCreated());
+  auto h = box.GetHandle();
+  assert(h != 0);
+
+  // detach from DOM but keep handle
+  box.RemoveFromDom();
+  assert(box.IsCreated());
+  assert(box.GetHandle() == h);
+  assert(box.GetText() == "detach test");
+
+  // Destroy should still work after detach
+  box.Destroy();
+  assert(!box.IsCreated());
+  assert(box.GetHandle() == 0);
+}
+
+// ----- Test: double-Destroy is safe -----
+
+static void TestDoubleDestroy() {
+  WebTextbox box;
+  box.EnsureCreated();
+  assert(box.IsCreated());
+
+  box.Destroy();
+  assert(!box.IsCreated());
+
+  // calling destroy again should not crash
+  box.Destroy();
+  assert(!box.IsCreated());
+  assert(box.GetHandle() == 0);
+}
+
+// ----- Test: destructor auto-cleanup -----
+
+static void TestDestructorCleanup() {
+  // create a box, let it go out of scope without manual Destroy
+  {
+    WebTextbox box;
+    box.SetText("auto cleanup");
+    box.EnsureCreated();
+    assert(box.IsCreated());
+    // destructor will call Destroy() here
+  }
+  // if we got here without crashing, the destructor did its job
+}
+
+// ----- Test: self-move-assignment is safe -----
+
+static void TestSelfMoveAssign() {
+  WebTextbox box;
+  box.SetText("self move");
+  box.SetFontSize(24);
+  box.EnsureCreated();
+  auto h = box.GetHandle();
+
+  // self-move: the implementation guards against this with an address check.
+  // go through a reference so the compiler doesn't statically warn about it.
+  WebTextbox& ref = box;
+  box = std::move(ref);
+
+  // should still be valid and unchanged
+  assert(box.IsCreated());
+  assert(box.GetHandle() == h);
+  assert(box.GetText() == "self move");
+  assert(box.GetFontSize() == 24);
+
+  box.Destroy();
+}
+
 // ----- Test: move constructor -----
 
 static void TestMoveCtor() {
@@ -376,6 +514,12 @@ static void TestSettersAfterCreate() {
   box.SetBackgroundColor("yellow");
   assert(box.GetBackgroundColor() == "yellow");
 
+  box.SetTextDecoration("underline");
+  assert(box.GetTextDecoration() == "underline");
+
+  box.SetWordWrap("break-word");
+  assert(box.GetWordWrap() == "break-word");
+
   box.SetTextAlignment("center");
   assert(box.GetTextAlignment() == "center");
 
@@ -384,6 +528,9 @@ static void TestSettersAfterCreate() {
 
   box.SetSize(300, 150);
   assert(box.GetWidthPx() == 300.0);
+
+  box.SetPadding(8, 16, 8, 16);
+  assert(!box.GetPadding().empty());
 
   box.SetVisible(false);
   assert(!box.IsVisible());
@@ -400,6 +547,22 @@ static void TestSettersAfterCreate() {
   box.Destroy();
 }
 
+// ----- Test: named constants are accessible -----
+
+static void TestNamedConstants() {
+  // verify the constexpr values exist and are what we expect
+  static_assert(WebTextbox::kDefaultFontSize == 16,
+                "default font size should be 16");
+  static_assert(WebTextbox::kDefaultLineHeight == 1.4,
+                "default line height should be 1.4");
+  static_assert(WebTextbox::kDefaultOpacity == 1.0,
+                "default opacity should be 1.0");
+  static_assert(WebTextbox::kMinOpacity == 0.0,
+                "min opacity should be 0.0");
+  static_assert(WebTextbox::kMaxOpacity == 1.0,
+                "max opacity should be 1.0");
+}
+
 // ----- main -----
 
 int main() {
@@ -408,15 +571,23 @@ int main() {
   TestTextEdgeCases();
   TestFontProperties();
   TestColors();
+  TestTextDecoration();
+  TestWordWrap();
   TestAlignment();
   TestLayout();
+  TestPadding();
   TestVisibility();
   TestOpacityClamp();
   TestDomIdentity();
   TestLifecycle();
+  TestRemoveFromDom();
+  TestDoubleDestroy();
+  TestDestructorCleanup();
+  TestSelfMoveAssign();
   TestMoveCtor();
   TestMoveAssign();
   TestSettersAfterCreate();
+  TestNamedConstants();
 
   std::cout << "All WebTextbox tests passed." << std::endl;
   return 0;
