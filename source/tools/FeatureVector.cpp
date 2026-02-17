@@ -1,4 +1,4 @@
-#include "FeatureVector.h"
+#include "FeatureVector.hpp"
 
 #include <algorithm>
 #include <numeric>
