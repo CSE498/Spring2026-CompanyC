@@ -5,6 +5,7 @@
 #include "DataGrid.h"
 
 #include <format>
+#include <expected>
 
 /**
  * Allocates a grid of size r * c
@@ -41,12 +42,13 @@ template<typename T> void DataGrid::Insert(T element) {
  */
 template<typename T>
 void DataGrid::Insert(int r, int c, T element) {
-    if (r > mDim.first || c < mDim.second) {
+    if (r > mDim.first || c >= mDim.second) {
         throw std::out_of_range(std::format("Indices outside the current grid. Input ({}, {}) in grid of size ({}, {})",
                 r, c, mDim.first, mDim.second));
     }
 
     (*data)[r][c] = Datum(element);
+    mEnd.second++;
 }
 
 /**
@@ -72,8 +74,8 @@ std::vector<Datum> DataGrid::Row(int r) {
  * @param c the index of the column you are trying to extract
  * @return a column from the grid
  */
-std::vector<Datum> DataGrid::Column(int c) {
-    std::vector<Datum> col;
+std::vector<Datum&> DataGrid::Column(int c) {
+    std::vector<Datum&> col;
     for (int i = 0; i < mDim.first; i++) {
         col.push_back((*data)[i][c]);
     }
@@ -84,12 +86,20 @@ std::vector<Datum> DataGrid::Column(int c) {
 /**
  * request a certain element from the grid.
  */
-template<typename T>
-T DataGrid::At(int r, int c) {
+Datum DataGrid::At(int r, int c) {
     return (*data)[r][c];
 }
 
 template<typename T>
-std::pair<int, int> DataGrid::Find(T element) {
+std::expected<std::pair<int, int>, std::string> DataGrid::Find(T element) {
+    Datum key(element);
+    auto it = std::find_if(data->begin(), data->end(),
+        [&key](const Datum & other){ return key.AsDouble() == other.AsDouble(); });
 
+    if (it == data->end())
+    {
+        return std::unexpected("Your element is not in the data grid.");
+    }
+
+    return it.Pos();
 }
