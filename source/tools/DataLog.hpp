@@ -7,18 +7,22 @@
  */
 #pragma once
 
+#include <cstddef>
 #include <vector>
-#include <queue>  
+
+namespace cse498 {
 
 class DataLog {
-private:
+ private:
   /// data storage
-  std::vector<double> dataValues;
+  std::vector<double> mDataValues;
+  double mSum = 0.0;
+  double mMin = 0.0;
+  double mMax = 0.0;
 
-public:
-  // Constructor/Destructor
-  DataLog();
-  ~DataLog();
+ public:
+  DataLog() = default;
+  ~DataLog() = default;
 
   /**
    * @brief Add a data value to the log
@@ -33,12 +37,12 @@ public:
   double Mean() const;
 
   /**
-   * @brief Return the median of values. 
+   * @brief Return the median of values.
    */
   double Median() const;
 
   /**
-   * @brief Return the minimum value. 
+   * @brief Return the minimum value.
    */
   double Min() const;
 
@@ -48,9 +52,21 @@ public:
   double Max() const;
 
   /**
+   * @brief Number of values currently in the log.
+   */
+  std::size_t Count() const;
+
+  /**
+   * @brief Returns true if log is empty, else false.
+   */
+  bool IsEmpty() const;
+
+  /**
    * @brief Clear all values
    */
   void Clear();
 
   // More functions may be added later for other useful statistics.
 };
+
+}  
