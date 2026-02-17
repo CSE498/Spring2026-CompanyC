@@ -9,114 +9,120 @@
 #define CATCH_CONFIG_MAIN
 #include "../../third-party/Catch/single_include/catch2/catch.hpp"
 
-#include "../../source/tools/Memofunction.h"   
+#include "../../source/tools/Memofunction.h"
 #include <string>
 
 // Simple functions to wrap
-static int RandomMath(int x) {
+static int RandomMath(int x)
+{
     x *= 3;
     x += 2;
     return x;
 }
 
-static int Square(int x) {
+static int Square(int x)
+{
     return x * x;
 }
 
-static std::string RepeatStar(const std::string& s) {
+static std::string RepeatStar(const std::string &s)
+{
     return s + "*";
 }
-
-TEST_CASE("Test Memofunction constructor + initial state", "[Memofunction]")
+namespace cse498
 {
-    Memofunction<int, decltype(&RandomMath)> memo(RandomMath);
-    REQUIRE(memo.Size() == 0);
-}
 
-TEST_CASE("Test cache hit (same input does not grow cache)", "[Memofunction]")
-{
-    Memofunction<int, decltype(&Square)> memo(Square);
+    TEST_CASE("Test Memofunction constructor + initial state", "[Memofunction]")
+    {
+        Memofunction<int, decltype(&RandomMath)> memo(RandomMath);
+        REQUIRE(memo.Size() == 0);
+    }
 
-    int a = memo(5);
-    REQUIRE(a == 25);
-    REQUIRE(memo.Size() == 1);
+    TEST_CASE("Test cache hit (same input does not grow cache)", "[Memofunction]")
+    {
+        Memofunction<int, decltype(&Square)> memo(Square);
 
-    int b = memo(5);
-    REQUIRE(b == 25);
+        int a = memo(5);
+        REQUIRE(a == 25);
+        REQUIRE(memo.Size() == 1);
 
-    // Should still be 1 cached entry (hit)
-    REQUIRE(memo.Size() == 1);
-}
+        int b = memo(5);
+        REQUIRE(b == 25);
 
-TEST_CASE("Test cache grows with new keys until capacity", "[Memofunction]")
-{
-    Memofunction<int, decltype(&RandomMath)> memo(RandomMath);
+        // Should still be 1 cached entry (hit)
+        REQUIRE(memo.Size() == 1);
+    }
 
-    REQUIRE(memo.Size() == 0);
+    TEST_CASE("Test cache grows with new keys until capacity", "[Memofunction]")
+    {
+        Memofunction<int, decltype(&RandomMath)> memo(RandomMath);
 
-    REQUIRE(memo(5) == 17);
-    REQUIRE(memo.Size() == 1);
+        REQUIRE(memo.Size() == 0);
 
-    REQUIRE(memo(7) == 23);
-    REQUIRE(memo.Size() == 2);
+        REQUIRE(memo(5) == 17);
+        REQUIRE(memo.Size() == 1);
 
-    REQUIRE(memo(9) == 29);
-    REQUIRE(memo.Size() == 3); // capacity is 3 in your class
-}
+        REQUIRE(memo(7) == 23);
+        REQUIRE(memo.Size() == 2);
 
-TEST_CASE("Test FIFO eviction when capacity exceeded", "[Memofunction]")
-{
-    // capacity is fixed at 3 for now
-    Memofunction<int, decltype(&RandomMath)> memo(RandomMath);
+        REQUIRE(memo(9) == 29);
+        REQUIRE(memo.Size() == 3); // capacity is 3 in your class
+    }
 
-    // Fill cache with 3 unique keys
-    REQUIRE(memo(5) == 17);
-    REQUIRE(memo(7) == 23);
-    REQUIRE(memo(9) == 29);
-    REQUIRE(memo.Size() == 3);
+    TEST_CASE("Test FIFO eviction when capacity exceeded", "[Memofunction]")
+    {
+        // capacity is fixed at 3 for now
+        Memofunction<int, decltype(&RandomMath)> memo(RandomMath);
 
-    // This should evict the oldest key (5) because FIFO
-    REQUIRE(memo(10) == 32);
-    REQUIRE(memo.Size() == 3);
+        // Fill cache with 3 unique keys
+        REQUIRE(memo(5) == 17);
+        REQUIRE(memo(7) == 23);
+        REQUIRE(memo(9) == 29);
+        REQUIRE(memo.Size() == 3);
 
-    // If FIFO eviction happened, key=5 was evicted and re-inserting it
-    // would still keep size 3 (evict another oldest).
-    REQUIRE(memo(5) == 17);
-    REQUIRE(memo.Size() == 3);
-}
+        // This should evict the oldest key (5) because FIFO
+        REQUIRE(memo(10) == 32);
+        REQUIRE(memo.Size() == 3);
 
-TEST_CASE("Test Clear empties cache and resets order", "[Memofunction]")
-{
-    Memofunction<int, decltype(&Square)> memo(Square);
+        // If FIFO eviction happened, key=5 was evicted and re-inserting it
+        // would still keep size 3 (evict another oldest).
+        REQUIRE(memo(5) == 17);
+        REQUIRE(memo.Size() == 3);
+    }
 
-    memo(2);
-    memo(3);
-    REQUIRE(memo.Size() == 2);
+    TEST_CASE("Test Clear empties cache and resets order", "[Memofunction]")
+    {
+        Memofunction<int, decltype(&Square)> memo(Square);
 
-    memo.Clear();
-    REQUIRE(memo.Size() == 0);
+        memo(2);
+        memo(3);
+        REQUIRE(memo.Size() == 2);
 
-    // After clear, adding again should behave like a fresh cache
-    REQUIRE(memo(2) == 4);
-    REQUIRE(memo.Size() == 1);
-}
+        memo.Clear();
+        REQUIRE(memo.Size() == 0);
 
-TEST_CASE("Test Memofunction works with non-int Key and non-int result", "[Memofunction]")
-{
-    // Key = std::string, result = std::string
-    Memofunction<std::string, decltype(&RepeatStar)> memo(RepeatStar);
+        // After clear, adding again should behave like a fresh cache
+        REQUIRE(memo(2) == 4);
+        REQUIRE(memo.Size() == 1);
+    }
 
-    REQUIRE(memo.Size() == 0);
+    TEST_CASE("Test Memofunction works with non-int Key and non-int result", "[Memofunction]")
+    {
+        // Key = std::string, result = std::string
+        Memofunction<std::string, decltype(&RepeatStar)> memo(RepeatStar);
 
-    auto r1 = memo(std::string("hi"));
-    REQUIRE(r1 == "hi*");
-    REQUIRE(memo.Size() == 1);
+        REQUIRE(memo.Size() == 0);
 
-    auto r2 = memo(std::string("hi"));
-    REQUIRE(r2 == "hi*");
-    REQUIRE(memo.Size() == 1); // hit, size unchanged
+        auto r1 = memo(std::string("hi"));
+        REQUIRE(r1 == "hi*");
+        REQUIRE(memo.Size() == 1);
 
-    auto r3 = memo(std::string("yo"));
-    REQUIRE(r3 == "yo*");
-    REQUIRE(memo.Size() == 2);
+        auto r2 = memo(std::string("hi"));
+        REQUIRE(r2 == "hi*");
+        REQUIRE(memo.Size() == 1); // hit, size unchanged
+
+        auto r3 = memo(std::string("yo"));
+        REQUIRE(r3 == "yo*");
+        REQUIRE(memo.Size() == 2);
+    }
 }

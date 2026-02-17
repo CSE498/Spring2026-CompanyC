@@ -4,10 +4,7 @@
  * @brief This Memofunction class is a function wrapper that simulates like a cache.
  *
  */
-
-#define MEMOFUNCTION_IMPL_INCLUDED
 #include "Memofunction.h"
-
 #include <cassert>
 #include <iostream>
 #include <functional>
@@ -26,55 +23,58 @@
  *      + sometype fo visual that helps understand what its containing
  * - Can switch from LRU to FIFO??!!!
  */
-template <typename Key, typename Func>
-Memofunction<Key, Func>::Memofunction(Func func)
-    : mfunc(std::move(func))
-{
-    // assert(mfunc && "Memofunction: wrapped function must be valid");
-}
 
-template <typename Key, typename Func>
-typename Memofunction<Key, Func>::result_type
-Memofunction<Key, Func>::operator()(const Key &x)
-{
-    /* Loops to check for cache hit */
-    for (const auto &pair : cache)
+ namespace cse498{
+    template <typename Key, typename Func>
+    Memofunction<Key, Func>::Memofunction(Func func)
+        : mfunc(std::move(func))
     {
-        if (pair.first == x)
+        // assert(mfunc && "Memofunction: wrapped function must be valid");
+    }
+
+    template <typename Key, typename Func>
+    typename Memofunction<Key, Func>::result_type
+    Memofunction<Key, Func>::operator()(const Key &x)
+    {
+        /* Loops to check for cache hit */
+        for (const auto &pair : cache)
         {
-            // std::cout << " Hit " << std::endl;
-            return pair.second; // cache hit
+            if (pair.first == x)
+            {
+                // std::cout << " Hit " << std::endl;
+                return pair.second; // cache hit
+            }
+            // else
+            // {
+            //     std::cout << " Miss  " << std::endl;
+            // }
         }
-        // else
-        // {
-        //     std::cout << " Miss  " << std::endl;
-        // }
+        /// If not a cache hit
+        if (cache.size() >= capacity)
+        {
+            // std::cout << " Full" << std::endl;
+            Key oldest = order.front(); // temp stores the key to variable
+            order.pop();                // rmeoves the fron(oldest key)
+            cache.erase(oldest);        // erases the pair from cache
+        }
+
+        result_type result = mfunc(x);
+        cache[x] = result; //  we WANT to insert/update
+        order.push(x);
+        return result;
     }
-    /// If not a cache hit
-    if (cache.size() >= capacity)
+
+    template <typename Key, typename Func>
+    void Memofunction<Key, Func>::Clear()
     {
-        // std::cout << " Full" << std::endl;
-        Key oldest = order.front(); // temp stores the key to variable
-        order.pop();                // rmeoves the fron(oldest key)
-        cache.erase(oldest);        // erases the pair from cache
+        cache.clear();
+        while (!order.empty())
+            order.pop();
     }
 
-    result_type result = mfunc(x);
-    cache[x] = result; //  we WANT to insert/update
-    order.push(x);
-    return result;
-}
-
-template <typename Key, typename Func>
-void Memofunction<Key, Func>::Clear()
-{
-    cache.clear();
-    while (!order.empty())
-        order.pop();
-}
-
-template <typename Key, typename Func>
-std::size_t Memofunction<Key, Func>::Size() const
-{
-    return cache.size(); /// gets size of cache
-}
+    template <typename Key, typename Func>
+    std::size_t Memofunction<Key, Func>::Size() const
+    {
+        return cache.size(); /// gets size of cache
+    }
+ }
