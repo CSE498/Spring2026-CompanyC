@@ -1,6 +1,8 @@
 /**
  * @file Random.cpp
  * @author Benjamin Forbes
+ *
+ * CITATION: LLM use for syntax, behavior is according to specifications.
  */
 
 #include "Random.h"
@@ -61,3 +63,4 @@ bool Random::P(double probability)
     std::bernoulli_distribution dist(probability);
     return dist(mEngine);
 }
+
