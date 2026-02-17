@@ -3,51 +3,57 @@
 #include <vector>
 #include "StateGridPosition.h"
 
+namespace cse498 {
+
+// The state of a cell in the stategrid
+struct State {
+  int stateID = 0;
+  bool isAccessible = false;
+};
+
+
 // A grid representation of the environment that the agent simulation will run in.
 
 class StateGrid {
 public:
-    struct State {
-      int stateID;
-    };
 
-    // Custom Constructor
+    // Constructors
     StateGrid(int height, int width)
-      : mGrid(height*width) {
+      : mHeight(height), mWidth(width), mGrid(height*width) {
     }
+    StateGrid() = default;
 
     // -- Accessors --
+    [[nodiscard]] size_t GetHeight() const { return mHeight; }
+    [[nodiscard]] size_t GetWidth() const { return mWidth; }
 
-    size_t GetHeight() const { return mHeight; }
-    size_t GetWidth() const { return mWidth; }
-
-    // Public Member Functions
-    State const &GetState(StateGridPosition pos) { 
+    [[nodiscard]] State const &GetState(StateGridPosition pos) const { 
       return mGrid[ToIndex(pos.X(), pos.Y())];
     };
-    
+   
+    // Public Member Functions
     void SetState(StateGridPosition pos, State state) {
       mGrid[ToIndex(pos.X(), pos.Y())] = state;
     };
     
-    bool InBounds(StateGridPosition pos) {
+    bool InBounds(StateGridPosition pos) const {
       return pos.X() < mWidth && pos.Y() < mHeight;
     };
 
 private:
     // Dimensions
-    size_t mHeight;
-    size_t mWidth;
+    int mHeight = 0;
+    int mWidth = 0;
 
     // Main data structure to manage states
     std::vector<State> mGrid;
     
     // Converts x and y coordinates to position in the grid
-    size_t const ToIndex(size_t x, size_t y) {
+    size_t ToIndex(size_t x, size_t y) const {
       return x + y * mWidth;
     };
 
-    // Resize the current grid (Unsure of how to implement)
+    // Resize the current grid (Currently implementing - unfinished)
     void Resize(int newHeight, int newWidth) {
       // Create new grid with new sizing
       std::vector<State> newGrid(newHeight*newWidth);
@@ -55,3 +61,5 @@ private:
       // Copy old elements into new grid instance
     }
 };
+
+}
