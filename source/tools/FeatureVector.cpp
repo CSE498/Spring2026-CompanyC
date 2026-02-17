@@ -24,14 +24,12 @@ const std::string& FeatureSchema::Name(std::size_t i) const {
   return names_.at(i);
 }
 
-bool FeatureSchema::TryIndexOf(std::string_view name, std::size_t& out) const {
+std::optional<std::size_t> FeatureSchema::IndexOf(std::string_view name) const {
   const auto it = index_by_name_.find(name);
   if (it == index_by_name_.end()) {
-    return false;
+    return std::nullopt;
   }
-
-  out = it->second;
-  return true;
+  return it->second;
 }
 
 bool FeatureSchema::operator==(const FeatureSchema& other) const noexcept {
@@ -54,27 +52,25 @@ double FeatureVector::Get(std::size_t i) const {
   return values_.at(i);
 }
 
+std::optional<double> FeatureVector::GetByName(std::string_view name) const {
+  const auto index = schema_->IndexOf(name);
+  if (!index.has_value()) {
+    return std::nullopt;
+  }
+  return values_.at(*index);
+}
+
 void FeatureVector::Set(std::size_t i, double v) {
   values_.at(i) = v;
 }
 
-bool FeatureVector::TryGet(std::string_view name, double& out) const {
-  std::size_t i = 0;
-  if (!schema_->TryIndexOf(name, i)) {
-    return false;
-  }
-
-  out = values_[i];
-  return true;
-}
-
 bool FeatureVector::TrySet(std::string_view name, double v) {
-  std::size_t i = 0;
-  if (!schema_->TryIndexOf(name, i)) {
+  const auto index = schema_->IndexOf(name);
+  if (!index.has_value()) {
     return false;
   }
 
-  values_[i] = v;
+  values_.at(*index) = v;
   return true;
 }
 

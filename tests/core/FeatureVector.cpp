@@ -1,6 +1,6 @@
 #include "../../third-party/Catch/single_include/catch2/catch.hpp"
 
-#include "../../group_specific_content/Group-05/FeatureVector.h"
+#include "../../source/tools/FeatureVector.h"
 
 #include <memory>
 #include <stdexcept>
@@ -14,13 +14,12 @@ TEST_CASE("FeatureSchema basic behavior", "[group-05][FeatureVector]") {
   CHECK(schema.Name(1) == "mass");
   CHECK(schema.Name(2) == "hp");
 
-  std::size_t idx = 99;
-  CHECK(schema.TryIndexOf("mass", idx));
-  CHECK(idx == 1);
+  const auto mass_idx = schema.IndexOf("mass");
+  REQUIRE(mass_idx.has_value());
+  CHECK(*mass_idx == 1);
 
-  idx = 99;
-  CHECK_FALSE(schema.TryIndexOf("missing", idx));
-  CHECK(idx == 99);
+  CHECK_FALSE(schema.IndexOf("missing").has_value());
+  CHECK_FALSE(schema.IndexOf("").has_value());
 
   CHECK_THROWS_AS(schema.Name(3), std::out_of_range);
 }
@@ -58,15 +57,16 @@ TEST_CASE("FeatureVector index and name access", "[group-05][FeatureVector]") {
   CHECK_THROWS_AS(vec.Get(3), std::out_of_range);
   CHECK_THROWS_AS(vec.Set(3, 7.0), std::out_of_range);
 
-  double value = -1.0;
   CHECK(vec.TrySet("b", 4.75));
-  CHECK(vec.TryGet("b", value));
-  CHECK(value == Approx(4.75));
 
-  value = -9.0;
-  CHECK_FALSE(vec.TryGet("missing", value));
-  CHECK(value == Approx(-9.0));
+  const auto b_value = vec.GetByName("b");
+  REQUIRE(b_value.has_value());
+  CHECK(*b_value == Approx(4.75));
+
+  CHECK_FALSE(vec.GetByName("missing").has_value());
+  CHECK_FALSE(vec.GetByName("").has_value());
   CHECK_FALSE(vec.TrySet("missing", 3.0));
+  CHECK_FALSE(vec.TrySet("", 3.0));
 
   vec.Clear();
   CHECK(vec.Get(0) == Approx(0.0));

@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -15,7 +16,7 @@ public:
   std::size_t Size() const noexcept { return names_.size(); }
   const std::string& Name(std::size_t i) const;
 
-  [[nodiscard]] bool TryIndexOf(std::string_view name, std::size_t& out) const;
+  [[nodiscard]] std::optional<std::size_t> IndexOf(std::string_view name) const;
   [[nodiscard]] bool operator==(const FeatureSchema& other) const noexcept;
 
 private:
@@ -30,9 +31,6 @@ private:
       return (*this)(std::string_view{value});
     }
 
-    std::size_t operator()(const char* value) const noexcept {
-      return (*this)(std::string_view{value});
-    }
   };
 
   std::vector<std::string> names_;
@@ -49,9 +47,9 @@ public:
   std::size_t Size() const noexcept { return values_.size(); }
 
   double Get(std::size_t i) const;
+  [[nodiscard]] std::optional<double> GetByName(std::string_view name) const;
   void Set(std::size_t i, double v);
 
-  [[nodiscard]] bool TryGet(std::string_view name, double& out) const;
   [[nodiscard]] bool TrySet(std::string_view name, double v);
 
   double Dot(const FeatureVector& other) const;
