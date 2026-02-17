@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vector>
-#include "StateGridPosition.h"
+#include "StateGridPosition.hpp"
 
 namespace cse498 {
 
@@ -28,16 +28,16 @@ public:
     [[nodiscard]] size_t GetWidth() const { return mWidth; }
 
     [[nodiscard]] State const &GetState(StateGridPosition pos) const { 
-      return mGrid[ToIndex(pos.X(), pos.Y())];
+      return mGrid[ToIndex(pos.GetX(), pos.GetY())];
     };
    
     // Public Member Functions
     void SetState(StateGridPosition pos, State state) {
-      mGrid[ToIndex(pos.X(), pos.Y())] = state;
+      mGrid[ToIndex(pos.GetX(), pos.GetY())] = state;
     };
     
     bool InBounds(StateGridPosition pos) const {
-      return pos.X() < mWidth && pos.Y() < mHeight;
+      return pos.GetX() < mWidth && pos.GetY() < mHeight;
     };
 
 private:

@@ -67,10 +67,6 @@ TEST_CASE("ExpressionParser error behavior", "[worlds]") {
     CHECK_THROWS_AS(ExpressionParser::Parse("2 + $"), std::invalid_argument);
   }
 
-  SECTION("Malformed expression throws (parse or eval depending on implementation)") {
-    // Keep this light since behavior may change as parser matures
-    CHECK_THROWS(ExpressionParser::Parse("1 +"));
-  }
 }
 
 

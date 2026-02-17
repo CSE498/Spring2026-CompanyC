@@ -1,7 +1,7 @@
 #include "../../third-party/Catch/single_include/catch2/catch.hpp"
 
 #include "../../source/tools/StateGrid.hpp"
-#include "../../source/tools/StateGridPosition.h"
+#include "../../source/tools/StateGridPosition.hpp"
 
 TEST_CASE("StateGrid basic functionality", "[StateGrid]")
 {
@@ -22,17 +22,17 @@ TEST_CASE("StateGrid basic functionality", "[StateGrid]")
 
     SECTION("InBounds works correctly")
     {
-        CHECK(sg1.InBounds(StateGridPosition(0,0)) == true);
-        CHECK(sg1.InBounds(StateGridPosition(19,19)) == true);
+        CHECK(sg1.InBounds(cse498::StateGridPosition(0,0)) == true);
+        CHECK(sg1.InBounds(cse498::StateGridPosition(19,19)) == true);
 
-        CHECK(sg1.InBounds(StateGridPosition(20,0)) == false);
-        CHECK(sg1.InBounds(StateGridPosition(0,20)) == false);
-        CHECK(sg1.InBounds(StateGridPosition(100,100)) == false);
+        CHECK(sg1.InBounds(cse498::StateGridPosition(20,0)) == false);
+        CHECK(sg1.InBounds(cse498::StateGridPosition(0,20)) == false);
+        CHECK(sg1.InBounds(cse498::StateGridPosition(100,100)) == false);
     }
 
     SECTION("SetState and GetState store and retrieve correctly")
     {
-        StateGridPosition pos(9,9);
+        cse498::StateGridPosition pos(9,9);
 
         cse498::State state;
         state.stateID = 1;
@@ -48,8 +48,8 @@ TEST_CASE("StateGrid basic functionality", "[StateGrid]")
 
     SECTION("Multiple states do not interfere with each other")
     {
-        StateGridPosition pos1(2,3);
-        StateGridPosition pos2(5,6);
+        cse498::StateGridPosition pos1(2,3);
+        cse498::StateGridPosition pos2(5,6);
 
         cse498::State state1;
         state1.stateID = 42;
@@ -74,8 +74,8 @@ TEST_CASE("StateGrid basic functionality", "[StateGrid]")
 
     SECTION("Edge positions work correctly")
     {
-        StateGridPosition topLeft(0,0);
-        StateGridPosition bottomRight(19,19);
+        cse498::StateGridPosition topLeft(0,0);
+        cse498::StateGridPosition bottomRight(19,19);
 
         cse498::State state;
         state.stateID = 7;
@@ -90,7 +90,7 @@ TEST_CASE("StateGrid basic functionality", "[StateGrid]")
 
     SECTION("Default state values are correct")
     {
-        StateGridPosition pos(5,5);
+        cse498::StateGridPosition pos(5,5);
 
         auto state = sg1.GetState(pos);
 
