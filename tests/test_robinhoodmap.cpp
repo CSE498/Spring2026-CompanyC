@@ -1,5 +1,4 @@
-#include "tools/RobinHoodMap.h"
-
+#include "tools/RobinHoodMap.hpp"
 #include <string>
 #include <stdexcept>
 
