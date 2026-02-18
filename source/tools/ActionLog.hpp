@@ -10,14 +10,13 @@
 struct ActionEntry {
   std::chrono::high_resolution_clock::time_point timeOfAction;
   std::string actionType;
-  std::chrono::microseconds duration;
 };
 
 namespace cse498
 {  
   class ActionLog {
   private:
-    // Using shared_ptr to Agent as key with custom hash/equality
+    // Using shared_ptr to Agent as key
     std::unordered_map<std::shared_ptr<AgentBase>, std::vector<ActionEntry>> agentActions;
     
     std::chrono::high_resolution_clock::time_point simulationStartTime;
@@ -49,9 +48,6 @@ namespace cse498
       }
       return {};
     }
-    
-    // No need for manual removal - when shared_ptr count goes to 0, entry is automatically removed
-    // (though it won't be removed immediately - only when accessed/erased or map is cleared)
     
     void clear() {
       agentActions.clear();

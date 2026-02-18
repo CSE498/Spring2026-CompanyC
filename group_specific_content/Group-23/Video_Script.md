@@ -31,3 +31,24 @@ OutputManager also supports multiple output targets. Messages can be written to 
 From a design standpoint, OutputManager separates logging from application logic. Modules don’t need to worry about timestamps, formatting, or where messages go — they simply call the logging function and pass a message and optional context. This keeps the codebase cleaner and ensures that all system output is handled consistently.
 
 So overall, OutputManager acts as the communication layer for runtime information, making debugging easier, improving traceability of agent actions, and supporting analysis of simulation behavior as the project scales.
+
+## ActionLog (Collin):
+
+I’m going to walk through the  ActionLog class, which is designed to keep a record of all actions performed by agents in a world 
+First, let’s look at the includes. We have AgentBase.hpp for the agent base class, plus chrono for time measurement, memory for smart pointers, string, unordered_map, and vector. 
+Before the class, there’s a simple struct called ActionEntry. It holds 2 pieces of information:
+timeOfAction, a high‑resolution time point captured when the action occurs.
+actionType, a string describing what the agent did.
+Now, inside the ActionLog class, the core data member is an unordered_map. Its key is a shared_ptr<AgentBase>, and its value is a vector of ActionEntry objects. This means for each agent, we store a list of all the actions that agent has performed. Using a shared_ptr as the key which allows the map to automatically manage the lifetime of the agent pointer
+There’s also a simulationStartTime member, initialized in the constructor to the moment the ActionLog object is created. 
+Let’s look at the methods. The most important one is recordAction. It takes an agent pointer and an action string. First, it checks if the agent pointer is valid – if it’s null, we just return. Then it captures the current time using high_resolution_clock::now(). It creates an ActionEntry, fills in the time and action type, then pushes it into the vector for that agent. The map’s operator[] will either find the existing entry for that agent or create a new one, so we don’t have to worry about whether we’ve seen this agent before.
+The getActions method returns a constant reference to the entire map – useful if you want to iterate over all agents and their logs, such as in the ReplayDriver class. And getActionsByAgent lets you retrieve just the vector for a specific agent. If the agent isn’t found, it returns an empty vector.
+The clear method simply empties the entire map, discarding all logs.
+
+## DataLog (Muhammad):
+
+Hello everyone, my name is Muhammad, and I worked on the Datalog class. This class tracks a series of data values over time and can return useful statistics such as the mean, median, minimum, and maximum. It has four private member variables: mDataValues, which stores each data point in a vector of doubles, along with mSum, mMin, and mMax. mSum keeps a running total of all values added so far, while mMin and mMax keep track of the current minimum and maximum values.
+The class includes several functions. The add function inserts a new data value into the log. The mean function returns the average of the values. The median function returns the median. The minimum and maximum functions return the smallest and largest values, respectively. The count function returns the number of values currently stored, isEmpty returns true if the log is empty and false otherwise, and clear removes all values from the log.
+Now, going through the implementation, the add function first checks whether the value is valid. If it is, it adds the value to the mDataValues vector and then updates mSum, mMin, and mMax. The mean function returns the average by dividing the sum by the number of values currently stored. For the median, it’s important to note how the function handles different dataset sizes. If there is an odd number of values, it returns the middle value. If there is an even number of values, it returns the average of the two middle values.
+Finally, minimum returns the minimum value, maximum returns the maximum value, count returns the size of the vector, isEmpty checks whether the vector is empty, and clear resets the log by removing all stored values. That’s the overview of the Datalog class. If anyone thinks additional functionality or other statistics would be useful, feel free to let me know.
+
