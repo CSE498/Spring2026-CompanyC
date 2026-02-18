@@ -15,3 +15,19 @@ This class implements a replay system that takes a previously recorded ActionLog
 Each event contains two things: which agent performed the action and what action they performed. The driver maintains a list of these events and a pointer to where we currently are in the replay. So the system behaves similar to a tape player where it just advances forward and feeds actions back into the world. When replay starts, it convert the ActionLog into a flat sequence of events. The log is organized per agent, but replay needs to be chronological, so it extract each recorded action and store it in order. Once that list exists, the simulation no longer depends on AI or player input, it just consumes the recorded actions. During update, the driver checks if replay is running and not paused. If so, it sends the next recorded action into the world. To do that, it translates the stored action name into the agent’s action ID, and then call the world’s action function. The world executes the move exactly the same way as during gameplay, which guarantees the replay behaves identically to the original run. So the replay driver doesn’t simulate logic, it re-feeds decisions back into the existing game systems. I also implemented playback controls. Pause stops advancing the event pointer, resume continues it, and reset moves the replay back to the beginning. The driver tracks whether it’s running, paused, or finished so the rest of the program can react appropriately. The main design idea is separation of responsibility where
 the world still handles gameplay rules, agents still define actions, and the replay driver only schedules and injects recorded inputs. And that’s the replay driver.
 
+
+
+## OutputManager (Ismail):
+The OutputManager is our centralized logging system in the Data Analytics layer. While the other classes track events, timings, or replay data, OutputManager is responsible for reporting and formatting information so developers can understand what the system is doing while it runs.
+
+Its main job is to provide a single, consistent way for any part of the project — agents, worlds, replay systems, or analytics tools — to log messages. Instead of each module printing directly to the console, they call OutputManager, which handles filtering, formatting, and routing the output.
+
+One of the core features is log level filtering. The class supports levels like Normal, Verbose, and Debug. The current level determines which messages are shown. For example, in Normal mode only important system messages appear, while Debug mode allows detailed runtime information useful for troubleshooting or testing.
+
+Another key feature is structured metadata support. Each log message can optionally include a tag, agent ID, or simulation tick. This makes it easier to trace events in large simulations where many agents and systems are running at once. The formatting logic ensures this information appears consistently, which helps when reviewing logs or debugging replay behavior.
+
+OutputManager also supports multiple output targets. Messages can be written to the console for real-time debugging, saved to a file for later inspection, or stored in an internal memory buffer. The buffer is especially useful for analytics or testing, since other parts of the system can retrieve those messages programmatically.
+
+From a design standpoint, OutputManager separates logging from application logic. Modules don’t need to worry about timestamps, formatting, or where messages go — they simply call the logging function and pass a message and optional context. This keeps the codebase cleaner and ensures that all system output is handled consistently.
+
+So overall, OutputManager acts as the communication layer for runtime information, making debugging easier, improving traceability of agent actions, and supporting analysis of simulation behavior as the project scales.
