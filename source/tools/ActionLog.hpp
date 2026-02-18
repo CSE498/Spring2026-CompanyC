@@ -32,8 +32,7 @@ namespace cse498
       ActionEntry entry;
       entry.timeOfAction = now;
       entry.actionType = action;
-      entry.duration = std::chrono::microseconds::zero();
-      
+            
       agentActions[agent].push_back(entry);
     }
 
