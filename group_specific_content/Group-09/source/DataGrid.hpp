@@ -7,13 +7,17 @@
 
 #include<vector>
 #include <memory>
+#include <expected>
 
-#include "Datum.h"
+#include "Datum.hpp"
 
+/**
+ * Data structure representing a grid of almost anything.
+ */
 class DataGrid {
 private:
     // Underlying data structure
-    std::unique_ptr<std::vector<std::vector<Datum>>> data;
+    std::unique_ptr<std::vector<std::vector<Datum>>> mData;
 
     // The first unoccupied space in the grid
     std::pair<int, int> mEnd;
@@ -27,17 +31,17 @@ public:
     public:
         Iterator(DataGrid* dg, int r, int c) : mDg(dg), mRow(r), mCol(c) {}
 
-        bool operator!=(const Iterator& it) {
+        bool operator!=(const Iterator& it) const {
             return mRow != it.mRow || mCol != it.mCol;
         }
 
         Datum operator*() const {
-            return (*mDg->data)[mRow][mCol];
+            return (*mDg->mData)[mRow][mCol];
         }
 
         void operator++()
         {
-            if (mCol == mDg->mDim.second)
+            if (mCol >= mDg->mDim.second - 1)
             {
                 mCol = 0;
                 mRow++;
@@ -58,13 +62,13 @@ public:
     DataGrid(int r, int c);
     template <typename T> void Insert(T element);
     template <typename T> void Insert(int r, int col, T element);
-    void Append(std::vector<Datum> row);
+    void Append(const std::vector<Datum> & row);
 
     std::vector<Datum> Row(int r);
-    std::vector<Datum&> Column(int c);
+    std::vector<Datum> Column(int c);
 
-    Datum T At(int r, int c);
-    template <typename T> std::pair<int, int> Find(T element);
+    Datum At(int r, int c);
+    template <typename T> std::expected<std::pair<int, int>, std::string> Find(T element);
 
     Iterator begin() {return Iterator(this, 0, 0); }
     Iterator end() {return Iterator(this, mEnd.first, mEnd.second); }

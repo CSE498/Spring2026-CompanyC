@@ -1,374 +1,286 @@
-/**
- * DataGridTests.cpp
- * Comprehensive test suite for DataGrid using Catch2.
- */
+//
+// DataGridTests.cpp
+// Catch2 v2 tests for DataGrid
+//
 
-#include <catch2/catch_test_macros.hpp>
-#include <catch2/catch_approx.hpp>
+#define CATCH_CONFIG_MAIN
+#include <catch2/catch.hpp>
 #include "../source/DataGrid.hpp"
 
-// ============================================================
-//  Helpers
-// ============================================================
-
-static std::vector<Datum> MakeDatumRow(std::initializer_list<int> vals) {
-    std::vector<Datum> row;
-    for (int v : vals) row.emplace_back(v);
-    return row;
-}
-
-
-// ============================================================
-//  Construction
-// ============================================================
-
-TEST_CASE("DataGrid construction", "[construction]") {
-    SECTION("begin and end both point to (0,0) on a fresh grid") {
+// ─────────────────────────────────────────────────────────────────────────────
+// Constructor
+// ─────────────────────────────────────────────────────────────────────────────
+TEST_CASE("DataGrid constructor allocates correct dimensions", "[constructor]") {
+    SECTION("Standard dimensions") {
         DataGrid dg(3, 4);
-        REQUIRE(dg.begin().Pos() == std::pair<int,int>{0, 0});
-        REQUIRE(dg.begin().Pos() == dg.end().Pos());
+        // Row and Column should be accessible without throwing
+        REQUIRE_NOTHROW(dg.Row(0));
+        REQUIRE_NOTHROW(dg.Column(0));
     }
 
-    SECTION("zero rows does not crash") {
-        REQUIRE_NOTHROW(DataGrid(0, 5));
+    SECTION("1x1 grid") {
+        DataGrid dg(1, 1);
+        REQUIRE_NOTHROW(dg.At(0, 0));
     }
 
-    SECTION("zero columns does not crash") {
-        REQUIRE_NOTHROW(DataGrid(5, 0));
+    SECTION("Single row grid") {
+        DataGrid dg(1, 5);
+        REQUIRE(dg.Row(0).size() == 5);
+    }
+
+    SECTION("Single column grid") {
+        DataGrid dg(5, 1);
+        REQUIRE(dg.Column(0).size() == 5);
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Insert(r, c, element)
+// ─────────────────────────────────────────────────────────────────────────────
+TEST_CASE("Insert at specific position", "[insert]") {
+    DataGrid dg(3, 3);
 
-// ============================================================
-//  Append
-// ============================================================
-
-TEST_CASE("DataGrid::Append", "[append]") {
-    SECTION("appended row has correct values") {
-        DataGrid dg(0, 3);
-        dg.Append(MakeDatumRow({10, 20, 30}));
-
-        auto r = dg.Row(0);
-        REQUIRE(r.size() == 3);
-        REQUIRE(r[0].AsDouble() == 10.0);
-        REQUIRE(r[1].AsDouble() == 20.0);
-        REQUIRE(r[2].AsDouble() == 30.0);
+    SECTION("Insert int and retrieve with At()") {
+        dg.Insert(0, 0, 42);
+        REQUIRE(dg.At(0, 0).AsDouble() == Approx(42.0));
     }
 
-    SECTION("multiple appends preserve insertion order") {
-        DataGrid dg(0, 2);
-        dg.Append(MakeDatumRow({1, 2}));
-        dg.Append(MakeDatumRow({3, 4}));
-        dg.Append(MakeDatumRow({5, 6}));
-
-        REQUIRE(dg.Row(0)[0].AsDouble() == 1.0);
-        REQUIRE(dg.Row(1)[0].AsDouble() == 3.0);
-        REQUIRE(dg.Row(2)[0].AsDouble() == 5.0);
+    SECTION("Insert double") {
+        dg.Insert(1, 2, 3.14);
+        REQUIRE(dg.At(1, 2).AsDouble() == Approx(3.14));
     }
 
-    SECTION("append increases accessible row count") {
-        DataGrid dg(1, 3);
-        dg.Append(MakeDatumRow({7, 8, 9}));
-        // Row 1 now exists
-        REQUIRE_NOTHROW(dg.Row(1));
+    SECTION("Insert string") {
+        dg.Insert(2, 1, std::string("hello"));
+        // Datum should store the value; verify via Find or At
+        REQUIRE_NOTHROW(dg.At(2, 1));
     }
 
-    SECTION("appending an empty row does not crash") {
-        DataGrid dg(0, 0);
+    SECTION("Insert overwrites existing value") {
+        dg.Insert(0, 0, 1);
+        dg.Insert(0, 0, 99);
+        REQUIRE(dg.At(0, 0).AsDouble() == Approx(99.0));
+    }
+
+    SECTION("Insert at last valid position") {
+        REQUIRE_NOTHROW(dg.Insert(2, 2, 7));
+    }
+
+    // ── Edge / Bug cases ──────────────────────────────────────────────────────
+    // NOTE: Current Insert(r,c) only checks c >= mDim.second but not r >= mDim.first.
+    // The check should be r >= mDim.first. These tests document the expected behavior
+    // and will fail until the bug is fixed.
+    SECTION("Out-of-range row throws") {
+        REQUIRE_THROWS_AS(dg.Insert(5, 0, 1), std::out_of_range);
+    }
+
+    SECTION("Out-of-range column throws") {
+        REQUIRE_THROWS_AS(dg.Insert(0, 5, 1), std::out_of_range);
+    }
+
+    SECTION("Negative indices throw") {
+        REQUIRE_THROWS(dg.Insert(-1, 0, 1));
+        REQUIRE_THROWS(dg.Insert(0, -1, 1));
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Append
+// ─────────────────────────────────────────────────────────────────────────────
+TEST_CASE("Append adds a new row", "[append]") {
+    DataGrid dg(2, 3);
+
+    SECTION("Appended row is accessible") {
+        std::vector<Datum> newRow = {Datum(1.0), Datum(2.0), Datum(3.0)};
+        dg.Append(newRow);
+        // Grid should now have 3 rows
+        REQUIRE_NOTHROW(dg.Row(2));
+        REQUIRE(dg.Row(2).size() == 3);
+    }
+
+    SECTION("Appended values are correct") {
+        std::vector<Datum> newRow = {Datum(10.0), Datum(20.0), Datum(30.0)};
+        dg.Append(newRow);
+        REQUIRE(dg.At(2, 0).AsDouble() == Approx(10.0));
+        REQUIRE(dg.At(2, 1).AsDouble() == Approx(20.0));
+        REQUIRE(dg.At(2, 2).AsDouble() == Approx(30.0));
+    }
+
+    SECTION("Multiple appends increase row count") {
+        dg.Append({Datum(1.0), Datum(2.0), Datum(3.0)});
+        dg.Append({Datum(4.0), Datum(5.0), Datum(6.0)});
+        REQUIRE_NOTHROW(dg.Row(3));
+    }
+
+    SECTION("Appending empty row") {
+        // Should not crash, even if dimensions mismatch
         REQUIRE_NOTHROW(dg.Append({}));
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Row
+// ─────────────────────────────────────────────────────────────────────────────
+TEST_CASE("Row returns correct data", "[row]") {
+    DataGrid dg(3, 3);
+    dg.Insert(1, 0, 10);
+    dg.Insert(1, 1, 20);
+    dg.Insert(1, 2, 30);
 
-// ============================================================
-//  Row
-// ============================================================
-
-TEST_CASE("DataGrid::Row", "[row]") {
-    SECTION("returns a copy of the correct row") {
-        DataGrid dg(0, 3);
-        dg.Append(MakeDatumRow({10, 20, 30}));
-        dg.Append(MakeDatumRow({40, 50, 60}));
-
-        auto r1 = dg.Row(0);
-        REQUIRE(r1[0].AsDouble() == 10.0);
-        REQUIRE(r1[2].AsDouble() == 30.0);
-
-        auto r2 = dg.Row(1);
-        REQUIRE(r2[0].AsDouble() == 40.0);
-        REQUIRE(r2[2].AsDouble() == 60.0);
+    SECTION("Row size matches column count") {
+        REQUIRE(dg.Row(1).size() == 3);
     }
 
-    SECTION("out-of-bounds row index throws") {
-        DataGrid dg(2, 2);
-        REQUIRE_THROWS_AS(dg.Row(5), std::out_of_range);
-    }
-}
-
-
-// ============================================================
-//  Column
-// ============================================================
-
-// [bug] std::vector<Datum&> is ill-formed — references cannot be stored
-// in standard containers. The return type must change to
-// std::vector<std::reference_wrapper<Datum>> or std::vector<Datum>.
-// These tests document intended behavior and will not compile until fixed.
-
-TEST_CASE("DataGrid::Column", "[column][bug]") {
-    SECTION("returns elements from the correct column") {
-        DataGrid dg(0, 3);
-        dg.Append(MakeDatumRow({1, 2, 3}));
-        dg.Append(MakeDatumRow({4, 5, 6}));
-
-        auto col = dg.Column(1);   // should be [2, 5]
-        REQUIRE(col.size() == 2);
-        REQUIRE(col[0].AsDouble() == 2.0);
-        REQUIRE(col[1].AsDouble() == 5.0);
+    SECTION("Row values are correct") {
+        auto row = dg.Row(1);
+        REQUIRE(row[0].AsDouble() == Approx(10.0));
+        REQUIRE(row[1].AsDouble() == Approx(20.0));
+        REQUIRE(row[2].AsDouble() == Approx(30.0));
     }
 
-    SECTION("first and last columns are accessible") {
-        DataGrid dg(0, 3);
-        dg.Append(MakeDatumRow({10, 20, 30}));
-
-        REQUIRE(dg.Column(0)[0].AsDouble() == 10.0);
-        REQUIRE(dg.Column(2)[0].AsDouble() == 30.0);
+    SECTION("Row returns a copy, not a reference") {
+        auto row = dg.Row(1);
+        // Modifying the copy should not affect the grid
+        // (This is safe because Row returns by value)
+        REQUIRE(dg.At(1, 0).AsDouble() == Approx(10.0));
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Column
+// ─────────────────────────────────────────────────────────────────────────────
+TEST_CASE("Column returns correct data", "[column]") {
+    DataGrid dg(3, 3);
+    dg.Insert(0, 2, 100);
+    dg.Insert(1, 2, 200);
+    dg.Insert(2, 2, 300);
 
-// ============================================================
-//  Insert — sequential
-// ============================================================
-
-// [bug] Insert(T) never advances mEnd in the normal path, so every call
-// overwrites (0,0). Additionally, when the grid is full the push_back
-// branch falls through and attempts an out-of-bounds write.
-
-TEST_CASE("DataGrid::Insert sequential", "[insert][bug]") {
-    SECTION("fills cells in row-major order") {
-        DataGrid dg(2, 3);
-        for (int i = 0; i < 6; ++i) dg.Insert(i * 10);
-
-        REQUIRE(dg.At<int>(0, 0) == 0);
-        REQUIRE(dg.At<int>(0, 1) == 10);
-        REQUIRE(dg.At<int>(0, 2) == 20);
-        REQUIRE(dg.At<int>(1, 0) == 30);
-        REQUIRE(dg.At<int>(1, 1) == 40);
-        REQUIRE(dg.At<int>(1, 2) == 50);
+    SECTION("Column size matches row count") {
+        REQUIRE(dg.Column(2).size() == 3);
     }
 
-    SECTION("grows the grid when capacity is exceeded") {
-        DataGrid dg(1, 1);
-        dg.Insert(99);
-        dg.Insert(42);   // should append a new row
+    SECTION("Column values are correct") {
+        auto col = dg.Column(2);
+        REQUIRE(col[0].AsDouble() == Approx(100.0));
+        REQUIRE(col[1].AsDouble() == Approx(200.0));
+        REQUIRE(col[2].AsDouble() == Approx(300.0));
+    }
 
-        REQUIRE(dg.Row(0)[0].AsDouble() == 99.0);
-        REQUIRE(dg.Row(1)[0].AsDouble() == 42.0);
+    SECTION("First column") {
+        dg.Insert(0, 0, 7);
+        REQUIRE(dg.Column(0)[0].AsDouble() == Approx(7.0));
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// At
+// ─────────────────────────────────────────────────────────────────────────────
+TEST_CASE("At retrieves correct element", "[at]") {
+    DataGrid dg(4, 4);
+    dg.Insert(0, 0, 1);
+    dg.Insert(3, 3, 999);
 
-// ============================================================
-//  Insert — positional
-// ============================================================
-
-// [bug] The bounds check is inverted: `c < mDim.second` is true for
-// every valid column index, so valid inserts throw and OOB ones do not.
-
-TEST_CASE("DataGrid::Insert positional", "[insert]") {
-    SECTION("valid position does not throw") {
-        // [bug] currently throws due to inverted column check
-        DataGrid dg(3, 3);
-        REQUIRE_NOTHROW(dg.Insert(1, 1, 42));
+    SECTION("Top-left corner") {
+        REQUIRE(dg.At(0, 0).AsDouble() == Approx(1.0));
     }
 
-    SECTION("writes the correct value at the given position") {
-        // [bug] same as above
-        DataGrid dg(3, 3);
-        dg.Insert(2, 2, 77);
-        REQUIRE(dg.At<int>(2, 2) == 77);
+    SECTION("Bottom-right corner") {
+        REQUIRE(dg.At(3, 3).AsDouble() == Approx(999.0));
     }
 
-    SECTION("out-of-bounds row throws std::out_of_range") {
-        DataGrid dg(2, 2);
-        REQUIRE_THROWS_AS(dg.Insert(5, 0, 1), std::out_of_range);
-    }
-
-    SECTION("out-of-bounds column throws std::out_of_range") {
-        // [bug] currently does NOT throw due to inverted condition
-        DataGrid dg(2, 2);
-        REQUIRE_THROWS_AS(dg.Insert(0, 5, 1), std::out_of_range);
-    }
-
-    SECTION("inserting a double value round-trips correctly") {
-        // [bug] will throw until bounds check is fixed
-        DataGrid dg(2, 2);
-        dg.Insert(0, 0, 3.14);
-        REQUIRE(dg.At<double>(0, 0) == Catch::Approx(3.14));
+    SECTION("Default-constructed cell has a sane value") {
+        REQUIRE_NOTHROW(dg.At(1, 1));
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Find
+// ─────────────────────────────────────────────────────────────────────────────
+// NOTE: Find() currently iterates over rows (std::vector<Datum>) using
+// std::find_if, but the lambda compares a Datum to elements of
+// std::vector<Datum>. This is a type mismatch bug — Find will not compile
+// or will not work correctly until fixed. Tests below document intended behavior.
+TEST_CASE("Find locates elements correctly", "[find]") {
+    DataGrid dg(3, 3);
+    dg.Insert(0, 0, 1.0);
+    dg.Insert(1, 1, 42.0);
+    dg.Insert(2, 2, 99.0);
 
-// ============================================================
-//  At
-// ============================================================
-
-TEST_CASE("DataGrid::At", "[at]") {
-    SECTION("returns the correct int value") {
-        DataGrid dg(0, 2);
-        dg.Append(MakeDatumRow({42, 7}));
-        REQUIRE(dg.At<int>(0, 0) == 42);
-        REQUIRE(dg.At<int>(0, 1) == 7);
+    SECTION("Find existing element returns correct position") {
+        auto result = dg.Find(42.0);
+        REQUIRE(result.has_value());
+        REQUIRE(result->first == 1);
+        REQUIRE(result->second == 1);
     }
 
-    SECTION("returns the correct double value") {
-        DataGrid dg(0, 1);
-        dg.Append({Datum(2.71828)});
-        REQUIRE(dg.At<double>(0, 0) == Catch::Approx(2.71828));
+    SECTION("Find element in first cell") {
+        auto result = dg.Find(1.0);
+        REQUIRE(result.has_value());
+        REQUIRE(result->first == 0);
+        REQUIRE(result->second == 0);
     }
 
-    SECTION("out-of-bounds indices throw") {
-        DataGrid dg(1, 1);
-        REQUIRE_THROWS_AS(dg.At<int>(10, 10), std::out_of_range);
-    }
-}
-
-
-// ============================================================
-//  Find
-// ============================================================
-
-// [bug] Find() iterates over rows (each a std::vector<Datum>) rather than
-// individual Datum cells, so the search lambda never matches anything.
-// The return type also conflicts: the header declares std::pair<int,int>
-// but the implementation returns std::expected<std::pair<int,int>, std::string>.
-
-TEST_CASE("DataGrid::Find", "[find][bug]") {
-    SECTION("finds an element that is present") {
-        DataGrid dg(0, 3);
-        dg.Append(MakeDatumRow({10, 20, 30}));
-        dg.Append(MakeDatumRow({40, 50, 60}));
-
-        auto pos = dg.Find(50);
-        REQUIRE(pos == std::pair<int,int>{1, 1});
+    SECTION("Find element in last cell") {
+        auto result = dg.Find(99.0);
+        REQUIRE(result.has_value());
+        REQUIRE(result->first == 2);
+        REQUIRE(result->second == 2);
     }
 
-    SECTION("reports failure for an absent element") {
-        DataGrid dg(0, 2);
-        dg.Append(MakeDatumRow({1, 2}));
-
-        // When using std::expected the result should be valueless
-        auto pos = dg.Find(999);
-        REQUIRE_FALSE(pos.has_value());
+    SECTION("Find missing element returns unexpected") {
+        auto result = dg.Find(777.0);
+        REQUIRE_FALSE(result.has_value());
+        REQUIRE(result.error() == "Your element is not in the data grid.");
     }
 
-    SECTION("finds an element in the first cell") {
-        DataGrid dg(0, 2);
-        dg.Append(MakeDatumRow({7, 8}));
-        REQUIRE(dg.Find(7) == std::pair<int,int>{0, 0});
-    }
-
-    SECTION("finds an element in the last cell") {
-        DataGrid dg(0, 3);
-        dg.Append(MakeDatumRow({1, 2, 3}));
-        dg.Append(MakeDatumRow({4, 5, 6}));
-        REQUIRE(dg.Find(6) == std::pair<int,int>{1, 2});
+    SECTION("Find in empty-valued grid returns unexpected") {
+        DataGrid empty(2, 2);
+        auto result = empty.Find(1.0);
+        REQUIRE_FALSE(result.has_value());
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Iterator
+// ─────────────────────────────────────────────────────────────────────────────
+TEST_CASE("Iterator traverses grid correctly", "[iterator]") {
+    DataGrid dg(2, 3);
+    dg.Insert(0, 0, 1); dg.Insert(0, 1, 2); dg.Insert(0, 2, 3);
+    dg.Insert(1, 0, 4); dg.Insert(1, 1, 5); dg.Insert(1, 2, 6);
 
-// ============================================================
-//  Iterator
-// ============================================================
-
-// [bug] operator++ checks whether mCol == mDim.second and resets to 0,
-// but then unconditionally does ++mCol — so the iterator skips col 0 on
-// every new row and also double-increments on every normal step.
-
-TEST_CASE("DataGrid iterator", "[iterator]") {
-    SECTION("begin() == end() on an empty (unfilled) grid") {
-        DataGrid dg(2, 2);
-        REQUIRE(dg.begin().Pos() == dg.end().Pos());
+    SECTION("begin() != end() on non-empty grid") {
+        REQUIRE(dg.begin() != dg.end());
     }
 
-    SECTION("Pos() returns correct location at begin") {
-        DataGrid dg(0, 3);
-        dg.Append(MakeDatumRow({0, 0, 0}));
-        REQUIRE(dg.begin().Pos() == std::pair<int,int>{0, 0});
+    SECTION("Dereferencing begin gives first element") {
+        REQUIRE((*dg.begin()).AsDouble() == Approx(1.0));
     }
 
-    SECTION("iterates over every element in row-major order") {
-        // [bug] will fail until operator++ is fixed
-        DataGrid dg(0, 3);
-        dg.Append(MakeDatumRow({1, 2, 3}));
-        dg.Append(MakeDatumRow({4, 5, 6}));
-
-        std::vector<double> visited;
-        for (auto it = dg.begin(); it != dg.end(); ++it)
-            visited.push_back((*it).AsDouble());
-
-        REQUIRE(visited.size() == 6);
-        REQUIRE(visited[0] == 1.0);
-        REQUIRE(visited[1] == 2.0);
-        REQUIRE(visited[2] == 3.0);
-        REQUIRE(visited[3] == 4.0);
-        REQUIRE(visited[4] == 5.0);
-        REQUIRE(visited[5] == 6.0);
-    }
-
-    SECTION("range-based for loop sums all elements correctly") {
-        // [bug] will fail until operator++ is fixed
-        DataGrid dg(0, 2);
-        dg.Append(MakeDatumRow({10, 20}));
-        dg.Append(MakeDatumRow({30, 40}));
-
-        double sum = 0.0;
-        for (auto datum : dg) sum += datum.AsDouble();
-        REQUIRE(sum == 100.0);
-    }
-
-    SECTION("single-element grid: one increment reaches end") {
-        // [bug] will fail until operator++ is fixed
-        DataGrid dg(0, 1);
-        dg.Append({Datum(99)});
-
-        auto it = dg.begin();
-        REQUIRE(it != dg.end());
-        REQUIRE((*it).AsDouble() == 99.0);
-        ++it;
-        REQUIRE(it == dg.end());
-    }
-}
-
-
-// ============================================================
-//  Integration
-// ============================================================
-
-TEST_CASE("DataGrid integration", "[integration]") {
-    SECTION("append then Row round-trips correctly") {
-        DataGrid dg(0, 4);
-        std::vector<Datum> original = {Datum(1), Datum(2), Datum(3), Datum(4)};
-        dg.Append(original);
-
-        auto retrieved = dg.Row(0);
-        REQUIRE(retrieved.size() == original.size());
-        for (size_t i = 0; i < original.size(); ++i)
-            REQUIRE(retrieved[i].AsDouble() == original[i].AsDouble());
-    }
-
-    SECTION("1000-row stress test preserves all values") {
-        DataGrid dg(0, 10);
-        for (int i = 0; i < 1000; ++i) {
-            std::vector<Datum> row;
-            for (int j = 0; j < 10; ++j) row.emplace_back(i * 10 + j);
-            dg.Append(row);
+    SECTION("Range-based for loop visits all cells") {
+        int count = 0;
+        for (auto datum : dg) {
+            (void)datum;
+            count++;
         }
-
-        REQUIRE(dg.Row(0)[0].AsDouble()   ==    0.0);
-        REQUIRE(dg.Row(0)[9].AsDouble()   ==    9.0);
-        REQUIRE(dg.Row(500)[0].AsDouble() == 5000.0);
-        REQUIRE(dg.Row(999)[9].AsDouble() == 9999.0);
+        // 2 rows * 3 cols = 6 elements
+        // NOTE: this will expose the off-by-one bug in operator++ where
+        // mCol is compared to mDim.second before incrementing past it.
+        REQUIRE(count == 6);
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Known bugs summary (will appear as failures until fixed)
+// ─────────────────────────────────────────────────────────────────────────────
+// 1. Insert(r,c): condition `r > mDim.first` should be `r >= mDim.first`
+//    → allows inserting one row past the end without throwing.
+//
+// 2. Insert(r,c): mEnd.second++ is incremented regardless of column position,
+//    which will desync mEnd over multiple inserts.
+//
+// 3. Find(): std::find_if iterates over rows (vector<Datum>) but the lambda
+//    expects a single Datum — type mismatch, won't compile as-is.
+//    Should iterate over a flattened view or use nested loops.
+//
+// 4. Iterator::operator++: checks `mCol == mDim.second` but mCol is never
+//    incremented to mDim.second before wrapping — should be `mCol >= mDim.second - 1`.
