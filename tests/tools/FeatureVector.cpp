@@ -6,6 +6,9 @@
 #include <stdexcept>
 #include <vector>
 
+using cse498::FeatureSchema;
+using cse498::FeatureVector;
+
 TEST_CASE("FeatureSchema basic behavior", "[group-05][FeatureVector]") {
   const FeatureSchema schema(std::vector<std::string>{"speed", "mass", "hp"});
 

@@ -16,6 +16,8 @@
 #include <cstddef>
 #include <cctype>
 
+namespace cse498 {
+
 class TagManager {
 public:
 
@@ -73,3 +75,5 @@ private:
   // For fast filtering in queries
   bool BucketContainsId(const std::string& tag, ObjectId id) const;
 };
+
+}

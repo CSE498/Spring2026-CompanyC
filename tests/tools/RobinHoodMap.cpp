@@ -2,7 +2,7 @@
 #include <string>
 #include <stdexcept>
 
-#include "../third-party/Catch/single_include/catch2/catch.hpp"
+#include "../../third-party/Catch/single_include/catch2/catch.hpp"
 using cse498::RobinHoodMap;
 
 TEST_CASE("RobinHoodMap: insert/find/contains basics") {

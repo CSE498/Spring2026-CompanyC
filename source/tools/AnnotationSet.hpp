@@ -3,6 +3,9 @@
 #include <vector>
 #include <string>
 #include <set>
+
+namespace cse498 {
+
 class AnnotationSet{
     private:
         int objectId; //id of attached object
@@ -23,3 +26,5 @@ class AnnotationSet{
         int Size();
         std::set<std::string> GetTags();
 };
+
+}

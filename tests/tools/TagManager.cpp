@@ -11,6 +11,8 @@
 #include <vector>
 #include <string>
 
+using cse498::TagManager;
+
 static std::set<TagManager::ObjectId> ToSet(const std::vector<TagManager::ObjectId>& v) {
   return std::set<TagManager::ObjectId>(v.begin(), v.end());
 }

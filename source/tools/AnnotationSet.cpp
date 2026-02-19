@@ -6,12 +6,14 @@
 //on the amount being added. Tags can also be checked for membership whether it be
 //only one or multiple. 
 
-#include "../../source/tools/AnnotationSet.hpp"
+#include "AnnotationSet.hpp"
 #include <set>
 #include <string>
 #include <algorithm>
 #include <cctype>
 #include <vector>
+
+namespace cse498 {
 
 //new constructor initializes object Id and tags with a default value of {}
 AnnotationSet::AnnotationSet(int obj, std::set<std::string> inTags){
@@ -113,4 +115,6 @@ std::set<std::string> AnnotationSet::GetTags(){
 
 int AnnotationSet::Size(){
     return tags.size();
+}
+
 }

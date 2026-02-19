@@ -1,8 +1,9 @@
+#include "../../third-party/Catch/single_include/catch2/catch.hpp"
 
-#include "../third-party/Catch/single_include/catch2/catch.hpp"
-
-#include "../source/tools/AnnotationSet.hpp"
+#include "../../source/tools/AnnotationSet.hpp"
 #include <algorithm>
+
+using cse498::AnnotationSet;
 
 TEST_CASE("BaseFunctionality-AnnotationSet","[AnnotationSet]"){
     int objId=1;

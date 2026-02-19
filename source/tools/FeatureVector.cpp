@@ -5,6 +5,8 @@
 #include <stdexcept>
 #include <utility>
 
+namespace cse498 {
+
 FeatureSchema::FeatureSchema(std::vector<std::string> names)
     : names_(std::move(names)) {
   index_by_name_.reserve(names_.size());
@@ -88,4 +90,6 @@ void FeatureVector::RequireSameSchema_(const FeatureVector& other) const {
   }
 
   throw std::invalid_argument("FeatureVector schema mismatch");
+}
+
 }

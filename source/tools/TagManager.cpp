@@ -14,6 +14,8 @@
 
 #include <limits>
 
+namespace cse498 {
+
 /*
   Constructor: Uses default construction
   Both maps start empty
@@ -356,4 +358,6 @@ std::vector<TagManager::ObjectId> TagManager::FindAllExcept(
   }
 
   return result;
+}
+
 }

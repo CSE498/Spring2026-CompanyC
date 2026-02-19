@@ -9,6 +9,8 @@
 #include <unordered_map>
 #include <vector>
 
+namespace cse498 {
+
 class FeatureSchema final {
 public:
   explicit FeatureSchema(std::vector<std::string> names);
@@ -60,3 +62,5 @@ private:
   std::shared_ptr<const FeatureSchema> schema_;
   std::vector<double> values_;
 };
+
+}

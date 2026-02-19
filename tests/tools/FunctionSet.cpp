@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+using cse498::FunctionSet;
+
 TEST_CASE("Test FunctionSet Basic Behavior", "[tools]")
 {
     FunctionSet<void()> fs;

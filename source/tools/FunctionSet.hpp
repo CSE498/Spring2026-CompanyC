@@ -4,6 +4,8 @@
 #include <functional>
 #include <utility>
 
+namespace cse498 {
+
 /// @brief A lightweight container that stores multiple functions
 ///        sharing the same signature and invokes them sequentially.
 ///
@@ -74,3 +76,5 @@ private:
     /// Maintains insertion order
     std::vector<FunctionType> functions_;
 };
+
+}
