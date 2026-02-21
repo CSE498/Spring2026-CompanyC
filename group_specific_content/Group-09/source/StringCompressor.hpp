@@ -8,7 +8,6 @@
 // LZW is a dictionary based compression algorithm
 // Only a single number is needed to represent a substring
 // Standard Character-Set -> The 256 ASCII code chars
-
 // Claude AI was used to help make code below
 
 #pragma once
@@ -18,12 +17,12 @@
 #include <cstdint>
 #include <expected>
 
+namespace cse498 {
+
 enum class CompressorError {
     EmptyInput,
     InvalidCode,
     CorruptedHeader,
-    ChecksumMismatch,
-    MemoryAllocationError,
     VersionIncompatibility
 };
 
@@ -60,7 +59,8 @@ public:
                                        const std::vector<uint16_t>& compressed);
     
     /**
-     * Compresses string and converts to byte vector for database storage
+     * Compresses string and converts to byte vector for database storage.
+     * Format: [MAGIC_BYTE_1][MAGIC_BYTE_2][VERSION][compressed_codes...]
      */
     static std::vector<uint8_t> CompressToBytes(const std::string& input);
     
@@ -75,3 +75,5 @@ public:
      */
     static bool IsCompressed(const std::vector<uint8_t>& data);
 };
+
+} // namespace cse498

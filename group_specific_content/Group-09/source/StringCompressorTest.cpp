@@ -11,12 +11,12 @@
     -L/opt/homebrew/opt/catch2/lib \
     StringCompressorTest.cpp StringCompressor.cpp \
     -o test_compressor \
-    -lCatch2Main -lCatch2 ./test_compressor
-
-// We should make our MakeFile soon though to get rid of ide errors
+    -lCatch2Main -lCatch2
 
 #include <catch2/catch_test_macros.hpp>
 #include "StringCompressor.hpp"
+
+using namespace cse498;
 
 TEST_CASE("Basic compression and decompression", "[compression]") {
     std::string original = "TOBEORNOTTOBEORTOBEORNOT";
