@@ -69,6 +69,13 @@ TEST_CASE("Test Push", "[EventQueue]")
     REQUIRE(eq.Top().mPriority == 1);
     REQUIRE(eq.Top().mTiebreaker == 1);
 
+    // Test overload of Push that takes data and priority directly
+    eq.Push("Event 3", 0);
+    REQUIRE(eq.Size() == 3);
+    REQUIRE(eq.Top().mData == "Event 3");
+    REQUIRE(eq.Top().mPriority == 0);
+    REQUIRE(eq.Top().mTiebreaker == 2);
+
 }
 
 TEST_CASE("Test Pop", "[EventQueue]") 

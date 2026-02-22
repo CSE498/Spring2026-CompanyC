@@ -7,9 +7,9 @@
 #pragma once
 
 // Include statements
-#include <algorithm> // For push_heap and pop_heap
 #include <vector>   // For heap container
 #include <string>  // For event data type
+#include <cstddef> // For size_t
 
 namespace cse498
 {
@@ -25,11 +25,19 @@ namespace cse498
         int mPriority;
 
         // Insertion index used for tiebreaker 
-        size_t mTiebreaker;
+        std::size_t mTiebreaker;
 
-        Event();
+        /**
+        * Default Constructor
+        */
+        Event() = default;
 
-        Event(const std::string& data, int priority);
+        /**
+         * Constructor
+         * @param data The event data
+         * @param priority The priority of the event
+         */
+        Event(const std::string& data, int priority) : mData(data), mPriority(priority), mTiebreaker(0) {}
     };
 
     /*
@@ -42,7 +50,7 @@ namespace cse498
         std::vector<Event> mHeap;
         
         // Insertion index
-        size_t mInsertionIndex = 0;
+        std::size_t mInsertionIndex = 0;
 
         // Comparator
         struct Comparator
@@ -51,7 +59,10 @@ namespace cse498
         };
 
     public:
-        EventQueue();
+        /**
+         * Default Constructor
+         */
+        EventQueue() = default;
 
         // Copy constructor
         EventQueue(const EventQueue&) = default;
@@ -61,11 +72,13 @@ namespace cse498
 
         void Push(const Event& event);
 
+        void Push(const std::string& data, int priority);
+
         void Pop();
 
         const Event& Top() const;
 
-        size_t Size() const;
+        std::size_t Size() const;
 
         bool Empty() const;
     };
