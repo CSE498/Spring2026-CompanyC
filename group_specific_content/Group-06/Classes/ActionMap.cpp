@@ -51,6 +51,7 @@ std::optional<std::string> ActionMap::Trigger(const std::string &name) {
   } catch (const std::exception &e) {
     return "Exception thrown by function '" + name + "': " + e.what();
   }
+  
   return std::optional<std::string>();
 }
 
