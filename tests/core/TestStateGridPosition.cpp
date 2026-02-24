@@ -68,7 +68,7 @@ TEST_CASE("Test StateGridPosition Move* by assignment", "[worlds]") {
 
   p = p.MoveUp();
   CHECK(p.GetX() == 5);
-  CHECK(p.GetY() == 6);
+  CHECK(p.GetY() == 4);
 
   p = p.MoveDown();
   CHECK(p.GetX() == 5);
@@ -110,8 +110,8 @@ TEST_CASE("Test StateGridPosition Neighbors", "[worlds]") {
   auto n = p.Neighbors();
 
   // Expected order: Up, Down, Left, Right
-  CHECK(n[0] == cse498::StateGridPosition(5, 6));
-  CHECK(n[1] == cse498::StateGridPosition(5, 4));
+  CHECK(n[0] == cse498::StateGridPosition(5, 4));
+  CHECK(n[1] == cse498::StateGridPosition(5, 6));
   CHECK(n[2] == cse498::StateGridPosition(4, 5));
   CHECK(n[3] == cse498::StateGridPosition(6, 5));
 
