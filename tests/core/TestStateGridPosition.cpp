@@ -44,11 +44,11 @@ TEST_CASE("Test StateGridPosition Move* returns new object (non-mutating)", "[wo
 
   auto up = p.MoveUp();
   CHECK(up.GetX() == 5);
-  CHECK(up.GetY() == 6);
+  CHECK(up.GetY() == 4);
 
   auto down = p.MoveDown();
   CHECK(down.GetX() == 5);
-  CHECK(down.GetY() == 4);
+  CHECK(down.GetY() == 6);
 
   auto left = p.MoveLeft();
   CHECK(left.GetX() == 4);

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vector>
-#include "StateGridPosition.h"
+#include "StateGridPosition.hpp"
 
 namespace cse498 {
 
