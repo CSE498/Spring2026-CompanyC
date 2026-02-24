@@ -211,7 +211,9 @@ TEST_CASE("EncodeDiff: Verify 5 seperators", "[StringDiff][EncodeDiff]") {
     std::string updated = "Hello C++ World";
     
     auto patch = StringDiff::MakeDiff(base, updated);
-    std::string encoded = StringDiff::EncodeDiff(patch);
+    auto encoded_result = StringDiff::EncodeDiff(patch);
+    REQUIRE(encoded_result.has_value());
+    std::string encoded = encoded_result.value();
 
     int sep_count = 0;
     for (char c : encoded) {
@@ -228,7 +230,10 @@ TEST_CASE("EncodeDiff: Verify encode ends with replacement text", "[StringDiff][
     std::string updated = "Hello C++ World";
     
     auto patch = StringDiff::MakeDiff(base, updated);
-    std::string encoded = StringDiff::EncodeDiff(patch);
+    auto encoded_result = StringDiff::EncodeDiff(patch);
+    
+    REQUIRE(encoded_result.has_value());
+    std::string encoded = encoded_result.value();
 
     //should end in 'C++ '
     REQUIRE(encoded.size() >= 4);
@@ -242,7 +247,10 @@ TEST_CASE("EncodeDiff: Manual build comparison", "[StringDiff][EncodeDiff]") {
     std::string updated = "Hello C++ World";
     
     auto patch = StringDiff::MakeDiff(base, updated);
-    std::string encoded = StringDiff::EncodeDiff(patch);
+    auto encoded_result = StringDiff::EncodeDiff(patch);
+    REQUIRE(encoded_result.has_value());
+    
+    std::string encoded = encoded_result.value();
 
     std::ostringstream oss;
     oss << patch.base_hash << '|';
@@ -266,7 +274,9 @@ TEST_CASE("DecodeDiff: Full flow, encode then decode", "[StringDiff][DecodeDiff]
     std::string updated = "Hello C++ World";
 
     auto patch = StringDiff::MakeDiff(base, updated);
-    std::string encoded = StringDiff::EncodeDiff(patch);
+    auto encoded_result = StringDiff::EncodeDiff(patch);
+    REQUIRE(encoded_result.has_value());
+    std::string encoded = encoded_result.value();
     auto decoded = StringDiff::DecodeDiff(encoded);
 
     REQUIRE(decoded.has_value());
@@ -280,7 +290,9 @@ TEST_CASE("DecodeDiff: Full flow, no replacement", "[StringDiff][DecodeDiff]") {
     std::string updated = "Hello World";
 
     auto patch = StringDiff::MakeDiff(base, updated);
-    std::string encoded = StringDiff::EncodeDiff(patch);
+    auto encoded_result = StringDiff::EncodeDiff(patch);
+    REQUIRE(encoded_result.has_value());
+    std::string encoded = encoded_result.value();
     auto decoded = StringDiff::DecodeDiff(encoded);
 
     REQUIRE(decoded.has_value());
@@ -294,7 +306,9 @@ TEST_CASE("DecodeDiff: Full flow, empty base", "[StringDiff][DecodeDiff]") {
     std::string updated = "Hello World";
 
     auto patch = StringDiff::MakeDiff(base, updated);
-    std::string encoded = StringDiff::EncodeDiff(patch);
+    auto encoded_result = StringDiff::EncodeDiff(patch);
+    REQUIRE(encoded_result.has_value());
+    std::string encoded = encoded_result.value();
     auto decoded = StringDiff::DecodeDiff(encoded);
 
     REQUIRE(decoded.has_value());
@@ -391,6 +405,15 @@ TEST_CASE("DecodeDiff: prefix + suffix > base_length returns InvalidPatchInvaria
     REQUIRE(decoded.error() == DiffError::InvalidPatchInvariant);
 }
 
+//overflow test
+TEST_CASE("DecodeDiff: prefix + suffix uint64 overflow returns InvalidPatchInvariant", "[StringDiff][DecodeDiff]") {
+    std::string encoded = "123|18446744073709551615|18446744073709551615|1|0|";
+    auto decoded = StringDiff::DecodeDiff(encoded);
+
+    REQUIRE_FALSE(decoded.has_value());
+    REQUIRE(decoded.error() == DiffError::InvalidPatchInvariant);
+}
+
 
 // ************************************************************************
 // tests to make sure proper uint64_t parsing
@@ -479,7 +502,10 @@ TEST_CASE("Complete: make, encode, decode, apply reconstructs string", "[StringD
     std::string updated = "The quick red fox";
 
     auto patch = StringDiff::MakeDiff(base, updated);
-    std::string encoded = StringDiff::EncodeDiff(patch);
+    auto encoded_result = StringDiff::EncodeDiff(patch);
+    REQUIRE(encoded_result.has_value());
+
+    std::string encoded = encoded_result.value();
     auto decoded = StringDiff::DecodeDiff(encoded);
 
     REQUIRE(decoded.has_value());
@@ -496,7 +522,10 @@ TEST_CASE("Complete: empty to non-empty", "[StringDiff][Complete]") {
     std::string updated = "The quick red fox";
 
     auto patch = StringDiff::MakeDiff(base, updated);
-    std::string encoded = StringDiff::EncodeDiff(patch);
+    auto encoded_result = StringDiff::EncodeDiff(patch);
+    REQUIRE(encoded_result.has_value());
+    
+    std::string encoded = encoded_result.value();
     auto decoded = StringDiff::DecodeDiff(encoded);
 
     REQUIRE(decoded.has_value());
@@ -512,7 +541,10 @@ TEST_CASE("Complete: non-empty to empty", "[StringDiff][Complete]") {
     std::string updated = "";
 
     auto patch = StringDiff::MakeDiff(base, updated);
-    std::string encoded = StringDiff::EncodeDiff(patch);
+    auto encoded_result = StringDiff::EncodeDiff(patch);
+    REQUIRE(encoded_result.has_value());
+
+    std::string encoded = encoded_result.value();
     auto decoded = StringDiff::DecodeDiff(encoded);
 
     REQUIRE(decoded.has_value());
@@ -536,7 +568,10 @@ TEST_CASE("Complete: long string with small difference", "[StringDiff][Complete]
     REQUIRE(patch.prefix_length == 500);
     REQUIRE(patch.suffix_length == 499);
 
-    std::string encoded = StringDiff::EncodeDiff(patch);
+    auto encoded_result = StringDiff::EncodeDiff(patch);
+    REQUIRE(encoded_result.has_value());
+
+    std::string encoded = encoded_result.value();
     auto decoded = StringDiff::DecodeDiff(encoded);
 
     REQUIRE(decoded.has_value());
@@ -552,7 +587,10 @@ TEST_CASE("Complete: string has special chars", "[StringDiff][Complete]") {
     std::string updated = "line1\nmodified\ttab";
 
     auto patch = StringDiff::MakeDiff(base, updated);
-    std::string encoded = StringDiff::EncodeDiff(patch);
+    auto encoded_result = StringDiff::EncodeDiff(patch);
+    REQUIRE(encoded_result.has_value());
+
+    std::string encoded = encoded_result.value();
     auto decoded = StringDiff::DecodeDiff(encoded);
 
     REQUIRE(decoded.has_value());
