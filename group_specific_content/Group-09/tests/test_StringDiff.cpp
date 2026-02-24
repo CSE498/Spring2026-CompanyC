@@ -2,8 +2,8 @@
 #include "catch2/catch.hpp"
 #include "../source/StringDiff.hpp"
 
-using sim::StringDiff;
-using sim::DiffError;
+using cse498::StringDiff;
+using cse498::DiffError;
 
 
 
@@ -249,7 +249,7 @@ TEST_CASE("EncodeDiff: Manual build comparison", "[StringDiff][EncodeDiff]") {
     auto patch = StringDiff::MakeDiff(base, updated);
     auto encoded_result = StringDiff::EncodeDiff(patch);
     REQUIRE(encoded_result.has_value());
-    
+
     std::string encoded = encoded_result.value();
 
     std::ostringstream oss;

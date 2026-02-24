@@ -2,7 +2,7 @@
 #include <sstream>    // for std::ostringstream
 #include <charconv>   // for std::from_chars
 
-namespace sim {
+namespace cse498 {
 
 //Private helper
 uint64_t StringDiff::ComputeHash(const std::string& str) {
@@ -232,4 +232,4 @@ std::expected<StringDiff::Diff, DiffError> StringDiff::DecodeDiff(const std::str
     return patch;
 }
 
-} //namespace sim
+} //namespace cse498

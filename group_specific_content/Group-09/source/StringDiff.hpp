@@ -4,7 +4,7 @@
 #include <expected>
 #include <cstdint>
 
-namespace sim {
+namespace cse498 {
 
 
 enum class DiffError {
@@ -135,4 +135,4 @@ private:
 
 };
  
-} //namespace sim
+} //namespace cse498
