@@ -62,7 +62,7 @@ namespace cse498 {
             {
                 size_t pos;
                 double result = std::stod(s, &pos);
-                if (pos != s.size()) return std::numeric_limits<double>::quiet_NaN(); 
+                if (pos != s.size()) return std::numeric_limits<double>::quiet_NaN(); // leftover chars
                 return result;
                 
 
