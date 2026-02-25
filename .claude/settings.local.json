@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(python -c:*)",
-      "Bash(powershell -Command \"Add-Type -AssemblyName System.IO.Compression; $zip = [System.IO.Compression.ZipFile]::OpenRead\\(''Class Descrptions \\(1\\).docx''\\); $entry = $zip.Entries | Where-Object {$_Name -eq ''document.xml''}; $reader = New-Object System.IO.StreamReader\\($entry.Open\\(\\)\\); $content = $reader.ReadToEnd\\(\\); $reader.Close\\(\\); $zip.Dispose\\(\\); $content\")",
-      "Bash(tar:*)"
-    ]
-  }
-}
