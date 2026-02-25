@@ -1,4 +1,4 @@
-/**
+﻿/**
 * @author George Almeida
 * @file WeightedSet.h
 * @brief A simple implementation of a weighted set data structure that maintains unique elements 
@@ -13,8 +13,8 @@
 #include <cassert>
 #include <stdexcept>
 #include <random>
-#include <cmath>
-#include <limits>
+#include <type_traits>
+#include <iterator>
 
 namespace cse498 {
 
@@ -36,21 +36,19 @@ public:
     // Insert a new element with the given positive weight. Returns true on success.
     // If the element already exists, returns false.
     bool insert(const T& value, weight_type weight) {
-        // Validate weight at runtime. An assert only checks in debug builds;
-        // in release builds a zero or negative weight would be accepted and
-        // could corrupt the total weight. Throw an exception for invalid
-        // weights so callers always get a clear error.
-        if (!(weight > 0.0)) {
-            throw std::invalid_argument("WeightedSet::insert: weight must be positive");
-        }
+        assert(weight > 0.0 && "weight must be positive");
         auto it = m_map.find(value);
         if (it != m_map.end()) {
             return false; // duplicate
         }
-        auto p = m_map.emplace(value, weight);
-        if (!p.second) return false;
-        m_total += weight;
-        return true;
+        try {
+            auto p = m_map.emplace(value, weight);
+            if (!p.second) return false;
+            m_total += weight;
+            return true;
+        } catch (...) {
+            throw; // propagate memory allocation exceptions
+        }
     }
 
     // Erase an element. Returns true if an element was erased, false if it was not found.
@@ -103,11 +101,6 @@ public:
     template <typename URBG>
     const_iterator sample_random(URBG& rng) const {
         assert(!empty() && "sample_random called on empty WeightedSet");
-        // Use nextafter(m_total, max) so the distribution's upper bound is the
-        // next representable value above m_total. uniform_real_distribution
-        // typically generates values in [a, b), so this ensures we can obtain
-        // values effectively up to m_total (inclusive) and pass them to
-        // sample_by_weight which accepts cumulative == m_total.
         std::uniform_real_distribution<weight_type> dist(0.0, std::nextafter(m_total, std::numeric_limits<weight_type>::max()));
         return sample_by_weight(dist(rng));
     }

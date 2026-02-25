@@ -1,4 +1,4 @@
-/**
+﻿/**
 * @author George Almeida
 * @file WeightedSet.h
 * @brief A simple implementation of a weighted set data structure that maintains unique elements 
@@ -13,8 +13,8 @@
 #include <cassert>
 #include <stdexcept>
 #include <random>
-#include <cmath>
-#include <limits>
+#include <type_traits>
+#include <iterator>
 
 namespace cse498 {
 
@@ -36,13 +36,7 @@ public:
     // Insert a new element with the given positive weight. Returns true on success.
     // If the element already exists, returns false.
     bool insert(const T& value, weight_type weight) {
-        // Validate weight at runtime. An assert only checks in debug builds;
-        // in release builds a zero or negative weight would be accepted and
-        // could corrupt the total weight. Throw an exception for invalid
-        // weights so callers always get a clear error.
-        if (!(weight > 0.0)) {
-            throw std::invalid_argument("WeightedSet::insert: weight must be positive");
-        }
+        assert(weight > 0.0 && "weight must be positive");
         auto it = m_map.find(value);
         if (it != m_map.end()) {
             return false; // duplicate
