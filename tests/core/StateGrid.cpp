@@ -35,15 +35,15 @@ TEST_CASE("StateGrid basic functionality", "[StateGrid]")
         cse498::StateGridPosition pos(9,9);
 
         cse498::State state;
-        state.stateID = 1;
-        state.isAccessible = true;
+        state.mStateID = 1;
+        state.mIsAccessible = true;
 
         sg1.SetState(pos, state);
 
         cse498::State retrieved = sg1.GetState(pos);
 
-        CHECK(retrieved.stateID == 1);
-        CHECK(retrieved.isAccessible == true);
+        CHECK(retrieved.mStateID == 1);
+        CHECK(retrieved.mIsAccessible == true);
     }
 
     SECTION("Multiple states do not interfere with each other")
@@ -52,12 +52,12 @@ TEST_CASE("StateGrid basic functionality", "[StateGrid]")
         cse498::StateGridPosition pos2(5,6);
 
         cse498::State state1;
-        state1.stateID = 42;
-        state1.isAccessible = true;
+        state1.mStateID = 42;
+        state1.mIsAccessible = true;
 
         cse498::State state2;
-        state2.stateID = 99;
-        state2.isAccessible = false;
+        state2.mStateID = 99;
+        state2.mIsAccessible = false;
 
         sg1.SetState(pos1, state1);
         sg1.SetState(pos2, state2);
@@ -65,11 +65,11 @@ TEST_CASE("StateGrid basic functionality", "[StateGrid]")
         auto r1 = sg1.GetState(pos1);
         auto r2 = sg1.GetState(pos2);
 
-        CHECK(r1.stateID == 42);
-        CHECK(r1.isAccessible == true);
+        CHECK(r1.mStateID == 42);
+        CHECK(r1.mIsAccessible == true);
 
-        CHECK(r2.stateID == 99);
-        CHECK(r2.isAccessible == false);
+        CHECK(r2.mStateID == 99);
+        CHECK(r2.mIsAccessible == false);
     }
 
     SECTION("Edge positions work correctly")
@@ -78,14 +78,14 @@ TEST_CASE("StateGrid basic functionality", "[StateGrid]")
         cse498::StateGridPosition bottomRight(19,19);
 
         cse498::State state;
-        state.stateID = 7;
-        state.isAccessible = true;
+        state.mStateID = 7;
+        state.mIsAccessible = true;
 
         sg1.SetState(topLeft, state);
         sg1.SetState(bottomRight, state);
 
-        CHECK(sg1.GetState(topLeft).stateID == 7);
-        CHECK(sg1.GetState(bottomRight).stateID == 7);
+        CHECK(sg1.GetState(topLeft).mStateID == 7);
+        CHECK(sg1.GetState(bottomRight).mStateID == 7);
     }
 
     SECTION("Default state values are correct")
@@ -94,8 +94,8 @@ TEST_CASE("StateGrid basic functionality", "[StateGrid]")
 
         auto state = sg1.GetState(pos);
 
-        CHECK(state.stateID == 0);
-        CHECK(state.isAccessible == false);
+        CHECK(state.mStateID == 0);
+        CHECK(state.mIsAccessible == false);
     }
 }
 

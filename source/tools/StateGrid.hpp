@@ -1,14 +1,16 @@
 #pragma once
 
 #include <vector>
+#include <cassert>
+
 #include "StateGridPosition.hpp"
 
 namespace cse498 {
 
 // The state of a cell in the stategrid
 struct State {
-  int stateID = 0;
-  bool isAccessible = false;
+  int mStateID = 0;
+  bool mIsAccessible = false;
 };
 
 
@@ -18,26 +20,36 @@ class StateGrid {
 public:
 
     // Constructors
-    StateGrid(int height, int width)
-      : mHeight(height), mWidth(width), mGrid(height*width) {
+    StateGrid(int height, int width) {
+      assert(height >= 0 && width >= 0);
+
+      mHeight = height;
+      mWidth = width;
+      mGrid.resize(height*width); 
     }
     StateGrid() = default;
 
     // -- Accessors --
-    [[nodiscard]] size_t GetHeight() const { return mHeight; }
-    [[nodiscard]] size_t GetWidth() const { return mWidth; }
+    [[nodiscard]] int GetHeight() const { return mHeight; }
+    [[nodiscard]] int GetWidth() const { return mWidth; }
 
-    [[nodiscard]] State const &GetState(StateGridPosition pos) const { 
+    [[nodiscard]] State const &GetState(StateGridPosition pos) const {
+      assert(InBounds(pos));
       return mGrid[ToIndex(pos.GetX(), pos.GetY())];
     };
    
     // Public Member Functions
     void SetState(StateGridPosition pos, State state) {
+      assert(InBounds(pos));
+
       mGrid[ToIndex(pos.GetX(), pos.GetY())] = state;
     };
     
     bool InBounds(StateGridPosition pos) const {
-      return pos.GetX() < mWidth && pos.GetY() < mHeight;
+      return pos.GetX() < mWidth &&
+        pos.GetX() >= 0 && 
+        pos.GetY() < mHeight &&
+        pos.GetY() >= 0;
     };
 
 private:
@@ -52,14 +64,6 @@ private:
     size_t ToIndex(size_t x, size_t y) const {
       return x + y * mWidth;
     };
-
-    // Resize the current grid (Currently implementing - unfinished)
-    void Resize(int newHeight, int newWidth) {
-      // Create new grid with new sizing
-      std::vector<State> newGrid(newHeight*newWidth);
-
-      // Copy old elements into new grid instance
-    }
 };
 
 }
