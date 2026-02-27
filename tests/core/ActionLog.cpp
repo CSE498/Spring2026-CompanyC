@@ -7,6 +7,7 @@
 #include <chrono>
 #include <string>
 #include <memory>
+#include <thread>
 
 TEST_CASE("Test adding agents into the ActionLog", "[core]")
 {
@@ -34,6 +35,8 @@ TEST_CASE("Test adding agents into the ActionLog", "[core]")
     cse498::WorldPosition cur_position = pacer1.GetLocation().AsWorldPosition();
     pacer1.SetLocation(cur_position.Up());
     actionLog.recordAction(pacer1Ptr, "MOVE_UP");
+    std::this_thread::sleep_for(std::chrono::microseconds(10)); // 10 µs delay
+    actionLog.actionEnd(pacer1Ptr);
     
     // Move guard1 left
     cur_position = guard1.GetLocation().AsWorldPosition();
@@ -44,6 +47,9 @@ TEST_CASE("Test adding agents into the ActionLog", "[core]")
     cur_position = pacer1.GetLocation().AsWorldPosition();
     pacer1.SetLocation(cur_position.Up());
     actionLog.recordAction(pacer1Ptr, "MOVE_UP");
+
+    // Move a nonexistant agent
+    actionLog.recordAction(nullptr, "MOVE_LEFT");
     
     // Get actions for each agent
     auto pacerActions = actionLog.getActionsByAgent(pacer1Ptr);
@@ -52,6 +58,9 @@ TEST_CASE("Test adding agents into the ActionLog", "[core]")
     // Verify counts
     REQUIRE(pacerActions.size() == 2);
     REQUIRE(guardActions.size() == 1);
+
+    // Verify duration of pacer1 first action
+    CHECK(pacerActions[0].duration != std::chrono::microseconds::zero());
     
     // Verify action types
     CHECK(pacerActions[0].actionType == "MOVE_UP");
@@ -76,8 +85,14 @@ TEST_CASE("Test adding agents into the ActionLog", "[core]")
     // Check individual agent actions
     CHECK(actionLog.getActionsByAgent(pacer1Ptr).size() == 2);
     CHECK(actionLog.getActionsByAgent(guard1Ptr).size() == 1);
+
+    // Check agent actions on a nullptr
+    CHECK(actionLog.getActionsByAgent(nullptr).size() == 0);
     
     // Clear the log
+    actionLog.clear();
+
+    // Clearing an already cleared log
     actionLog.clear();
     
     // Verify it's empty
