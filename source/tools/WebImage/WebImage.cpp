@@ -287,10 +287,22 @@ void WebImage::MoveFrom_(WebImage&& other) noexcept {
   other.created_ = false;
 }
 
+// double WebImage::Clamp01_(double v) noexcept {
+//   if (v < 0.0) return 0.0;
+//   if (v > 1.0) return 1.0;
+//   return v;
+// }
+
+
 double WebImage::Clamp01_(double v) noexcept {
+#if defined(__cpp_lib_clamp)
+  return std::clamp(v, 0.0, 1.0);
+#else
+  // Fallback for older toolchains that may not provide std::clamp even in C++17 mode.
   if (v < 0.0) return 0.0;
   if (v > 1.0) return 1.0;
   return v;
+#endif
 }
 
 void WebImage::EnsureCreated() {

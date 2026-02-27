@@ -84,9 +84,33 @@ class WebImage final {
   void ClearStyle(const std::string& property);
 
   // --- Lifecycle ---
-  void EnsureCreated();   // create underlying element if needed
-  void RemoveFromDom();   // detach from DOM, keep element alive
-  void Destroy();         // remove + invalidate handle
+  /**
+   * Ensure that the underlying element exists.
+   *
+   * - If not yet created, this will create the underlying element and apply all current state.
+   * - If already created, this is safe to call again (idempotent).
+   * - After Destroy(), calling EnsureCreated() will create a brand-new element/handle and re-apply state.
+   */
+  void EnsureCreated();
+
+  /**
+   * Detach the element from the DOM without destroying it.
+   *
+   * The element/handle remains valid (IsCreated() stays true). This is useful for temporarily removing
+   * an element from the page without losing its loaded source/state.
+   *
+   * To attach it again, call SetParentElementId(...) (even with the same parent id) so the element is
+   * re-appended to that parent.
+   */
+  void RemoveFromDom();
+
+  /**
+   * Destroy the underlying element and invalidate the handle.
+   *
+   * After Destroy(), IsCreated() becomes false and GetHandle() becomes 0. You can call EnsureCreated()
+   * later to recreate a new element and re-apply the stored state.
+   */
+  void Destroy();
 
   bool IsCreated() const noexcept;
 

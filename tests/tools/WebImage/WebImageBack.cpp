@@ -123,7 +123,8 @@ static void TestRemoveFromDomAndDestroyRecreate() {
 
   img.EnsureCreated();
   assert(img.IsCreated());
-  const uintptr_t h1 = img.GetHandle();
+  //const uintptr_t h1 = img.GetHandle();
+  const auto h1 = img.GetHandle();
   assert(h1 != 0);
 
   // Remove from DOM should not "un-create" the object.

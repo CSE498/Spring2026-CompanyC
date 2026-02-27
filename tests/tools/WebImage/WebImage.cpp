@@ -160,15 +160,48 @@ static void TestMoveAssign() {
   assert(!b.IsCreated());
 }
 
+
+
+static void TestSizeAutoEdgeCases() {
+  WebImage img;
+
+  // Normal positive size
+  img.SetSizePx(320.0, 240.0);
+  assert(img.GetWidthPx() == 320.0);
+  assert(img.GetHeightPx() == 240.0);
+
+  // Edge case: 0 => "auto" (implementation stores <=0 and clears CSS when created)
+  img.SetSizePx(0.0, 0.0);
+  assert(img.GetWidthPx() == 0.0);
+  assert(img.GetHeightPx() == 0.0);
+
+  // Edge case: negative => "auto"
+  img.SetSizePx(-10.0, -20.0);
+  assert(img.GetWidthPx() == -10.0);
+  assert(img.GetHeightPx() == -20.0);
+
+  // Mixed: one auto, one fixed
+  img.SetSizePx(0.0, 123.0);
+  assert(img.GetWidthPx() == 0.0);
+  assert(img.GetHeightPx() == 123.0);
+
+  img.SetSizePx(456.0, -1.0);
+  assert(img.GetWidthPx() == 456.0);
+  assert(img.GetHeightPx() == -1.0);
+}
+
 int main() {
   TestDefaults();
   TestSetters();
+  TestSizeAutoEdgeCases();
   TestOpacityClamp();
   TestClassesAndStyles();
   TestLifecycleMoveCtor();
   TestRemoveFromDomAndDestroyRecreate();
   TestMoveAssign();
 
+
   std::cout << "WebImage tests passed.\n";
   return 0;
 }
+
