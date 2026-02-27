@@ -1,7 +1,9 @@
 #pragma once
+
 #include "../tools/ActionLog.hpp"
 #include "../core/AgentBase.hpp"
 #include "../core/WorldBase.hpp"
+
 #include <memory>
 #include <vector>
 #include <string>
@@ -30,7 +32,14 @@ namespace cse498
 
         ReplayDriver(WorldBase& world) : mWorld(world) {}
 
-         // Loading action log and start replay 
+        /**
+        * @brief Loads events from an ActionLog and prepares replay.
+        *
+        * Clears any previous replay data, copies events from the log,
+        * sorts them chronologically, and prepares replay state.
+        *
+        * @param log ActionLog containing recorded actions
+        */
         void startReplay(const ActionLog& log) {
 
             clearReplay();
@@ -62,7 +71,15 @@ namespace cse498
             mNext = 0;
         }
 
-       //Sends action to the agent
+        /**
+        * @brief Executes a single ReplayEvent by sending the action to the agent.
+        *
+        * Retrieves the agent from the world using agent_id,
+        * converts the action string to an action ID,
+        * and executes it via WorldBase::DoAction().
+        *
+        * @param event The replay event to execute
+        */
         void sendAction(const ReplayEvent& event) {
 
             AgentBase& agent = mWorld.GetAgent(event.agent_id);
@@ -72,9 +89,14 @@ namespace cse498
             agent.SetActionResult(result); // Set result for Agent, 1 = success, 0 = fail
         }
 
-        // Updates replay byif sending next action to agent
+        /**
+        * @brief Advances replay by executing the next event.
+        *
+        * Executes exactly one event per call to allow step-by-step replay.
+        * Stops replay automatically when all events are processed.
+        */
         void update() {
-            if(!mRunning || mPaused) return; // check if replay is running or paused
+            if(!mRunning || mPaused) return;
 
             if (mNext < mEvents.size()) {
                 sendAction(mEvents[mNext]);
@@ -109,7 +131,7 @@ namespace cse498
             // Check to make sure replay is running and not already paused
             if (!mRunning || mPaused) return;
 
-            mPaused = true; // Set paused status to true
+            mPaused = true;
         }
 
         // Resumes replay if paused
@@ -118,17 +140,23 @@ namespace cse498
             // Check to make sure replay is running and paused
             if (!mRunning || !mPaused) return;
 
-            mPaused = false; // Set paused status to false to resume replay
+            mPaused = false;
         }
 
-        // Resets replay
+        /**
+        * @brief Resets replay progress without clearing loaded events.
+        *
+        * Allows replay to be restarted from the beginning.
+        */
         void resetReplay() {
                 mNext = 0;
                 mPaused = false;
                 mRunning = false;
         }
 
-        //Clears events from replay
+        /**
+        * @brief Clears all replay events and resets replay state.
+        */
         void clearReplay() {
             mEvents.clear();
             mNext = 0;

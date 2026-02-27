@@ -12,6 +12,7 @@
 
 TEST_CASE("ReplayDriver replays actions for single agent correctly", "[core]")
 {
+    // Verifies that ReplayDriver executes actions correctly for one agent
     cse498::ActionLog actionLog;
     cse498::MazeWorld world;
     cse498::ReplayDriver replayDriver(world);
@@ -63,6 +64,7 @@ TEST_CASE("ReplayDriver replays actions for single agent correctly", "[core]")
 
 TEST_CASE("ReplayDriver pause/resume functionality", "[core]")
 {   
+    // Verifies replay pauses correctly and resumes execution properly
     cse498::ActionLog actionLog;
     cse498::MazeWorld world;
     cse498::ReplayDriver replayDriver(world);
@@ -102,6 +104,7 @@ TEST_CASE("ReplayDriver pause/resume functionality", "[core]")
 
 TEST_CASE("ReplayDriver replays action in chronological order with multiple agents", "[core]")
 {
+    // Ensures ReplayDriver executes events in correct chronological order
     cse498::ActionLog actionLog;
     cse498::MazeWorld world;
     cse498::ReplayDriver replayDriver(world);
@@ -160,6 +163,7 @@ TEST_CASE("ReplayDriver replays action in chronological order with multiple agen
 
 TEST_CASE("Empty log handling", "[core]")
 {
+    // Verifies ReplayDriver handles empty logs safely without crashing
     cse498::ActionLog actionLog;
     cse498::MazeWorld world;
     cse498::ReplayDriver replayDriver(world);
@@ -181,6 +185,7 @@ TEST_CASE("Empty log handling", "[core]")
 
 TEST_CASE("ReplayDriver resetReplay resets progress but keps event if not cleared", "[core]")
 {
+    // Ensures resetReplay correctly resets replay state and allows replay again
     cse498::ActionLog actionLog;
     cse498::MazeWorld world;
     cse498::ReplayDriver replayDriver(world);

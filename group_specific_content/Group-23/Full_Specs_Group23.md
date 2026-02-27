@@ -39,3 +39,18 @@ HasData(const std::string& name) const True if at least one measurement exists
 Last/Min/Max/Average/Count(const std::string& name) const Query recorded stats
 
 Planned Next Steps: Integrating timings into a post session user dashboard (ex: time spent in combat vs gathering vs exploring, user stats/rankings across plays, etc.)
+
+## ReplayDriver (Meghan):
+ReplayDriver is our playback utility that reconstructs agent behavior from an ActionLog by re-sending recorded actions back into the World. It converts each logged action into a ReplayEvent (agent_id, actionType, timestamp), sorts events chronologically, and then replays them one at a time through an update() loop. This supports debugging and visualizing how multiple agents acted over time.
+
+ReplayDriver is designed to work with WorldBase + AgentBase without depending on a specific world type. Actions are stored in the log as strings (ex: "down", "right"), and ReplayDriver resolves them at playback time using the agent’s action registry (string → action_id) before calling WorldBase::DoAction.
+
+Implemented Functions:
+startReplay(const ActionLog& log) Loads events from the ActionLog, sorts events by timestamp and begins playback
+sendAction(const ReplayEvent& event) Finds the correct agent and executes action
+update() Advances replay by exactly one event per call 
+pauseReplay() / resumeReplay() Temporarily halts playback without clearing loaded events.
+resetReplay() Resets replay progress and stops playback
+clearReplay() Clears all loaded events and returns the replay system to its initial state.
+Status helpers:
+isRunning(), isPaused(), isFinished()
