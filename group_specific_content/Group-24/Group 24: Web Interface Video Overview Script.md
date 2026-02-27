@@ -1,4 +1,4 @@
-# Group 24: Web Interface Video Overview – Script
+# Group 24 Web Interface Video Overview – Script
 
 **Video Link**: [Web Interface Video Overview](https://youtu.be/FjQu19C_hbk?si=GpEcDpIjnlHe1V0A)
 
