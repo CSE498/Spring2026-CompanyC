@@ -3,17 +3,18 @@
  * @author Krist Veseli
  * 
  * @brief Implements LZW compression to reduce the footprint of serialized 
- *        world states and agent logs before database storage.
+ *        world states and agent logs before database storage. LZW is a 
+ *        dictionary based compression algorithm. Only a single number is 
+ *        needed to represent a substring.
+          Standard Character-Set -> The 256 ASCII code chars
+          Claude AI was used to help make code below
  */
-// LZW is a dictionary based compression algorithm
-// Only a single number is needed to represent a substring
-// Standard Character-Set -> The 256 ASCII code chars
-// Claude AI was used to help make code below
+
 
 #pragma once
 #include <string>
 #include <vector>
-#include <map>
+#include <unordered_map>
 #include <cstdint>
 #include <expected>
 
@@ -33,8 +34,8 @@ private:
     
     // Helper to re-initialize dictionary with basic ASCII (0-255)
     // uint16_t only uses 2 bytes per code (Instead of 4 or 8 with 'int')
-    static void InitializeCompressionDict(std::map<std::string, uint16_t>& dict);
-    static void InitializeDecompressionDict(std::map<uint16_t, std::string>& dict);
+    static void InitializeCompressionDict(std::unordered_map<std::string, uint16_t>& dict);
+    static void InitializeDecompressionDict(std::unordered_map<uint16_t, std::string>& dict);
 
 public:
     static constexpr uint8_t VERSION = 1;

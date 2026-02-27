@@ -1,6 +1,6 @@
 #include "StringCompressor.hpp"
 #include <expected>
-#include <map>
+#include <unordered_map>
 #include <vector>
 #include <string>
 
@@ -9,7 +9,7 @@
 namespace cse498 {
 
 // Helper to fill the dictionary with the initial 256 ASCII characters
-void StringCompressor::InitializeCompressionDict(std::map<std::string, uint16_t>& dict) {
+void StringCompressor::InitializeCompressionDict(std::unordered_map<std::string, uint16_t>& dict) {
     dict.clear();
     for (int i = 0; i < 256; i++) {
         dict[std::string(1, static_cast<char>(i))] = static_cast<uint16_t>(i);
@@ -20,8 +20,7 @@ std::vector<uint16_t> StringCompressor::Compress(const std::string& input) {
     if (input.empty()) return {};
 
     std::vector<uint16_t> output;
-    // Consider using unordered map in the future for better performance
-    std::map<std::string, uint16_t> dict;
+    std::unordered_map<std::string, uint16_t> dict;
     InitializeCompressionDict(dict);
 
     uint16_t next_code = 256;
@@ -50,7 +49,7 @@ std::vector<uint16_t> StringCompressor::Compress(const std::string& input) {
 }
 
 // Helper to fill the dictionary with the initial 256 ASCII characters
-void StringCompressor::InitializeDecompressionDict(std::map<uint16_t, std::string>& dict) {
+void StringCompressor::InitializeDecompressionDict(std::unordered_map<uint16_t, std::string>& dict) {
     dict.clear();
     for (int i = 0; i < 256; i++) {
         dict[static_cast<uint16_t>(i)] = std::string(1, static_cast<char>(i));
@@ -62,7 +61,7 @@ std::expected<std::string, CompressorError> StringCompressor::Decompress(const s
         return std::unexpected(CompressorError::EmptyInput);
     }
 
-    std::map<uint16_t, std::string> dict;
+    std::unordered_map<uint16_t, std::string> dict;
     InitializeDecompressionDict(dict);
 
     uint16_t next_code = 256;
