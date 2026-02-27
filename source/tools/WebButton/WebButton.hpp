@@ -11,8 +11,6 @@
 
 #include <string>
 #include <functional>
-#include <iostream>
-#include <stdexcept>
 #include <map>
 
 #ifdef __EMSCRIPTEN__
@@ -20,6 +18,8 @@
 #include <emscripten/val.h>
 #include <emscripten/bind.h>
 #endif
+
+namespace cse498 {
 
 class WebButton {
 private:
@@ -38,6 +38,16 @@ private:
     int border_radius;               ///< Border radius for rounded corners
     
     static int next_id;              ///< Counter for generating unique IDs
+
+    // Default style values
+    static constexpr int         DEFAULT_WIDTH         = 100;
+    static constexpr int         DEFAULT_HEIGHT        = 30;
+    static constexpr const char* DEFAULT_LABEL         = "Button";
+    static constexpr const char* DEFAULT_BG_COLOR      = "#f0f0f0";
+    static constexpr const char* DEFAULT_TEXT_COLOR    = "#000000";
+    static constexpr const char* DEFAULT_BORDER_COLOR  = "#cccccc";
+    static constexpr int         DEFAULT_BORDER_WIDTH  = 1;
+    static constexpr int         DEFAULT_BORDER_RADIUS = 4;
     
 #ifdef __EMSCRIPTEN__
     emscripten::val dom_element;
@@ -92,7 +102,7 @@ public:
      * @brief Get the current button label
      * @return Current button text
      */
-    std::string GetLabel() const;
+    const std::string& GetLabel() const;
 
     /**
      * @brief Set the function to call when button is clicked
@@ -181,7 +191,7 @@ public:
      * @brief Get current background color
      * @return CSS color string
      */
-    std::string GetBackgroundColor() const;
+    const std::string& GetBackgroundColor() const;
     
     /**
      * @brief Set border width
@@ -218,7 +228,7 @@ public:
      * @brief Get the unique element ID
      * @return Button's DOM element ID
      */
-    std::string GetElementID() const;
+    const std::string& GetElementID() const;
     
     /**
      * @brief Check if button has a click callback registered
@@ -242,5 +252,7 @@ public:
     friend void _WebButton_HandleClick(const std::string& button_id);
 #endif
 };
+
+} // namespace cse498
 
 #endif // WEBBUTTON_HPP

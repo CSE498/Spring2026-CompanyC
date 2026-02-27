@@ -8,6 +8,8 @@
 #include "../../../source/tools/WebButton/WebButton.hpp"
 #include <stdexcept>
 
+using cse498::WebButton;
+
 TEST_CASE("WebButton - Basic Construction", "[WebButton]") {
     SECTION("Default constructor") {
         WebButton btn;
