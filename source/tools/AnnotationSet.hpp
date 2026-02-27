@@ -10,21 +10,22 @@ class AnnotationSet{
     private:
         int objectId; //id of attached object
         std::set<std::string> tags; //collection of all tags
+        std::pair<bool,std::string> RemoveWhiteSpace(std::string);//helper function that removes white space
     public:
         //default constructor deleted
         AnnotationSet()=delete;
         AnnotationSet(int obj, std::set<std::string> tags={});
         void AddTag(std::string);
         void AddTags(const std::vector<std::string>& addedTags);
-        bool RemoveTags(std::vector<std::string>);
-        bool RemoveTag(std::string);
-        bool FindTag(std::string);
-        bool FindAnyTag(std::vector<std::string>);
-        bool FindAllTags(std::vector<std::string>);
+        bool RemoveTags(const std::vector<std::string>&);
+        bool RemoveTag(const std::string&);
+        bool FindTag(const std::string&);
+        bool FindAnyTag(const std::vector<std::string>&);
+        bool FindAllTags(const std::vector<std::string>&);
         void DeleteAllTags();
-        int GetObjId();
-        int Size();
-        std::set<std::string> GetTags();
+        int GetObjId()const;
+        int Size()const;
+        std::set<std::string> GetTags()const;
 };
 
 }

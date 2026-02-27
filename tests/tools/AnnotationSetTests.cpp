@@ -32,7 +32,7 @@ TEST_CASE("BaseFunctionality-AnnotationSet","[AnnotationSet]"){
         std::set<std::string> vals=annotationSet1.GetTags();
         std::set<std::string> rightVal={"cat"};
         REQUIRE(vals==rightVal);
-        REQUIRE(annotationSet.Size()==1);
+        REQUIRE(annotationSet1.Size()==1);
     }
 }
 
@@ -63,7 +63,12 @@ TEST_CASE("AddingTags-AnnotationSet","[AnnotationSet]"){
         annotationSet.AddTag("  ");
         REQUIRE(annotationSet.Size()==0);
     }
-    
+    SECTION("Adding tags with white space"){
+        annotationSet.AddTag(" Superman");
+        annotationSet.AddTag("Superman ");
+        annotationSet.AddTag("Super man");
+        REQUIRE(annotationSet.Size()==1);
+    }
 }
 
 TEST_CASE("RemovingTags-AnnotationSet","[AnnotationSet]"){
@@ -85,6 +90,18 @@ TEST_CASE("RemovingTags-AnnotationSet","[AnnotationSet]"){
     SECTION("Deleting all tags"){
         annotationSet.DeleteAllTags();
         REQUIRE(annotationSet.GetTags().empty());
+    }
+    SECTION("Deleting whitespace tags"){
+        annotationSet.DeleteAllTags();
+        annotationSet.AddTag("Batman");
+        annotationSet.RemoveTag("Bat man");
+        REQUIRE(annotationSet.GetTags().empty()==true);
+        annotationSet.AddTag("Batman");
+        annotationSet.RemoveTag(" Batman");
+        REQUIRE(annotationSet.GetTags().empty()==true);
+        annotationSet.AddTag("Batman");
+        annotationSet.RemoveTag("Batman ");
+        REQUIRE(annotationSet.GetTags().empty()==true);
     }
 }
 TEST_CASE("TagCheck-AnnotationSet","[AnnotationSet]"){
@@ -112,5 +129,11 @@ TEST_CASE("TagCheck-AnnotationSet","[AnnotationSet]"){
         REQUIRE(annotationSet.FindAnyTag(findTags)==false);
         std::string findTag="meo";
         REQUIRE(annotationSet.FindTag(findTag)==false);
+    }
+    SECTION("Finding tag with whitespace in search term"){
+        std::vector<std::string> findTags={"meow ","ru ff","ssssssss"};
+        REQUIRE(annotationSet.FindAnyTag(findTags)==true);
+        findTags={"meow ","ru ff"};
+        REQUIRE(annotationSet.FindAllTags(findTags)==true);
     }
 }

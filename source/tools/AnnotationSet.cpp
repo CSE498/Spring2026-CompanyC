@@ -24,9 +24,9 @@ AnnotationSet::AnnotationSet(int obj, std::set<std::string> inTags){
 
 //adds a tag to the tags
 void AnnotationSet::AddTag(std::string tag){
-    tag.erase(std::remove_if(tag.begin(), tag.end(), [](unsigned char x){ return std::isspace(x); }), tag.end());
-    if (!tag.empty()){
-        tags.insert(tag);
+    std::pair<bool,std::string>newTagPair=RemoveWhiteSpace(tag);
+    if (!newTagPair.first){
+        tags.insert(newTagPair.second);
     }
 }
 
@@ -34,11 +34,9 @@ void AnnotationSet::AddTag(std::string tag){
 void AnnotationSet::AddTags(const std::vector<std::string>& addedTags) {
     for (const auto& rawTag : addedTags) {
         std::string tag = rawTag;
-        tag.erase(std::remove_if(tag.begin(), tag.end(),
-            [](unsigned char x){ return std::isspace(x); }),
-            tag.end());
-        if (!tag.empty()) {
-            tags.insert(tag);
+        std::pair<bool,std::string>newTagPair=RemoveWhiteSpace(tag);
+        if (!newTagPair.first){
+            tags.insert(newTagPair.second);
         }
     }
 }
@@ -46,11 +44,13 @@ void AnnotationSet::AddTags(const std::vector<std::string>& addedTags) {
 
 //removes tags from the set of tags
 //returns true if all were successfull false otherwise
-bool AnnotationSet::RemoveTags(std::vector<std::string> removedTags){
+bool AnnotationSet::RemoveTags(const std::vector<std::string>& removedTags){
     bool allRemoved = true;
 
     for (const auto& tag : removedTags) {
-        if (tags.erase(tag) == 0) {
+        std::string newTag=tag;
+        std::pair<bool,std::string>newTagPair=RemoveWhiteSpace(newTag);
+        if (tags.erase(newTagPair.second) == 0) {
             allRemoved = false;
         }
     }
@@ -60,14 +60,18 @@ bool AnnotationSet::RemoveTags(std::vector<std::string> removedTags){
 
 //removes a tag from the set of tags
 //returns true if successfull false otherwise
-bool AnnotationSet::RemoveTag(std::string tag){
-    return tags.erase(tag);
+bool AnnotationSet::RemoveTag(const std::string& tag){
+    std::string newTag=tag;
+    std::pair<bool,std::string>newTagPair=RemoveWhiteSpace(newTag);
+    return tags.erase(newTagPair.second);
 }
 
 //checks if a certain tag is attached to object
 //returns true if successfull false otherwise
-bool AnnotationSet::FindTag(std::string tag){
-    if(tags.count(tag)==1){
+bool AnnotationSet::FindTag(const std::string& tag){
+    std::string newTag=tag;
+    std::pair<bool,std::string>newTagPair=RemoveWhiteSpace(newTag);
+    if(tags.count(newTagPair.second)==1){
         return true;
     }
     else{
@@ -77,9 +81,11 @@ bool AnnotationSet::FindTag(std::string tag){
 
 //checks if any of a given set of tags are attached to an object
 //returns true if successfull false otherwise
-bool AnnotationSet::FindAnyTag(std::vector<std::string> searchTags){
+bool AnnotationSet::FindAnyTag(const std::vector<std::string>& searchTags){
     for (const auto& tag : searchTags) {
-        if (tags.contains(tag)) {
+        std::string newTag=tag;
+        std::pair<bool,std::string>newTagPair=RemoveWhiteSpace(newTag);
+        if (tags.count(newTagPair.second)==1) {
             return true;
         }
     }
@@ -87,9 +93,11 @@ bool AnnotationSet::FindAnyTag(std::vector<std::string> searchTags){
 }
 //checks if all of a given set of tags are attached to an object
 //returns true if successfull false otherwise
-bool AnnotationSet::FindAllTags(std::vector<std::string> searchTags){
+bool AnnotationSet::FindAllTags(const std::vector<std::string>& searchTags){
     for (const auto& tag : searchTags) {
-        if (!tags.contains(tag)) {
+        std::string newTag=tag;
+        std::pair<bool,std::string>newTagPair=RemoveWhiteSpace(newTag);
+        if (!tags.count(newTagPair.second)) {
             return false;
         }
     }
@@ -103,18 +111,23 @@ void AnnotationSet::DeleteAllTags(){
 
 //gets object Id
 //returns int of object id
-int AnnotationSet::GetObjId(){
+int AnnotationSet::GetObjId()const{
     return objectId;
 }
 
 //gets tags
 //returns the set containing all tags
-std::set<std::string> AnnotationSet::GetTags(){
+std::set<std::string> AnnotationSet::GetTags()const{
     return tags;
 }
 
-int AnnotationSet::Size(){
+int AnnotationSet::Size()const{
     return tags.size();
 }
 
+std::pair<bool,std::string> AnnotationSet::RemoveWhiteSpace(std::string tag){
+    tag.erase(std::remove_if(tag.begin(), tag.end(), [](unsigned char x){ return std::isspace(x); }), tag.end());
+    std::pair<bool,std::string> result={tag.empty(),tag};
+    return(result);
+}
 }
