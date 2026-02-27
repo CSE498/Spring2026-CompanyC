@@ -1,7 +1,7 @@
 /**
  * @file DataMap.hpp
  * @author Sehaj Gupta - Group 07
- * @brief A dynamic map that can match names to arbitrary types of data.
+ * @brief A dynamic map that can match names to arbitrary types of data. Following Google style guide
  */
 
 # pragma once
@@ -16,17 +16,21 @@ namespace cse498 {
     // membver variables
     private:
         // any - to make it easier to store different types of data
-        std::unordered_map<std::string, std::any> data_map;
+        std::unordered_map<std::string, std::any>  data_map_;
 
     public:
         // function to set data in the map
         void SetData(const  std::string& key, const std::any& value);
 
-        // function to get data from the map
+        /**
+         * @brief Get data from the map with error handling using std::expected
+         * @param key The key to look up in the map
+         * @return std::expected<T, std::string> The value associated with the key if it exists and can be cast to the requested type, or an error message if the key is not found or the type does not match
+         */
         template<typename T>
         std::expected<T, std::string> GetData(const std::string& key) const {
-            auto it = data_map.find(key);
-            if (it == data_map.end()) {
+            auto it = data_map_.find(key);
+            if (it == data_map_.end()) {
                 return std::unexpected("Key not found: " + key);
             }
             
@@ -38,13 +42,23 @@ namespace cse498 {
         }
 
 
-        // function to check if a key exists in the map
+        /**
+         * @brief Check if the map contains a key
+         * @param key The key to check for in the map
+         * @return true if the key exists in the map, false otherwise
+         */
         bool Contains(const std::string& key) const;
 
-        // function to remove data from the map
+        /**
+         * @brief Remove data from the map
+         * @param key The key to remove from the map
+         * @note If the key does not exist, this function will do nothing.
+         */
         void RemoveData(const std::string& key);
 
-        // function to clear the map
+        /**
+         * @brief Clear all data from the map
+         */
         void Clear();
 
 
