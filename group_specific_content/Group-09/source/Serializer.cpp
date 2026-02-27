@@ -1,100 +1,166 @@
-// main.cpp — CSE 498 Group 9, Serializer usage demo
-
-#include <iostream>
-#include <string>
-#include <vector>
-#include <map>
+// Serializer.cpp — Group 9, Database Module
 #include "Serializer.hpp"
 
-using cse498::Serializer;
+#include <sstream>
+#include <iomanip>
+#include <limits>
+#include <cstdlib>
 
-struct Agent {
-    std::string name;
-    double health;
-    int level;
-};
+namespace cse498 {
 
-int main() {
-    Serializer s;
-
-    // Serialize some built-in values
-    std::string data;
-
-    data = s.Serialize(42);
-    std::cout << "int 42       -> " << data << "\n";
-
-    data = s.Serialize(3.14);
-    std::cout << "double 3.14  -> " << data << "\n";
-
-    data = s.Serialize(true);
-    std::cout << "bool true    -> " << data << "\n";
-
-    data = s.Serialize('Z');
-    std::cout << "char 'Z'     -> " << data << "\n";
-
-    data = s.Serialize(std::string("hello world"));
-    std::cout << "string       -> " << data << "\n";
-
-    // Claude AI assistance used for container and custom type serialisation
-
-    // Round-trip a vector
-    std::vector<int> nums = {10, 20, 30};
-    data = s.Serialize(nums);
-    std::cout << "vector<int>  -> " << data << "\n";
-
-    auto restored = s.DeserializeVector<int>(data);
-    if (restored) {
-        std::cout << "  restored:  ";
-        for (int n : *restored) std::cout << n << " ";
-        std::cout << "\n";
-    }
-
-    // Round-trip a map
-    std::map<std::string, int> scores = {{"alice", 95}, {"bob", 87}};
-    data = s.Serialize(scores);
-    std::cout << "map          -> " << data << "\n";
-
-    auto restored_map = s.DeserializeMap<std::string, int>(data);
-    if (restored_map) {
-        std::cout << "  restored:  ";
-        for (const auto& [k, v] : *restored_map)
-            std::cout << k << "=" << v << " ";
-        std::cout << "\n";
-    }
-
-    // ---- Custom type: Agent ----
-    std::cout << "\n--- Custom type demo ---\n";
-
-    s.RegisterType<Agent>("Agent",
-        [&s](const Agent& a) -> std::string {
-            return s.Serialize(a.name) + s.Serialize(a.health) + s.Serialize(a.level);
-        },
-        [&s](const std::string& data) -> std::optional<Agent> {
-            Agent a;
-            size_t pos = 0;
-            auto name = s.DeserializeAt<std::string>(data, pos);
-            if (!name) return std::nullopt;
-            auto health = s.DeserializeAt<double>(data, pos);
-            if (!health) return std::nullopt;
-            auto level = s.DeserializeAt<int>(data, pos);
-            if (!level) return std::nullopt;
-            a.name = *name;
-            a.health = *health;
-            a.level = *level;
-            return a;
-        }
-    );
-
-    Agent agent{"Steve", 100.0, 7};
-    data = s.Serialize<Agent>("Agent", agent);
-    std::cout << "Agent        -> " << data << "\n";
-
-    auto restored_agent = s.Deserialize<Agent>("Agent", data);
-    if (restored_agent) {
-        std::cout << "  restored:  name=" << restored_agent->name
-                  << " health=" << restored_agent->health
-                  << " level=" << restored_agent->level << "\n";
-    }
-
-    return 0;
+bool Serializer::IsTypeRegistered(const std::string& type_id) const {
+    return registry_.count(type_id) > 0;
 }
+
+// ------ serialize primitives ------
+
+std::string Serializer::Serialize(int value) const {
+    return "i:" + std::to_string(value) + ";";
+}
+
+// max_digits10 keeps full precision through a round-trip
+std::string Serializer::Serialize(double value) const {
+    std::ostringstream oss;
+    oss << std::setprecision(std::numeric_limits<double>::max_digits10)
+        << value;
+    return "d:" + oss.str() + ";";
+}
+
+std::string Serializer::Serialize(bool value) const {
+    return std::string("b:") + (value ? "1" : "0") + ";";
+}
+
+std::string Serializer::Serialize(char value) const {
+    return std::string("c:") + value + ";";
+}
+
+// without this, Serialize("hello") matches the bool overload
+// because pointer-to-bool is a standard conversion in C++
+std::string Serializer::Serialize(const char* value) const {
+    return Serialize(std::string(value));
+}
+
+// length prefix means semicolons/colons inside the string are fine
+std::string Serializer::Serialize(const std::string& value) const {
+    return "s:" + std::to_string(value.size()) + ":" + value + ";";
+}
+
+// ------ deserialize wrappers ------
+
+std::optional<int> Serializer::DeserializeInt(const std::string& data) const {
+    size_t pos = 0;
+    return DeserializeIntAt(data, pos);
+}
+
+std::optional<double> Serializer::DeserializeDouble(const std::string& data) const {
+    size_t pos = 0;
+    return DeserializeDoubleAt(data, pos);
+}
+
+std::optional<bool> Serializer::DeserializeBool(const std::string& data) const {
+    size_t pos = 0;
+    return DeserializeBoolAt(data, pos);
+}
+
+std::optional<char> Serializer::DeserializeChar(const std::string& data) const {
+    size_t pos = 0;
+    return DeserializeCharAt(data, pos);
+}
+
+std::optional<std::string> Serializer::DeserializeString(const std::string& data) const {
+    size_t pos = 0;
+    return DeserializeStringAt(data, pos);
+}
+
+// ------ internal parsers ------
+
+std::optional<int> Serializer::DeserializeIntAt(const std::string& data,
+                                                size_t& pos) const {
+    if (pos + TAG_PREFIX_LEN >= data.size()) return std::nullopt;
+    if (data[pos] != 'i' || data[pos + 1] != ':') return std::nullopt;
+    pos += TAG_PREFIX_LEN;
+
+    size_t semi = data.find(';', pos);
+    if (semi == std::string::npos) return std::nullopt;
+
+    int val = 0;
+    auto [ptr, ec] = std::from_chars(data.data() + pos, data.data() + semi, val);
+    pos = semi + 1;
+    if (ec != std::errc{} || ptr != data.data() + semi) return std::nullopt;
+
+    return val;
+}
+
+std::optional<double> Serializer::DeserializeDoubleAt(const std::string& data,
+                                                      size_t& pos) const {
+    if (pos + TAG_PREFIX_LEN >= data.size()) return std::nullopt;
+    if (data[pos] != 'd' || data[pos + 1] != ':') return std::nullopt;
+    pos += TAG_PREFIX_LEN;
+
+    size_t semi = data.find(';', pos);
+    if (semi == std::string::npos) return std::nullopt;
+
+    // strtod on raw pointer avoids the substr copy; ';' stops the parse
+    const char* start = data.data() + pos;
+    char* end = nullptr;
+    double val = std::strtod(start, &end);
+    pos = semi + 1;
+    if (end == start || end != data.data() + semi)
+        return std::nullopt;
+
+    return val;
+}
+
+std::optional<bool> Serializer::DeserializeBoolAt(const std::string& data,
+                                                  size_t& pos) const {
+    if (pos + BOOL_TOKEN_LEN > data.size()) return std::nullopt;
+    if (data[pos] != 'b' || data[pos + 1] != ':') return std::nullopt;
+
+    char val = data[pos + 2];
+    if (val != '0' && val != '1') return std::nullopt;
+    if (data[pos + 3] != ';') return std::nullopt;
+
+    pos += BOOL_TOKEN_LEN;
+    return (val == '1');
+}
+
+std::optional<char> Serializer::DeserializeCharAt(const std::string& data,
+                                                  size_t& pos) const {
+    if (pos + CHAR_TOKEN_LEN > data.size()) return std::nullopt;
+    if (data[pos] != 'c' || data[pos + 1] != ':') return std::nullopt;
+    if (data[pos + 3] != ';') return std::nullopt;
+
+    char val = data[pos + 2];
+    pos += CHAR_TOKEN_LEN;
+    return val;
+}
+
+std::optional<std::string> Serializer::DeserializeStringAt(const std::string& data,
+                                                           size_t& pos) const {
+    if (pos + TAG_PREFIX_LEN >= data.size()) return std::nullopt;
+    if (data[pos] != 's' || data[pos + 1] != ':') return std::nullopt;
+    pos += TAG_PREFIX_LEN;
+
+    // find the length value before the next colon
+    size_t colon = data.find(':', pos);
+    if (colon == std::string::npos) return std::nullopt;
+
+    size_t len = 0;
+    auto [ptr, ec] = std::from_chars(data.data() + pos, data.data() + colon, len);
+    if (ec != std::errc{} || ptr != data.data() + colon) return std::nullopt;
+
+    pos = colon + 1;
+
+    // check we have enough data left (subtraction avoids overflow)
+    if (len >= data.size() - pos) return std::nullopt;
+
+    std::string val = data.substr(pos, len);
+    pos += len;
+
+    if (data[pos] != ';') return std::nullopt;
+    pos += 1;
+
+    return val;
+}
+
+} // namespace cse498
