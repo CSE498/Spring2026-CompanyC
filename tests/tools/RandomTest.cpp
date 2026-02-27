@@ -13,6 +13,7 @@
 
 #include <limits>
 #include <vector>
+#include <cmath>
 
 TEST_CASE("Random: seeded constructor produces deterministic sequences", "[Random]") {
     Random a(123456u);
