@@ -24,19 +24,29 @@ namespace cse498
       double maxSeconds=0.0;
     };
 
-    std::unordered_map<std::string,TimerEntry> mTimers; ///timers kayed by name
+    std::unordered_map<std::string,TimerEntry> mTimers; ///timers keyed by name
 
   public:
     Timer() = default;
     ~Timer() = default;
 
-    void Start(const std::string& name)  { //begin timing in named section; const& avoids copying name
+    //peer review fix; define copy and move behavior
+    Timer(const Timer&) = delete; 
+    Timer& operator=(const Timer&) = delete;
+    Timer(Timer&&) noexcept = default;
+    Timer& operator=(Timer&&) noexcept = default;
+
+    void Start(const std::string& name)  
+    { //begin timing in named section; const& avoids copying name
       auto& entry= mTimers[name]; 
       assert(!entry.running &&"Timer::Start called while timer is already running");
       entry.running =true;
-      entry.start = Clock::now();}
+      entry.start = Clock::now();
+    }
 
-    void Stop(const std::string& name){ //stop timing and record duration
+    void Stop(const std::string& name)
+    { 
+      //stop timing and record duration
       auto it= mTimers.find(name);
       assert(it !=mTimers.end()&& "Timer::Stop called for unknown timer name");
       auto& entry =it->second; //ref to timerentry for the name
@@ -51,48 +61,78 @@ namespace cse498
       entry.totalSeconds+= seconds; 
       entry.count +=1;
 
-      if (entry.count==1){ //if this was first run
+      if (entry.count==1)
+      { 
+        //if this was first run
         entry.minSeconds =seconds;
         entry.maxSeconds =seconds;
-      } else { //if not first run, update min and max as needed
+      } 
+
+      else 
+      { 
+        //if not first run, update min and max as needed
         if (seconds < entry.minSeconds)entry.minSeconds = seconds;
         if (seconds> entry.maxSeconds) entry.maxSeconds =seconds;
       }
     }
 
-    void Reset(const std::string& name) { //clear stored result for timer
-      mTimers.erase(name);}
+    void Reset(const std::string& name) 
+    {
+       //clear stored result for timer
+      mTimers.erase(name);
+    }
 
-    void ResetAll(){ //clear ALL timers and stats
-      mTimers.clear();}
+    void ResetAll()
+    { 
+      //clear ALL timers and stats
+      mTimers.clear();
+    }
 
-    bool HasData(const std::string& name)const { //true if timer has 1 measutment
+    bool HasData(const std::string& name)const 
+    { 
+      //true if timer has 1 measurement
       auto it = mTimers.find(name);
-      return (it != mTimers.end())&& (it->second.count > 0);}
+      return (it != mTimers.end())&& (it->second.count > 0);
+    }
 
-    double Last(const std::string& name) const{ //most recent recorded dur; returns 0.0 if no data.
+    double Last(const std::string& name) const
+    { 
+      //most recent recorded dur; returns 0.0 if no data.
       auto it = mTimers.find(name);
       if (it == mTimers.end()|| it->second.count== 0) return 0.0;
-      return it->second.lastSeconds;}
+      return it->second.lastSeconds;
+    }
 
-    double Min(const std::string& name) const{ //fastest run in sec; returns 0 if no data
+    double Min(const std::string& name) const
+    { 
+      //fastest run in sec; returns 0 if no data
       auto it = mTimers.find(name);
       if (it == mTimers.end() ||it->second.count == 0) return 0.0;
-      return it->second.minSeconds;}
+      return it->second.minSeconds;
+    }
 
-    double Max(const std::string& name)const { //slowest run in sec; returns 0 if no data
+    double Max(const std::string& name)const 
+    { 
+      //slowest run in sec; returns 0 if no data
       auto it =mTimers.find(name);
       if(it ==mTimers.end() ||it->second.count == 0) return 0.0;
-      return it->second.maxSeconds;}
+      return it->second.maxSeconds;
+    }
 
-    double Average(const std::string& name)const { //avg dur across all runs in sec; returns 0 if no data
+    double Average(const std::string& name)const 
+    { 
+      //avg dur across all runs in sec; returns 0 if no data
       auto it = mTimers.find(name);
       if (it == mTimers.end()|| it->second.count == 0) return 0.0;
-      return it->second.totalSeconds/static_cast<double>(it->second.count);}
+      return it->second.totalSeconds/static_cast<double>(it->second.count);
+    }
 
-    std::size_t Count(const std::string& name)const{ //# of completed runs; returns 0 if no data
+    std::size_t Count(const std::string& name)const
+    { 
+      //# of completed runs; returns 0 if no data
       auto it= mTimers.find(name);
       if (it ==mTimers.end()) return 0;
-      return it->second.count;}
+      return it->second.count;
+    }
   };
 }
