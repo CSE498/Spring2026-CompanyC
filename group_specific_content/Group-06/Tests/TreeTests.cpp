@@ -9,8 +9,7 @@
 #include "../Classes/LeafNodes.hpp"
 #include "../Classes/DecoratorNodes.hpp"
 
-// Global test blackboard - Used by all tests
-Blackboard dummyBB;
+using namespace cse498;
 
 /**
  * @brief A simple node for testing that returns a fixed status.
@@ -20,10 +19,12 @@ class StubNode : public Node {
 public:
     StubNode(Status s) : status(s) {}
     Status tick(Blackboard& bb) override {return status; }
-    std::string getName() const override {return "Stub"; }
+    const std::string& getName() const override {return "Stub"; }
 };
 
+
 TEST_CASE("Sequence Node Logic", "[sequence]"){
+    Blackboard dummyBB;
     auto seq = std::make_shared<Sequence>("TestSequence");
 
     SECTION("Fails if any child fails"){
@@ -44,6 +45,7 @@ TEST_CASE("Sequence Node Logic", "[sequence]"){
 }
 
 TEST_CASE("Selector Node Logic", "[composite]"){
+    Blackboard dummyBB;
     auto selector = std::make_shared<Selector>("TestSelector");
     auto successNode = std::make_shared<StubNode>(Status::Success);
     auto failureNode = std::make_shared<StubNode>(Status::Failure);
@@ -76,6 +78,7 @@ TEST_CASE("Selector Node Logic", "[composite]"){
 }
 
 TEST_CASE("Action Node Basic Logic", "[leaf]") {
+    Blackboard dummyBB;
     // Initial state
     dummyBB["gold"] = 10;
 
@@ -96,6 +99,7 @@ TEST_CASE("Action Node Basic Logic", "[leaf]") {
 }
 
 TEST_CASE("Inverter Decorator Logic", "[decorator]"){
+    Blackboard dummyBB;
     auto inverter = std::make_shared<Inverter>("TestInverter");
 
     SECTION("Inverter turns Success into Failure"){
@@ -115,6 +119,7 @@ TEST_CASE("Inverter Decorator Logic", "[decorator]"){
 }
 
 TEST_CASE("Condition Node Logic", "[leaf]") {
+    Blackboard dummyBB;
     dummyBB["is_hungry"] = true;
 
     auto checkHunger = [](const Blackboard& bb){

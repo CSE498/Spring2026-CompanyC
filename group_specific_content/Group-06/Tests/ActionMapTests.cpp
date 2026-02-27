@@ -50,7 +50,7 @@ TEST_CASE("ActionMap - Overwriting Logic", "[ActionMap]") {
     // First version sets value to 1
     am.AddFunction("Update", [&]() { value = 1; });
 
-    // Second version sets value to 2 (Same Key!)
+    // Second version sets value to 2
     am.AddFunction("Update", [&]() { value = 2; });
 
     SECTION("The map uses the most recent logic") {

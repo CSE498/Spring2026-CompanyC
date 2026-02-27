@@ -13,8 +13,9 @@
 #include <string>
 #include <iostream>
 #include <functional>
-#include <cassert>
+#include <stdexcept>
 
+namespace cse498{
 /**
  * @brief A Leaf Node that executes a function and returns a Status.
  */
@@ -23,13 +24,15 @@ public:
     using ActionFunc = std::function<Status(Blackboard&)>;
 
     ActionNode(std::string n, ActionFunc func) : nodeName(n), action(func) {
-        assert(func && "ActionNode must be initialized with a valid function");
+        if (!func){
+            throw std::invalid_argument("ActionNode '" + n + "' initialized with a null function.");
+        }
     }
 
     Status tick(Blackboard& bb) override;
 
     /** @brief Returns the name of the action. */
-    std::string getName() const override { return nodeName; }
+    const std::string& getName() const override { return nodeName; }
 
 private:
     std::string nodeName;
@@ -45,14 +48,16 @@ public:
     using ConditionFunc = std::function<bool(const Blackboard&)>;
 
     ConditionNode(std::string n, ConditionFunc func) : name(n), condition(func) {
-        assert(func && "ConditionNode must be initialized with a valid function");
+        if (!func) {
+            throw std::invalid_argument("ConditionNode '" + n + "' initialized with a null function.");
+        }
     }
 
     Status tick(Blackboard& bb) override;
-    std::string getName() const override { return name; }
+    const std::string& getName() const override { return name; }
 private:
     std::string name;
     ConditionFunc condition;
 };
-
+}
 #endif

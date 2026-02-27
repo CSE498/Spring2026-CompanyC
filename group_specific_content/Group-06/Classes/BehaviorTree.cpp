@@ -5,7 +5,9 @@
  */
 
 #include "BehaviorTree.hpp"
+#include <stdexcept>
 
+namespace cse498{
 /**
  * @brief Assigns a new root node to the tree.
  * @param node The shared pointer to the top-level node (usually a Composite).
@@ -21,7 +23,10 @@ void BehaviorTree::setRoot(std::shared_ptr<Node> node) {
 Status BehaviorTree::update() {
     // We pass the internal blackboard map into the root node.
     // This starts the chain reaction where every node gets access to the same memory.
-    return root ? root->tick(blackboard) : Status::Failure;
+    if (!root){
+        throw std::runtime_error("BehaviorTree::update() called, but no root node was set");
+    }
+    return root->tick(blackboard);
 }
 
 /**
@@ -30,5 +35,6 @@ Status BehaviorTree::update() {
  * @param value The variant value to be stored.
  */
 void BehaviorTree::setMemory(const std::string& key, BBValue value) {
-    blackboard[key] = value;
+    blackboard[key] = std::move(value);
+}
 }

@@ -12,6 +12,7 @@
 #include <string>
 #include <memory>
 
+namespace cse498{
 // Sequence: Runs children in order until one FAILS or returns RUNNING
 class Sequence : public Node{
 private:
@@ -37,7 +38,7 @@ public:
      * @brief Returns the name of this sequence.
      * @return The string name used for identification.
      */
-    std::string getName() const override { return name; }
+    const std::string& getName() const override { return name; }
 };
 
 /**
@@ -67,7 +68,7 @@ public:
     /** @brief Returns the node name.
      ** @return The string name.
      */
-    std::string getName() const override { return name; }
+    const std::string& getName() const override { return name; }
 };
-
+}
 #endif
