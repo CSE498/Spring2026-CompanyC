@@ -11,6 +11,8 @@
 
 #include "Random.h"
 
+using cse498::Random;
+
 #include <limits>
 #include <vector>
 #include <cmath>
