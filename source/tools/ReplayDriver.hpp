@@ -2,21 +2,22 @@
 #include "../tools/ActionLog.hpp"
 #include "../core/AgentBase.hpp"
 #include "../core/WorldBase.hpp"
-#include <chrono>
 #include <memory>
 #include <vector>
 #include <string>
 #include <algorithm>
 #include <cassert>
-#include <iostream>
-
-struct ReplayEvent {
-    std::shared_ptr<cse498::AgentBase> agent;
-    std::string actionType;
-};
+#include <chrono>
 
 namespace cse498
 { 
+
+    struct ReplayEvent {
+    size_t agent_id;
+    std::string actionType;
+    std::chrono::high_resolution_clock::time_point time;
+    };
+
     class ReplayDriver {
     private:
         WorldBase& mWorld; // Reference to world to sent actions to agents
@@ -32,52 +33,56 @@ namespace cse498
          // Loading action log and start replay 
         void startReplay(const ActionLog& log) {
 
-            if (log.getActions().empty()) return; // Check if there are actions to replay
+            clearReplay();
 
-            clearReplay(); // Clear events from any previous replay
+            if (log.getActions().empty()) return;
 
-            for (const auto& pair: log.getActions()) {
 
+            for (const auto& [agent_id, entries] : log.getActions()) {
                 // Create an event for each agent and their action
-                for (const auto& actionEntry: pair.second) {
+                for (const auto& actionEntry: entries) {
 
                     ReplayEvent event;
-                    event.agent = pair.first;
+                    event.agent_id = agent_id;
                     event.actionType = actionEntry.actionType;
-
-                    mEvents.push_back(event); // Adding event to list of events
+                    event.time = actionEntry.timeOfAction;
+                    mEvents.push_back(event); 
                 }
             }
-            // Check if there are events to replay
-            if (mEvents.empty()) return;           
 
-            // Set replay to running
+            if (mEvents.empty()) return;     
+
+            // Sort chronologically so events are played in correct order
+            std::sort(mEvents.begin(), mEvents.end(), [](const ReplayEvent& a, const ReplayEvent& b) {
+                return a.time < b.time;
+            });
+
             mRunning = true;
+            mPaused = false;
+            mNext = 0;
         }
 
        //Sends action to the agent
         void sendAction(const ReplayEvent& event) {
-            if (!event.agent) return; // check if agent is valid
 
-            size_t action_id = event.agent->GetActionID(event.actionType); // Convert action type to action id
+            AgentBase& agent = mWorld.GetAgent(event.agent_id);
 
-            int result = mWorld.DoAction(*event.agent, action_id); // Send action to agent 
-            event.agent->SetActionResult(result); // Set result for Agent, 1 = success, 0 = fail
+            const size_t action_id = agent.GetActionID(event.actionType); // Convert action type to action id
+            const int result = mWorld.DoAction(agent, action_id); // Send action to agent 
+            agent.SetActionResult(result); // Set result for Agent, 1 = success, 0 = fail
         }
 
-        // Updates replay by sending next action to agent
+        // Updates replay byif sending next action to agent
         void update() {
             if(!mRunning || mPaused) return; // check if replay is running or paused
 
-            while (mNext < mEvents.size()) {
+            if (mNext < mEvents.size()) {
                 sendAction(mEvents[mNext]);
                 mNext++;
             }
 
-            // Check if replay is finished
             if(isFinished()) {
                 mRunning = false;
-                return;
             }
         }
 
@@ -125,9 +130,10 @@ namespace cse498
 
         //Clears events from replay
         void clearReplay() {
-            if (mEvents.size() > 0) {
-                mEvents.clear();
-            }
+            mEvents.clear();
+            mNext = 0;
+            mRunning = false;
+            mPaused = false;
         }
     };
 }
