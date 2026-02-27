@@ -1,8 +1,12 @@
+// main.cpp — CSE 498 Group 9, Serializer usage demo
+
 #include <iostream>
 #include <string>
 #include <vector>
 #include <map>
 #include "Serializer.hpp"
+
+using cse498::Serializer;
 
 struct Agent {
     std::string name;
