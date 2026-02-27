@@ -6,39 +6,42 @@
 #include <cmath>
 #include <limits>
 
-class Datum
-{
-public:
+namespace cse498 {
 
-    Datum();
-    Datum(const std::string &);
-    Datum(const char* );
-    Datum(const double);
-    Datum(const bool);
+    class Datum
+    {
+    public:
 
-    std::string AsString() const;
-    double AsDouble() const;
-    bool AsBool() const;
+        Datum();
+        Datum(const std::string &);
+        Datum(const char* );
+        Datum(const double);
+        Datum(const bool);
 
-    bool IsString() const;
-    bool IsDouble() const;
-    bool IsBool() const;
+        std::string AsString() const;
+        double AsDouble() const;
+        bool AsBool() const;
 
-    Datum operator+(const Datum& rhs) const;
-    Datum operator-(const Datum& rhs) const;
-    Datum operator*(const Datum& rhs) const;
-    Datum operator/(const Datum& rhs) const;
+        bool IsString() const;
+        bool IsDouble() const;
+        bool IsBool() const;
 
-    bool operator==(const Datum& rhs) const;
-    bool operator!=(const Datum& rhs) const;
-    bool operator<(const Datum& rhs) const;
-    bool operator>(const Datum& rhs) const;
-    bool operator>=(const Datum& rhs) const;
-    bool operator<=(const Datum& rhs) const;
+        Datum operator+(const Datum& rhs) const;
+        Datum operator-(const Datum& rhs) const;
+        Datum operator*(const Datum& rhs) const;
+        Datum operator/(const Datum& rhs) const;
 
-private:
+        bool operator==(const Datum& rhs) const;
+        bool operator!=(const Datum& rhs) const;
+        bool operator<(const Datum& rhs) const;
+        bool operator>(const Datum& rhs) const;
+        bool operator>=(const Datum& rhs) const;
+        bool operator<=(const Datum& rhs) const;
 
-    std::variant<std::string, double, bool> mValue;
-        
-    static double NaN();
-};
+    private:
+
+        std::variant<std::string, double, bool> mValue;
+            
+        static double NaN();
+    };
+}

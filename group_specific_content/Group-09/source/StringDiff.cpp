@@ -2,7 +2,7 @@
 #include <sstream>    // for std::ostringstream
 #include <charconv>   // for std::from_chars
 
-namespace sim {
+namespace cse498 {
 
 //Private helper
 uint64_t StringDiff::ComputeHash(const std::string& str) {
@@ -81,9 +81,20 @@ std::expected<std::string, DiffError> StringDiff::ApplyDiff(const std::string& b
         return std::unexpected(DiffError::BaseHashMismatch);
     }
 
-    //validate prefix + suffix within base length
-    if (patch.prefix_length + patch.suffix_length > base.length()) {
+    //validate prefix + suffix within base length 
+    if (patch.prefix_length > base.length() || patch.suffix_length > base.length() - patch.prefix_length) {
         return std::unexpected(DiffError::InvalidPatchInvariant);
+    }
+
+    //validate replacement size
+    if (patch.replacement.size() > MaxReplacementSize) {
+        return std::unexpected(DiffError::PatchTooLarge);
+    }
+
+    //validate output size of prefix + suffix
+    uint64_t prefix_plus_suffix = patch.prefix_length + patch.suffix_length;
+    if (prefix_plus_suffix > MaxPatchedStringSize || patch.replacement.size() > MaxPatchedStringSize - prefix_plus_suffix) {
+        return std::unexpected(DiffError::PatchTooLarge);
     }
 
     std::string prefix = base.substr(0, patch.prefix_length);
@@ -100,8 +111,12 @@ std::expected<std::string, DiffError> StringDiff::ApplyDiff(const std::string& b
 //  Updated = "Hello C++ World"
 //  MakeDiff gives: prefix = 6, suffix = 5, replacement = "C++ "
 //
-//EX ENCODED OUTPUT: 9876543210|11|6|5|4|C++ 
-std::string StringDiff::EncodeDiff(const StringDiff::Diff& patch) {
+//EX ENCODED OUTPUT: 9876543210|11|6|5|4|C++
+std::expected<std::string, DiffError> StringDiff::EncodeDiff(const StringDiff::Diff& patch) {
+    if (patch.replacement.size() > MaxReplacementSize) {
+        return std::unexpected(DiffError::PatchTooLarge);
+    }
+
     std::ostringstream oss;
 
     oss << patch.base_hash << '|';
@@ -111,7 +126,13 @@ std::string StringDiff::EncodeDiff(const StringDiff::Diff& patch) {
     oss << patch.replacement.size() << '|';
     oss << patch.replacement;
 
-    return oss.str();
+    std::string encoded = oss.str();
+
+    if (encoded.size() > MaxEncodedDiffSize) {
+        return std::unexpected(DiffError::PatchTooLarge);
+    }
+
+    return encoded;
 }
 
 
@@ -120,6 +141,10 @@ std::string StringDiff::EncodeDiff(const StringDiff::Diff& patch) {
 // HASH | BASE_LEN | PREFIX_LEN | SUFFIX_LEN | REP_LEN | REPLACEMENT
 // 5 separators
 std::expected<StringDiff::Diff, DiffError> StringDiff::DecodeDiff(const std::string& encoded) {
+    if (encoded.size() > MaxEncodedDiffSize) {
+        return std::unexpected(DiffError::PatchTooLarge);
+    }
+
     Diff patch;
     uint64_t start = 0;
 
@@ -170,7 +195,7 @@ std::expected<StringDiff::Diff, DiffError> StringDiff::DecodeDiff(const std::str
     }
 
     //validate prefix/suffix
-    if (patch.prefix_length + patch.suffix_length > patch.base_length) {
+    if (patch.prefix_length > patch.base_length || patch.suffix_length > patch.base_length - patch.prefix_length) {
         return std::unexpected(DiffError::InvalidPatchInvariant);
     }
 
@@ -187,6 +212,16 @@ std::expected<StringDiff::Diff, DiffError> StringDiff::DecodeDiff(const std::str
         return std::unexpected(DiffError::InvalidNumberField);
     }
 
+    if (rep_len > MaxReplacementSize) {
+        return std::unexpected(DiffError::PatchTooLarge);
+    }
+
+    //validate output size , prefix + suffix
+    uint64_t prefix_plus_suffix = patch.prefix_length + patch.suffix_length;
+    if (prefix_plus_suffix > MaxPatchedStringSize || rep_len > MaxPatchedStringSize - prefix_plus_suffix) {
+        return std::unexpected(DiffError::PatchTooLarge);
+    }
+
     start = sep_5 + 1;
 
     if (rep_len != encoded.size() - start) {
@@ -197,4 +232,4 @@ std::expected<StringDiff::Diff, DiffError> StringDiff::DecodeDiff(const std::str
     return patch;
 }
 
-} //namespace sim
+} //namespace cse498

@@ -4,7 +4,7 @@
 #include <expected>
 #include <cstdint>
 
-namespace sim {
+namespace cse498 {
 
 
 enum class DiffError {
@@ -83,13 +83,14 @@ public:
 
     /**
      * @brief Encodes a patch into a string format for storage
-     * 
-     * Converts the Diff struct into a compact string representation that can be stored in Datum/Datagrid
-     * 
+     *
+     * Converts the Diff struct into a compact string representation that can be stored in Datum/Datagrid.
+     * validates that the replacement and encoded output stay within size limits.
+     *
      * @param patch The diff to encode
-     * @return std::string The encoded string representation
+     * @return std::expected<std::string, DiffError> The encoded string, or PatchTooLarge if limits are exceeded
      */
-    static std::string EncodeDiff(const Diff& patch);
+    static std::expected<std::string, DiffError> EncodeDiff(const Diff& patch);
 
 
 
@@ -134,4 +135,4 @@ private:
 
 };
  
-} //namespace sim
+} //namespace cse498
