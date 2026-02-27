@@ -1,3 +1,19 @@
+/**
+ * @file Datum.hpp
+ * @brief Defines the Datum class, a type safe variant wrapper for string, double, and bool values.
+ *
+ * The Datum class provides a unified interface for storing and operating on heterogeneous
+ * data types (std::string, double, bool) using std::variant. It supports arithmetic
+ * operators (+, -, *, /) and comparison operators (==, !=, <, >, <=, >=), as well as
+ * type-checking and value-access methods.
+ *
+ * Arithmetic on non-numeric types or type mismatches will result in NaN.
+ *
+ * @author  Ian Wettlaufer
+ * @date    2/21/2026
+ * @course  CSE 498
+ */
+
 #pragma once
 
 

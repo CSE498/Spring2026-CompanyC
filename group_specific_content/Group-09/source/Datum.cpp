@@ -1,3 +1,21 @@
+/**
+ * @file Datum.cpp
+ * @brief Implementation of the Datum class defined in Datum.hpp.
+ *
+ * Implements constructors, type-checking, value-access (AsString, AsDouble, AsBool),
+ * arithmetic operators (+, -, *, /), and comparison operators for the Datum variant type.
+ *
+ * Key behaviors:
+ *  - Arithmetic operations convert operands to double; invalid conversions yield NaN.
+ *  - Division by zero returns NaN rather than throwing error.
+ *  - Mixed-type comparisons attempt numeric conversion where possible.
+ *  - Bool converts to 1.0/0.0 for numeric ops; strings convert via std::stod.
+ *
+ * @author  Ian Wettlaufer
+ * @date    4/21/2026
+ * @course  CSE 498
+ */
+
 #include "Datum.hpp"
 
 
