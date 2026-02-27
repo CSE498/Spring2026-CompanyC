@@ -1,3 +1,8 @@
+/**
+ * @file StringCompressor.hpp
+ * @author Krist Veseli
+ */
+
 #include "StringCompressor.hpp"
 #include <expected>
 #include <unordered_map>
