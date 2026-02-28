@@ -13,7 +13,6 @@
 
 #pragma once
 
-#include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <limits>
@@ -89,7 +88,8 @@ public:
   void AddProcess(size_t id, double priority) {
     if (!std::isfinite(priority) || priority < 1e-9)
       throw std::invalid_argument("priority must be a finite number >= 1e-9");
-    assert(processes_.find(id) == processes_.end() && "Duplicate process ID");
+    if (processes_.find(id) != processes_.end())
+      throw std::invalid_argument("Duplicate process ID");
 
     double stride = LARGE_CONSTANT / priority;
     double pass = GetMinPass();
@@ -128,7 +128,8 @@ public:
   void UpdatePriority(size_t id, double new_priority) {
     if (!std::isfinite(new_priority) || new_priority < 1e-9)
       throw std::invalid_argument("priority must be a finite number >= 1e-9");
-    assert(processes_.find(id) != processes_.end() && "Process not found");
+    if (processes_.find(id) == processes_.end())
+      throw std::out_of_range("Process not found");
 
     ProcessInfo &info = processes_.at(id);
 
@@ -142,7 +143,8 @@ public:
 
   // Remove a process completely (e.g., entity was destroyed).
   void RemoveProcess(size_t id) {
-    assert(processes_.find(id) != processes_.end() && "Process not found");
+    if (processes_.find(id) == processes_.end())
+      throw std::out_of_range("Process not found");
 
     ProcessInfo &info = processes_.at(id);
     schedule_.erase(ProcessEntry{info.pass, id});
@@ -160,7 +162,8 @@ public:
   }
 
   [[nodiscard]] double GetPriority(size_t id) const {
-    assert(processes_.find(id) != processes_.end() && "Process not found");
+    if (processes_.find(id) == processes_.end())
+      throw std::out_of_range("Process not found");
     return processes_.at(id).priority;
   }
 

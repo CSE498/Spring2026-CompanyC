@@ -85,6 +85,36 @@ TEST_CASE("Scheduler: PeekNext doesn't advance", "[scheduler]") {
     REQUIRE(actual == first_peek);
 }
 
+TEST_CASE("Scheduler: Duplicate process ID throws", "[scheduler]") {
+    Scheduler s;
+    s.AddProcess(1, 1.0);
+    REQUIRE_THROWS_AS(s.AddProcess(1, 2.0), std::invalid_argument);
+    REQUIRE(s.GetNumProcesses() == 1);
+}
+
+TEST_CASE("Scheduler: UpdatePriority on nonexistent process throws", "[scheduler]") {
+    Scheduler s;
+    REQUIRE_THROWS_AS(s.UpdatePriority(999, 1.0), std::out_of_range);
+}
+
+TEST_CASE("Scheduler: RemoveProcess on nonexistent process throws", "[scheduler]") {
+    Scheduler s;
+    REQUIRE_THROWS_AS(s.RemoveProcess(999), std::out_of_range);
+}
+
+TEST_CASE("Scheduler: GetPriority on nonexistent process throws", "[scheduler]") {
+    Scheduler s;
+    REQUIRE_THROWS_AS(s.GetPriority(999), std::out_of_range);
+}
+
+TEST_CASE("Scheduler: Invalid priority throws", "[scheduler]") {
+    Scheduler s;
+    REQUIRE_THROWS_AS(s.AddProcess(1, 0.0), std::invalid_argument);
+    REQUIRE_THROWS_AS(s.AddProcess(1, -1.0), std::invalid_argument);
+    REQUIRE_THROWS_AS(s.AddProcess(1, std::numeric_limits<double>::infinity()), std::invalid_argument);
+    REQUIRE_THROWS_AS(s.AddProcess(1, std::nan("")), std::invalid_argument);
+}
+
 TEST_CASE("Scheduler: Clear removes all processes", "[scheduler]") {
     Scheduler s;
     s.AddProcess(1, 1.0);
