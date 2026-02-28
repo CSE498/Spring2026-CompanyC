@@ -5,6 +5,7 @@
 //Class includes methods to add and remove tags using vectors or strings depending
 //on the amount being added. Tags can also be checked for membership whether it be
 //only one or multiple. 
+//Integration between TagManager made by Shashank Papani with help of chatgpt
 
 #include "AnnotationSet.hpp"
 #include "TagManager.hpp"
@@ -146,15 +147,20 @@ std::set<std::string> AnnotationSet::GetTags()const{
     return tags;
 }
 
+//gets how many tags are currently in the set
 int AnnotationSet::Size()const{
     return tags.size();
 }
 
+//helper function for removing white space
+//returns a pair with if the tag if empty after and the cleaned tag
 std::pair<bool,std::string> AnnotationSet::RemoveWhiteSpace(std::string tag){
     tag.erase(std::remove_if(tag.begin(), tag.end(), [](unsigned char x){ return std::isspace(x); }), tag.end());
     std::pair<bool,std::string> result={tag.empty(),tag};
     return(result);
 }
+
+//attaches a tagmanager to the annotationset
 void AnnotationSet::AttachTagManager(TagManager& tm){
     tagManager=&tm;
     tm.RegisterObject(static_cast<TagManager::ObjectId>(objectId));
