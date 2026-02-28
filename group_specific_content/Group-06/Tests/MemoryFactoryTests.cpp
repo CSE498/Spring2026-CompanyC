@@ -2,7 +2,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "MemoryFactory.hpp"
+#include "../Classes/MemoryFactory.hpp"
 
 namespace {
 
