@@ -6,6 +6,7 @@
 
 #include "LeafNodes.hpp"
 
+namespace cse498{
 Status ActionNode::tick(Blackboard& bb) {
     if(action){
         return action(bb);
@@ -18,4 +19,5 @@ Status ConditionNode::tick(Blackboard& bb){
         return Status::Success;
     }
     return Status::Failure;
+}
 }

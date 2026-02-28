@@ -8,8 +8,9 @@
 #define DECORATOR_NODES_HPP
 
 #include "BehaviorTree.hpp"
-#include <cassert>
+#include <stdexcept>
 
+namespace cse498{
 /**
  * @brief Abstract base for nodes that modify the result of a single child.
  */
@@ -20,10 +21,12 @@ protected:
 public:
     DecoratorNode(std::string n) : name(n){}
     void setChild(std::shared_ptr<Node> c) {
+        if (!c) {
+            throw std::invalid_argument("Cannot set a null child for DecoratorNode '" + name + "'");
+        }
         child = c;
-        assert(c != nullptr && "Cannot set a null child for a DecoratorNode");
     }
-    std::string getName() const override { return name; }
+    const std::string& getName() const override { return name; }
 };
 
 /**
@@ -34,4 +37,5 @@ public:
     using DecoratorNode::DecoratorNode;  // Use parent constructor
     Status tick(Blackboard& bb) override;
 };
+}
 #endif

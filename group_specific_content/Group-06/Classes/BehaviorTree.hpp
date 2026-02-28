@@ -15,6 +15,7 @@
 #include <memory>
 #include <vector>
 
+namespace cse498 {
 /** @brief Return statuses for tree execution. */
 enum class Status {
     Failure = 0,
@@ -43,7 +44,7 @@ public:
      * @brief Returns the identifier for the node.
      * @return A string representing the node's name.
      */
-    virtual std::string getName() const = 0;
+    virtual const std::string& getName() const = 0;
 };
 
 /**
@@ -64,5 +65,5 @@ public:
 
     void setMemory(const std::string& key, BBValue value);
 };
-
+}
 #endif

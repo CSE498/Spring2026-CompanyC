@@ -21,7 +21,8 @@ add_executable(AgentSim
     main.cpp
     Classes/BehaviorTree.cpp
     Classes/CompositeNodes.cpp
-    Classes/WorldPath.cpp
+    Classes/ActionMap.cpp
+        Classes/WorldPath.cpp
     Classes/PathGenerator.cpp
     Classes/LeafNodes.cpp
     Classes/DecoratorNodes.cpp
@@ -42,6 +43,7 @@ add_executable(unit_tests
     Classes/PathGenerator.cpp
         Tests/WorldPathTests.cpp
         Classes/WorldPath.cpp
+        Classes/ActionMap.cpp
 )
 
 # Path Generator Tests

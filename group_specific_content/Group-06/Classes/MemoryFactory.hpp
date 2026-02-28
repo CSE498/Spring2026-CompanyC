@@ -25,7 +25,7 @@
 // #include <type_traits>
 #include <utility>
 #include <vector>
-
+namespace cse498 {
 template <typename T, std::size_t BlockCount = 1024> class MemoryFactory {
 public:
   /**
@@ -133,6 +133,12 @@ private:
    * @return n rounded up to the next multiple of align
    **/
   static constexpr std::size_t RoundUp(std::size_t n, std::size_t align) {
+    static_assert(
+        (SlotAlign & (SlotAlign - 1)) == 0,
+        "Alignment must be power of two"); // peer review: assert alignment is a
+                                           // power of two (most if not all
+                                           // modern operating systems are but
+                                           // good practice to check)
     return (n + align - 1) &
            ~(align -
              1); // source: alignment formula
@@ -184,3 +190,4 @@ private:
     }
   }
 };
+} // namespace cse498

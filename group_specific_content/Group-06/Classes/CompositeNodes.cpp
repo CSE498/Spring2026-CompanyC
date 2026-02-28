@@ -6,6 +6,7 @@
 
 #include "CompositeNodes.hpp"
 
+namespace cse498{
 /**
  * @brief Executes children sequentially.
  * @return Status::Success if all children succeed, otherwise returns the status
@@ -34,4 +35,5 @@ Status Selector::tick(Blackboard& bb){
     }
     // Every child failed
     return Status::Failure;
+}
 }

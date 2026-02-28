@@ -21,7 +21,7 @@ struct Tiny {
 
 TEST_CASE("MemoryFactory constructs objects and returns valid pointers",
           "[MemoryFactory]") {
-  MemoryFactory<Foo, 8> pool(1);
+  cse498::MemoryFactory<Foo, 8> pool(1);
 
   Foo *f = pool.Make(1, 2);
   REQUIRE(f != nullptr);
@@ -32,7 +32,7 @@ TEST_CASE("MemoryFactory constructs objects and returns valid pointers",
 }
 
 TEST_CASE("MemoryFactory reuses freed slots", "[MemoryFactory]") {
-  MemoryFactory<Foo, 8> pool(1);
+  cse498::MemoryFactory<Foo, 8> pool(1);
 
   Foo *a = pool.Make(1, 10);
   Foo *b = pool.Make(2, 20);
@@ -47,7 +47,7 @@ TEST_CASE("MemoryFactory reuses freed slots", "[MemoryFactory]") {
 }
 
 TEST_CASE("MemoryFactory grows when it runs out of slots", "[MemoryFactory]") {
-  MemoryFactory<Foo, 4> pool(1);
+  cse498::MemoryFactory<Foo, 4> pool(1);
 
   std::vector<Foo *> ptrs;
   ptrs.reserve(9);
@@ -68,7 +68,7 @@ TEST_CASE("MemoryFactory grows when it runs out of slots", "[MemoryFactory]") {
 
 TEST_CASE("MemoryFactory works for types smaller than a pointer",
           "[MemoryFactory]") {
-  MemoryFactory<Tiny, 8> pool(1);
+  cse498::MemoryFactory<Tiny, 8> pool(1);
 
   std::vector<Tiny *> ptrs;
   ptrs.reserve(16);
@@ -88,7 +88,7 @@ TEST_CASE("MemoryFactory works for types smaller than a pointer",
 
 TEST_CASE("MemoryFactory MakeUnique returns slots to pool on reset/destruction",
           "[MemoryFactory]") {
-  MemoryFactory<Foo, 8> pool(1);
+  cse498::MemoryFactory<Foo, 8> pool(1);
 
   void *addr1 = nullptr;
   void *addr2 = nullptr;
