@@ -142,3 +142,90 @@ TEST_CASE("TieredScheduler: ResetFrameBudgets restores all budgets", "[tiered]")
 
     REQUIRE(ts.GetNext() == 1);
 }
+
+// ---------------------------------------------------------------------------
+// Edge case tests
+// ---------------------------------------------------------------------------
+
+TEST_CASE("TieredScheduler: All budgets exhausted returns NULL_ID", "[tiered]") {
+    TieredScheduler ts;
+    ts.AddProcess(1, ProcessTier::CRITICAL, 1.0);
+    ts.AddProcess(2, ProcessTier::GAMEPLAY, 1.0);
+    ts.AddProcess(3, ProcessTier::ECONOMY, 1.0);
+    ts.AddProcess(4, ProcessTier::COSMETIC, 1.0);
+
+    ts.ResetFrameBudgets(100.0);
+
+    // Exhaust CRITICAL (40ms budget + 250ms soft limit)
+    (void)ts.GetNext();
+    ts.RecordExecutionTime(300.0);
+
+    // Exhaust GAMEPLAY (30ms)
+    (void)ts.GetNext();
+    ts.RecordExecutionTime(35.0);
+
+    // Exhaust ECONOMY (20ms)
+    (void)ts.GetNext();
+    ts.RecordExecutionTime(25.0);
+
+    // Exhaust COSMETIC (10ms)
+    (void)ts.GetNext();
+    ts.RecordExecutionTime(15.0);
+
+    REQUIRE(ts.GetNext() == Scheduler::NULL_ID);
+}
+
+TEST_CASE("TieredScheduler: CRITICAL soft budget boundary at exactly -250ms", "[tiered]") {
+    TieredScheduler ts;
+    ts.AddProcess(1, ProcessTier::CRITICAL, 1.0);
+    ts.AddProcess(2, ProcessTier::GAMEPLAY, 1.0);
+
+    ts.ResetFrameBudgets(100.0);  // CRITICAL gets 40ms
+
+    // Use exactly 290ms: remaining = 40 - 290 = -250, which is NOT > -250
+    (void)ts.GetNext();
+    ts.RecordExecutionTime(290.0);
+
+    // At exactly -250ms the soft budget condition (remaining > -250) is false
+    REQUIRE(ts.GetNext() == 2);
+}
+
+TEST_CASE("TieredScheduler: CRITICAL soft budget just inside boundary", "[tiered]") {
+    TieredScheduler ts;
+    ts.AddProcess(1, ProcessTier::CRITICAL, 1.0);
+    ts.AddProcess(2, ProcessTier::GAMEPLAY, 1.0);
+
+    ts.ResetFrameBudgets(100.0);  // CRITICAL gets 40ms
+
+    // Use 289ms: remaining = 40 - 289 = -249, which IS > -250
+    (void)ts.GetNext();
+    ts.RecordExecutionTime(289.0);
+
+    REQUIRE(ts.GetNext() == 1);  // CRITICAL still allowed
+}
+
+TEST_CASE("TieredScheduler: Duplicate ID across tiers throws", "[tiered]") {
+    TieredScheduler ts;
+    ts.AddProcess(1, ProcessTier::CRITICAL, 1.0);
+
+    // Same ID in a different tier should throw (Scheduler rejects duplicates)
+    REQUIRE_THROWS_AS(
+        ts.AddProcess(1, ProcessTier::GAMEPLAY, 1.0),
+        std::invalid_argument);
+}
+
+TEST_CASE("TieredScheduler: RecordExecutionTime before GetNext throws", "[tiered]") {
+    TieredScheduler ts;
+    ts.AddProcess(1, ProcessTier::CRITICAL, 1.0);
+    ts.ResetFrameBudgets(16.0);
+
+    REQUIRE_THROWS_AS(ts.RecordExecutionTime(5.0), std::logic_error);
+}
+
+TEST_CASE("TieredScheduler: Empty tiers with budget still returns NULL_ID", "[tiered]") {
+    TieredScheduler ts;
+    // No processes added, but budgets are set
+    ts.ResetFrameBudgets(100.0);
+
+    REQUIRE(ts.GetNext() == Scheduler::NULL_ID);
+}

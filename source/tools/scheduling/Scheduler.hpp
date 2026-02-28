@@ -13,10 +13,11 @@
 
 #pragma once
 
-#include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <limits>
 #include <set>
+#include <stdexcept>
 #include <unordered_map>
 
 namespace cse498 {
@@ -50,6 +51,13 @@ private:
     double
         stride;  // How much pass increases each time (smaller = more frequent)
     double pass; // Current position in virtual time
+
+  public:
+    void SetPriority(double p) {
+      if (!std::isfinite(p) || p < 1e-9)
+        throw std::invalid_argument("priority must be a finite number >= 1e-9");
+      priority = p;
+    }
   };
 
   // Sorted container - begin() is always the next process to run.
@@ -78,13 +86,19 @@ public:
   // Add a process to the scheduler.
   // Priority must be > 0. Higher priority = scheduled more often.
   void AddProcess(size_t id, double priority) {
-    assert(priority > 0.0 && "Priority must be positive");
-    assert(processes_.find(id) == processes_.end() && "Duplicate process ID");
+    if (!std::isfinite(priority) || priority < 1e-9)
+      throw std::invalid_argument("priority must be a finite number >= 1e-9");
+    if (processes_.find(id) != processes_.end())
+      throw std::invalid_argument("Duplicate process ID");
 
     double stride = LARGE_CONSTANT / priority;
     double pass = GetMinPass();
 
-    processes_[id] = ProcessInfo{priority, stride, pass};
+    ProcessInfo pinfo;
+    pinfo.SetPriority(priority);
+    pinfo.stride = stride;
+    pinfo.pass = pass;
+    processes_[id] = pinfo;
     schedule_.insert(ProcessEntry{pass, id});
   }
 
@@ -112,14 +126,16 @@ public:
   // Useful when something becomes more/less important (e.g., player walks near
   // it).
   void UpdatePriority(size_t id, double new_priority) {
-    assert(new_priority > 0.0 && "Priority must be positive");
-    assert(processes_.find(id) != processes_.end() && "Process not found");
+    if (!std::isfinite(new_priority) || new_priority < 1e-9)
+      throw std::invalid_argument("priority must be a finite number >= 1e-9");
+    if (processes_.find(id) == processes_.end())
+      throw std::out_of_range("Process not found");
 
     ProcessInfo &info = processes_.at(id);
 
     schedule_.erase(ProcessEntry{info.pass, id});
 
-    info.priority = new_priority;
+    info.SetPriority(new_priority);
     info.stride = LARGE_CONSTANT / new_priority;
 
     schedule_.insert(ProcessEntry{info.pass, id});
@@ -127,7 +143,8 @@ public:
 
   // Remove a process completely (e.g., entity was destroyed).
   void RemoveProcess(size_t id) {
-    assert(processes_.find(id) != processes_.end() && "Process not found");
+    if (processes_.find(id) == processes_.end())
+      throw std::out_of_range("Process not found");
 
     ProcessInfo &info = processes_.at(id);
     schedule_.erase(ProcessEntry{info.pass, id});
@@ -145,7 +162,8 @@ public:
   }
 
   [[nodiscard]] double GetPriority(size_t id) const {
-    assert(processes_.find(id) != processes_.end() && "Process not found");
+    if (processes_.find(id) == processes_.end())
+      throw std::out_of_range("Process not found");
     return processes_.at(id).priority;
   }
 
