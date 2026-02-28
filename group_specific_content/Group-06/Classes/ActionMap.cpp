@@ -2,87 +2,85 @@
 #include <algorithm>
 #include <cassert>
 
-namespace cse498 {
-  bool ActionMap::AddFunction(const std::string &name,
-                              std::function<void()> func) {
+bool cse498::ActionMap::AddFunction(const std::string &name,
+                                    std::function<void()> func) {
 
-    if (name.empty())
-      return false;
-    if (HasFunction(name)) {
-      return false;
-    }
-    function_map.emplace(
-        name, FunctionEntry(std::any(std::move(func)),
-                            std::type_index(typeid(std::function<void()>))));
-    return true;
+  if (name.empty())
+    return false;
+  if (HasFunction(name)) {
+    return false;
+  }
+  function_map.emplace(
+      name, FunctionEntry(std::any(std::move(func)),
+                          std::type_index(typeid(std::function<void()>))));
+  return true;
+}
+
+void cse498::ActionMap::ReplaceFunction(const std::string &name,
+                                        std::function<void()> func) {
+
+  assert(!name.empty());
+  function_map.erase(name);
+  function_map.emplace(
+      name, FunctionEntry(std::any(std::move(func)),
+                          std::type_index(typeid(std::function<void()>))));
+}
+
+// Ngl I chatted this one, will need to rewrite it to better understand passing
+// the return of the function to where it needs to go.
+std::optional<std::string> cse498::ActionMap::Trigger(const std::string &name) {
+  // Find the function
+  auto it = function_map.find(name);
+  if (it == function_map.end()) {
+    return "Function '" + name + "' not found in ActionMap";
   }
 
-  void ActionMap::ReplaceFunction(const std::string &name,
-                                  std::function<void()> func) {
-
-    assert(!name.empty());
-    function_map.erase(name);
-    function_map.emplace(
-        name, FunctionEntry(std::any(std::move(func)),
-                            std::type_index(typeid(std::function<void()>))));
+  // Verify type matches (zero-argument function)
+  std::type_index expected_type =
+      std::type_index(typeid(std::function<void()>));
+  if (it->second.type_info != expected_type) {
+    return "Type mismatch for function '" + name + "': expected zero arguments";
   }
 
-  // Ngl I chatted this one, will need to rewrite it to better understand passing
-  // the return of the function to where it needs to go.
-  std::optional<std::string> ActionMap::Trigger(const std::string &name) {
-    // Find the function
-    auto it = function_map.find(name);
-    if (it == function_map.end()) {
-      return "Function '" + name + "' not found in ActionMap";
-    }
-
-    // Verify type matches (zero-argument function)
-    std::type_index expected_type =
-        std::type_index(typeid(std::function<void()>));
-    if (it->second.type_info != expected_type) {
-      return "Type mismatch for function '" + name + "': expected zero arguments";
-    }
-
-    // Extract and call the function
-    try {
-      auto &func = std::any_cast<std::function<void()> &>(it->second.function);
-      func();
-      return std::nullopt; // Success
-    } catch (const std::bad_any_cast &) {
-      return "Internal error: failed to cast function '" + name + "'";
-    } catch (const std::exception &e) {
-      return "Exception thrown by function '" + name + "': " + e.what();
-    }
-
-    return std::optional<std::string>();
+  // Extract and call the function
+  try {
+    auto &func = std::any_cast<std::function<void()> &>(it->second.function);
+    func();
+    return std::nullopt; // Success
+  } catch (const std::bad_any_cast &) {
+    return "Internal error: failed to cast function '" + name + "'";
+  } catch (const std::exception &e) {
+    return "Exception thrown by function '" + name + "': " + e.what();
   }
 
-  bool ActionMap::RemoveFunction(const std::string &name) {
-    auto it = function_map.find(name);
-    if (it == function_map.end()) {
-      return false;
-    }
-    function_map.erase(it);
-    return true;
+  return std::optional<std::string>();
+}
+
+bool cse498::ActionMap::RemoveFunction(const std::string &name) {
+  auto it = function_map.find(name);
+  if (it == function_map.end()) {
+    return false;
   }
+  function_map.erase(it);
+  return true;
+}
 
-  bool ActionMap::HasFunction(const std::string &name) const {
-    return (function_map.find(name) != function_map.end());
+bool cse498::ActionMap::HasFunction(const std::string &name) const {
+  return (function_map.find(name) != function_map.end());
+}
+
+std::vector<std::string> cse498::ActionMap::GetFunctionNames() const {
+  std::vector<std::string> names;
+  names.reserve(function_map.size());
+
+  for (const auto &pair : function_map) {
+    names.push_back(pair.first);
   }
+  std::sort(names.begin(), names.end());
 
-  std::vector<std::string> ActionMap::GetFunctionNames() const {
-    std::vector<std::string> names;
-    names.reserve(function_map.size());
+  return names;
+}
 
-    for (const auto &pair : function_map) {
-      names.push_back(pair.first);
-    }
-    std::sort(names.begin(), names.end());
+void cse498::ActionMap::Clear() { function_map.clear(); }
 
-    return names;
-  }
-
-  void ActionMap::Clear() { function_map.clear(); }
-
-  size_t ActionMap::Count() const { return function_map.size(); }
-} // namespace cse498
+size_t cse498::ActionMap::Count() const { return function_map.size(); }

@@ -15,18 +15,22 @@
 
 /**
  * @class ActionMap
- * @brief A string-to-function registry that enables dynamic function triggering at runtime.
- * 
+ * @brief A string-to-function registry that enables dynamic function triggering
+ * at runtime.
+ *
  * ActionMap maps string identifiers to callable functions, allowing systems
- * to trigger actions by name rather than hardcoded function calls. This is useful
- * for building commands, event-driven actions, and dynamic user interfaces.
+ * to trigger actions by name rather than hardcoded function calls. This is
+ * useful for building commands, event-driven actions, and dynamic user
+ * interfaces.
  */
+namespace cse498 {
 class ActionMap {
 private:
   struct FunctionEntry {
-    
-    std::any function;         // The function itself (type-erased)
-    std::type_index type_info; // Type information of the function for validation
+
+    std::any function; // The function itself (type-erased)
+    std::type_index
+        type_info; // Type information of the function for validation
 
     FunctionEntry(std::any func, std::type_index type)
         : function(std::move(func)), type_info(type) {}
@@ -36,15 +40,15 @@ private:
   std::unordered_map<std::string, FunctionEntry> function_map;
 
 public:
- /**
-  * Default constructor & destructor
-  */
+  /**
+   * Default constructor & destructor
+   */
   ActionMap() = default;
   ~ActionMap() = default;
 
- /**
-  * Delete copy constructor and assignment to prevent accidental copying
-  */
+  /**
+   * Delete copy constructor and assignment to prevent accidental copying
+   */
   ActionMap(const ActionMap &) = delete;
   ActionMap &operator=(const ActionMap &) = delete;
 
@@ -67,14 +71,16 @@ public:
   bool AddFunction(const std::string &name, std::function<void(Args...)> func);
 
   /**
-   * @brief Registers a function with a given name, replacing if it already exists
+   * @brief Registers a function with a given name, replacing if it already
+   * exists
    * @param name The string identifier for the function
    * @param func The function to register
    */
   void ReplaceFunction(const std::string &name, std::function<void()> func);
 
   /**
-   * @brief Registers a function with a given name, replacing if it already exists
+   * @brief Registers a function with a given name, replacing if it already
+   * exists
    * @tparam Args The argument types for the function
    * @param name The string identifier for the function
    * @param func The function to register
@@ -87,7 +93,7 @@ public:
    * @brief Looks up and executes the zero-argument function with the given name
    * @param name The string identifier of the function to trigger
    * @return Optional error message if function not found or type mismatch
-   */                       
+   */
   std::optional<std::string> Trigger(const std::string &name);
 
   /**
@@ -96,7 +102,7 @@ public:
    * @param name The string identifier of the function to trigger
    * @param args The arguments to pass to the function
    * @return Optional error message if function not found or type mismatch
-   */  
+   */
   template <typename... Args>
   std::optional<std::string> Trigger(const std::string &name, Args &&...args);
 
@@ -104,27 +110,27 @@ public:
    * @brief Unregisters a function by name
    * @param name The string identifier of the function to remove
    * @return true if found and removed, false if not found
-   */  
+   */
   bool RemoveFunction(const std::string &name);
 
   /**
    * @brief Checks if a function is registered under the given name
    * @param name The string identifier to check
    * @return true if function exists, false otherwise
-   */  
+   */
   bool HasFunction(const std::string &name) const;
 
   /**
    * @brief Returns a vector of all registered function names
    * @return Vector of function name strings
-   */  
+   */
   std::vector<std::string> GetFunctionNames() const;
 
   /**
    * @brief Removes all registered functions
    */
   void Clear();
-  
+
   /**
    * @brief Returns a size_t of the number of registered functions
    */
@@ -193,3 +199,4 @@ std::optional<std::string> ActionMap::Trigger(const std::string &name,
     return "Exception thrown by function '" + name + "': " + e.what();
   }
 }
+} // namespace cse498
