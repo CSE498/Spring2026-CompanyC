@@ -40,6 +40,25 @@ Last/Min/Max/Average/Count(const std::string& name) const Query recorded stats
 
 Planned Next Steps: Integrating timings into a post session user dashboard (ex: time spent in combat vs gathering vs exploring, user stats/rankings across plays, etc.)
 
+## DataLog (Muhammad):
+DataLog represents a collection of finite numeric samples. It supports adding values, clearing the collection, checking whether the log is empty, counting stored samples, and computing the mean, median, minimum, and maximum of the current values.
+
+Add(double value): Adds one value to the log if the value is finite.
+
+Count() const: Returns the number of values currently stored in the log.
+
+IsEmpty() const: Returns true when the log contains no values and false otherwise.
+
+Clear(): Removes all stored values and resets the log to the empty state.
+
+Mean() const: Returns the arithmetic average of all stored values.
+
+Median() const: Returns the middle value after ordering the data. If there is an even number of stored values, it returns the midpoint of the two middle values.
+
+Min() const: Returns the smallest stored value.
+
+Max() const: Returns the largest stored value.
+
 ## ReplayDriver (Meghan):
 ReplayDriver is our playback utility that reconstructs agent behavior from an ActionLog by re-sending recorded actions back into the World. It converts each logged action into a ReplayEvent (agent_id, actionType, timestamp), sorts events chronologically, and then replays them one at a time through an update() loop. This supports debugging and visualizing how multiple agents acted over time.
 
