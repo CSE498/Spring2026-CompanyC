@@ -1,50 +1,51 @@
 #include "PathGenerator.hpp"
+
 #include <queue>
 #include <unordered_map>
 #include <vector>
 #include <algorithm>
 
+namespace cse498 {
 
+void PathGenerator::SetWorldView(const WorldView& world) {
+    world_view = std::cref(world);
+}
 
-void PathGenerator::SetWorldView(const WorldView& world)
-{
-    world_view = &world;
-};
-
-SampleWorldPath PathGenerator::GeneratePath(const PathRequest& req)
-{
-    if (!world_view) return SampleWorldPath{};
+SampleWorldPath PathGenerator::GeneratePath(const PathRequest& req) const {
+    if (!world_view.has_value()) {
+        return SampleWorldPath{};
+    }
 
     switch (req.type) {
         case PathType::Shortest:
             return GenerateShortestPath(req.start, req.goal);
-
         case PathType::Patrol:
             return GeneratePatrolPath(req.start, req.max_length);
-
         case PathType::Avoid:
             return GenerateAvoidPath(req.start, req.goal, req.avoid);
-
         case PathType::Explore:
             return GenerateExplorePath(req.start, req.max_length);
-
         default:
             return SampleWorldPath{};
     }
 }
 
-SampleWorldPath PathGenerator::GenerateShortestPath(
-    Position start,
-    Position goal
-) {
+SampleWorldPath PathGenerator::GenerateShortestPath(Position start, Position goal) const {
     SampleWorldPath path;
 
-    if (!world_view) return path;
+    // Defensive in case someone calls GenerateShortestPath directly without SetWorldView.
+    if (!world_view.has_value()) {
+        return path;
+    }
 
-    // Queue for BFS
+    const WorldView& w = world_view->get();
+
+    // Validate start/goal are in-bounds/walkable (review comment)
+    if (!w.IsWalkable(start) || !w.IsWalkable(goal)) {
+        return SampleWorldPath{};
+    }
+
     std::queue<Position> q;
-
-    // parent map
     std::unordered_map<Position, Position, PositionHash> parent;
 
     q.push(start);
@@ -52,7 +53,6 @@ SampleWorldPath PathGenerator::GenerateShortestPath(
 
     bool found = false;
 
-    // BFS search 
     while (!q.empty()) {
         Position current = q.front();
         q.pop();
@@ -63,12 +63,11 @@ SampleWorldPath PathGenerator::GenerateShortestPath(
         }
 
         std::vector<Position> neighbors;
-        world_view->GetNeighbors(current, neighbors); // Get neighbors, updates neighbors if neighbors
+        w.GetNeighbors(current, neighbors);
 
         for (const Position& next : neighbors) {
-            if (!world_view->IsWalkable(next)) continue;
-
-            if (parent.find(next) == parent.end()) { // Make sure node isn't visited
+            // GetNeighbors already filters by IsWalkable(), but this is harmless.
+            if (parent.find(next) == parent.end()) {
                 parent[next] = current;
                 q.push(next);
             }
@@ -76,7 +75,7 @@ SampleWorldPath PathGenerator::GenerateShortestPath(
     }
 
     if (!found) {
-        return SampleWorldPath{}; // no path
+        return SampleWorldPath{};
     }
 
     // Reconstruct path: goal -> start
@@ -87,23 +86,32 @@ SampleWorldPath PathGenerator::GenerateShortestPath(
     }
     path.Add(start);
 
-    // Reverse path: Now start -> goal
+    // Reverse path: start -> goal
     path.Reverse();
-
     return path;
 }
 
-SampleWorldPath PathGenerator::GeneratePatrolPath(Position start, int max_length) {
-    (void)start; (void)max_length;
+SampleWorldPath PathGenerator::GeneratePatrolPath(Position start, int max_length) const {
+    (void)start;
+    (void)max_length;
     return SampleWorldPath{};
 }
 
-SampleWorldPath PathGenerator::GenerateAvoidPath(Position start, Position goal, std::vector<Position> avoid) {
-    (void)start; (void)goal; (void)avoid;
+SampleWorldPath PathGenerator::GenerateAvoidPath(
+    Position start,
+    Position goal,
+    const std::vector<Position>& avoid
+) const {
+    (void)start;
+    (void)goal;
+    (void)avoid;
     return SampleWorldPath{};
 }
 
-SampleWorldPath PathGenerator::GenerateExplorePath(Position start, int max_length) {
-    (void)start; (void)max_length;
+SampleWorldPath PathGenerator::GenerateExplorePath(Position start, int max_length) const {
+    (void)start;
+    (void)max_length;
     return SampleWorldPath{};
 }
+
+} // namespace cse498

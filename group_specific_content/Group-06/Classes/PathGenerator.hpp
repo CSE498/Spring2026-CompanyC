@@ -2,6 +2,7 @@
  * This file is part of the Fall 2026, CSE 498, section 2, course project.
  * @brief A base path finding interface for all agent types.
  * @author Matthew Vazquez
+ * AI was used in assistance of developing this class
  **/
 
 #pragma once
@@ -10,12 +11,16 @@
 #include <cstddef>
 #include <functional>
 #include <ostream>
+#include <algorithm>   // std::reverse
+#include <optional>    // std::optional
+#include <utility>     // std::reference_wrapper
+#include <functional>  // std::reference_wrapper, std::cref
 
+namespace cse498 {
 
 // Take a start position, optional goal(s), and constraints
 // Run a pathfinding or path-constructing strategy
-// Output a WorldPath 
-
+// Output a WorldPath
 
 // Position structure of world
 struct Position {
@@ -50,33 +55,19 @@ struct PositionHash {
 // Sample World Path
 class SampleWorldPath {
 public:
-    // Constructor
     SampleWorldPath() = default;
 
-    // Add positions to vector
-    void Add(const Position& p) {
-        points.push_back(p);
-    }
+    void Add(const Position& p) { points.push_back(p); }
 
-    // Getter for vector
-    const std::vector<Position>& Points() const {
-        return points;
-    }
-    // Check to see if vector is empty
-    bool Empty() const {
-        return points.empty();
-    }
-    // Get length of vector
-    std::size_t Length() const {
-        return points.size();
-    }
-    // Reverse vector
-    void Reverse() {
-        std::reverse(points.begin(), points.end());
-    }
+    const std::vector<Position>& Points() const { return points; }
+
+    bool Empty() const { return points.empty(); }
+
+    std::size_t Length() const { return points.size(); }
+
+    void Reverse() { std::reverse(points.begin(), points.end()); }
 
 private:
-    // Vector for points
     std::vector<Position> points;
 };
 
@@ -96,38 +87,31 @@ inline std::ostream& operator<<(std::ostream& os, const SampleWorldPath& path) {
     return os;
 }
 
-
 // Sample World View
 class WorldView {
 public:
-
-    // Init
     WorldView(int w, int h) : width(w), height(h) {}
 
-    // Get if position is walkable
-    bool IsWalkable(Position p) const{
-        if (p.x < 0 || p.x >= width || p.y < 0 || p.y >= height) return false;
-        return true;
+    bool IsWalkable(Position p) const {
+        return !(p.x < 0 || p.x >= width || p.y < 0 || p.y >= height);
     }
 
-    // Get 4 neighbors of each point
     void GetNeighbors(Position p, std::vector<Position>& out) const {
         out.clear();
         Position candidates[4] = {
-            {p.x+1, p.y}, {p.x-1, p.y}, {p.x, p.y+1}, {p.x, p.y-1}
+            {p.x + 1, p.y}, {p.x - 1, p.y}, {p.x, p.y + 1}, {p.x, p.y - 1}
         };
         for (auto c : candidates) {
             if (IsWalkable(c)) out.push_back(c);
         }
     }
-    // Get width
+
     int Width() const { return width; }
-    // Get height
     int Height() const { return height; }
 
-    
 private:
-    int width, height;
+    int width = 0;
+    int height = 0;
 };
 
 // Print world
@@ -145,47 +129,29 @@ struct PathRequest {
     std::vector<Position> avoid;
 };
 
-
-
-
 // Generate Path based on PathRequest, returns WorldPath
 class PathGenerator {
 public:
-    // Set world view
+    // Store a safe non-owning reference (no raw pointer)
     void SetWorldView(const WorldView& world);
 
-    // Generate default path (shortest)
-    SampleWorldPath GeneratePath(
-        const PathRequest& req
-    );
+    // Const because they should not mutate PathGenerator state
+    SampleWorldPath GeneratePath(const PathRequest& req) const;
 
-    // Generate shortest path
-    SampleWorldPath GenerateShortestPath (
-        Position start,
-        Position goal
-    );
+    SampleWorldPath GenerateShortestPath(Position start, Position goal) const;
 
-    // Generate patrol path
-    SampleWorldPath GeneratePatrolPath(
-        Position start,
-        int max_length
-    );
+    SampleWorldPath GeneratePatrolPath(Position start, int max_length) const;
 
-    // Generator avoid path
     SampleWorldPath GenerateAvoidPath(
         Position start,
         Position goal,
-        std::vector<Position> avoid
-    );
+        const std::vector<Position>& avoid
+    ) const;
 
-    // Generator Explore path
-    SampleWorldPath GenerateExplorePath(
-        Position start, 
-        int max_length
-    );
-
+    SampleWorldPath GenerateExplorePath(Position start, int max_length) const;
 
 private:
-    const WorldView* world_view = nullptr;
-
+    std::optional<std::reference_wrapper<const WorldView>> world_view;
 };
+
+} // namespace cse498
