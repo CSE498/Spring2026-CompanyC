@@ -14,57 +14,66 @@ namespace cse498 {
 
 class DataLog {
  private:
-  /// data storage
+  /// Stores the logged values used by the statistical queries.
   std::vector<double> mDataValues;
-  double mSum = 0.0;
+  double mSum = 0.0; // currently tracked for calculating mean 
   double mMin = 0.0;
   double mMax = 0.0;
 
  public:
   DataLog() = default;
-  ~DataLog() = default;
 
   /**
    * @brief Add a data value to the log
    *
-   * @param value The value to add
+   * @param value The finite value to add
+   *
+   * @throws std::invalid_argument If value is NaN or infinite.
    */
   void Add(double value);
 
   /**
    * @brief Return the mean of values.
+   *
+   * @throws std::logic_error If the log is empty.
    */
-  double Mean() const;
+  [[nodiscard]] double Mean() const;
 
   /**
    * @brief Return the median of values.
+   *
+   * @throws std::logic_error If the log is empty.
    */
-  double Median() const;
+  [[nodiscard]] double Median() const;
 
   /**
    * @brief Return the minimum value.
+   *
+   * @throws std::logic_error If the log is empty.
    */
-  double Min() const;
+  [[nodiscard]] double Min() const;
 
   /**
    * @brief Return the maximum value.
+   *
+   * @throws std::logic_error If the log is empty.
    */
-  double Max() const;
+  [[nodiscard]] double Max() const;
 
   /**
    * @brief Number of values currently in the log.
    */
-  std::size_t Count() const;
+  [[nodiscard]] std::size_t Count() const noexcept;
 
   /**
    * @brief Returns true if log is empty, else false.
    */
-  bool IsEmpty() const;
+  [[nodiscard]] bool IsEmpty() const noexcept;
 
   /**
-   * @brief Clear all values
+   * @brief Removes all logged values and resets tracked statistics.
    */
-  void Clear();
+  void Clear() noexcept;
 
   // More functions may be added later for other useful statistics.
 };

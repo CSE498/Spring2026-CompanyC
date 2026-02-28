@@ -1,19 +1,45 @@
 #include "../../source/tools/DataLog.hpp"
 
-#include "../../third-party/Catch/single_include/catch2/catch.hpp"
+#include "catch2/catch.hpp"
+
+#include <initializer_list>
+#include <limits>
+#include <stdexcept>
 
 TEST_CASE("DataLog tracks numeric stats and reset behavior", "[core]") {
   cse498::DataLog log;
+  const auto add_values = [](cse498::DataLog& target,
+                             std::initializer_list<double> values) {
+    for (double value : values) {
+      target.Add(value);
+    }
+  };
 
   SECTION("Test empty") {
-    CHECK(log.IsEmpty() == true);
+    CHECK(log.IsEmpty());
+    CHECK(log.Count() == 0);
+    CHECK_THROWS_AS(log.Mean(), std::logic_error);
+    CHECK_THROWS_AS(log.Median(), std::logic_error);
+    CHECK_THROWS_AS(log.Min(), std::logic_error);
+    CHECK_THROWS_AS(log.Max(), std::logic_error);
+  }
+
+  SECTION("Test invalid inputs") {
+    CHECK_THROWS_AS(log.Add(std::numeric_limits<double>::quiet_NaN()),
+                    std::invalid_argument);
+    CHECK_THROWS_AS(log.Add(std::numeric_limits<double>::infinity()),
+                    std::invalid_argument);
+    CHECK_THROWS_AS(log.Add(-std::numeric_limits<double>::infinity()),
+                    std::invalid_argument);
+
+    CHECK(log.IsEmpty());
     CHECK(log.Count() == 0);
   }
 
   SECTION("Test single value") {
     log.Add(42.5);
 
-    REQUIRE(log.IsEmpty() == false);
+    CHECK_FALSE(log.IsEmpty());
     REQUIRE(log.Count() == 1);
 
     CHECK(log.Mean() == Approx(42.5));
@@ -23,59 +49,52 @@ TEST_CASE("DataLog tracks numeric stats and reset behavior", "[core]") {
   }
 
   SECTION("Test mean") {
-    log.Add(10.0);
-    log.Add(2.0);
-    log.Add(4.0);
-    log.Add(-2.0);
-    log.Add(8.0);
+    add_values(log, {10.0, 2.0, 4.0, -2.0, 8.0});
 
     REQUIRE(log.Count() == 5);
     CHECK(log.Mean() == Approx(4.4));
   }
 
   SECTION("Test min") {
-    log.Add(10.0);
-    log.Add(2.0);
-    log.Add(4.0);
-    log.Add(-2.0);
-    log.Add(8.0);
+    add_values(log, {10.0, 2.0, 4.0, -2.0, 8.0});
 
     REQUIRE(log.Count() == 5);
     CHECK(log.Min() == Approx(-2.0));
   }
 
   SECTION("Test max") {
-    log.Add(10.0);
-    log.Add(2.0);
-    log.Add(4.0);
-    log.Add(-2.0);
-    log.Add(8.0);
+    add_values(log, {10.0, 2.0, 4.0, -2.0, 8.0});
 
     REQUIRE(log.Count() == 5);
     CHECK(log.Max() == Approx(10.0));
   }
 
   SECTION("Test medians") {
-    // odd sized median
-    cse498::DataLog odd_log;
-    odd_log.Add(10.0);
-    odd_log.Add(2.0);
-    odd_log.Add(4.0);
-    odd_log.Add(-2.0);
-    odd_log.Add(8.0);
+    const auto check_median = [&](std::initializer_list<double> values,
+                                  double expected) {
+      cse498::DataLog median_log;
+      add_values(median_log, values);
+      REQUIRE(median_log.Count() == values.size());
+      CHECK(median_log.Median() == Approx(expected));
+    };
 
-    REQUIRE(odd_log.Count() == 5);
-    CHECK(odd_log.Median() == Approx(4.0));
+    // odd sized median
+    check_median({10.0, 2.0, 4.0, -2.0, 8.0}, 4.0);
 
     // even sized median, takes average of middle 2 values
-    cse498::DataLog even_log;
-    even_log.Add(1.0);
-    even_log.Add(3.0);
-    even_log.Add(9.0);
-    even_log.Add(5.0);
+    check_median({1.0, 3.0, 9.0, 5.0}, 4.0);
 
-    REQUIRE(even_log.Count() == 4);
-    CHECK(even_log.Median() == Approx(4.0));
+    // handles duplicates
+    check_median({5.0, 5.0, 1.0, 5.0, 9.0}, 5.0);
+
+    // handles already-sorted and reverse-sorted inputs
+    check_median({1.0, 2.0, 3.0, 4.0, 5.0}, 3.0);
+    check_median({5.0, 4.0, 3.0, 2.0, 1.0}, 3.0);
+
+    // handles the two-value case with very large finite values
+    check_median({-std::numeric_limits<double>::max(),
+                  std::numeric_limits<double>::max()},
+                 0.0);
   }
 
   SECTION("Test clear") {
@@ -83,13 +102,23 @@ TEST_CASE("DataLog tracks numeric stats and reset behavior", "[core]") {
     log.Add(11.0);
     log.Clear();
 
-    CHECK(log.IsEmpty() == true);
+    CHECK(log.IsEmpty());
     CHECK(log.Count() == 0);
+    CHECK_THROWS_AS(log.Mean(), std::logic_error);
+    CHECK_THROWS_AS(log.Median(), std::logic_error);
+    CHECK_THROWS_AS(log.Min(), std::logic_error);
+    CHECK_THROWS_AS(log.Max(), std::logic_error);
+
+    log.Clear();
+    CHECK(log.IsEmpty());
+    CHECK(log.Count() == 0);
+    CHECK_THROWS_AS(log.Median(), std::logic_error);
 
     log.Add(3.0);
-    REQUIRE(log.IsEmpty() == false);
+    CHECK_FALSE(log.IsEmpty());
     REQUIRE(log.Count() == 1);
     CHECK(log.Mean() == Approx(3.0));
+    CHECK(log.Median() == Approx(3.0));
     CHECK(log.Min() == Approx(3.0));
     CHECK(log.Max() == Approx(3.0));
   }

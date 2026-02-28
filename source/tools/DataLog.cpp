@@ -8,14 +8,16 @@
 #include "DataLog.hpp"
 
 #include <algorithm>
-#include <cassert>
 #include <cmath>
 #include <numeric>
+#include <stdexcept>
 
 namespace cse498 {
 
 void DataLog::Add(double value) {
-  assert(std::isfinite(value));
+  if (!std::isfinite(value)) {
+    throw std::invalid_argument("DataLog only accepts finite values.");
+  }
 
   mDataValues.push_back(value);
   mSum += value;
@@ -31,46 +33,55 @@ void DataLog::Add(double value) {
 }
 
 double DataLog::Mean() const {
-  assert(!mDataValues.empty());
+  if (mDataValues.empty()) {
+    throw std::logic_error("Mean requires at least one logged value.");
+  }
   return mSum / mDataValues.size();
 }
 
 double DataLog::Median() const {
-  assert(!mDataValues.empty());
-
-  // first sort the data values
-  std::vector<double> sorted_values = mDataValues;
-  std::sort(sorted_values.begin(), sorted_values.end());
-
-  // find the middle of the sorted values
-  const std::size_t middle = sorted_values.size() / 2;
-
-  // if odd just return middle
-  if (sorted_values.size() % 2 == 1) {
-    return sorted_values[middle];
+  if (mDataValues.empty()) {
+    throw std::logic_error("Median requires at least one logged value.");
   }
 
-  // if even then return average of the 2 middle values using std::midpoint
-  const double upper = sorted_values[middle];
-  const double lower = sorted_values[middle - 1];
+  // Partition around the middle instead of fully sorting the copy.
+  std::vector<double> partitioned_values = mDataValues;
+  const auto middle_it =
+      partitioned_values.begin() + (partitioned_values.size() / 2);
+  std::nth_element(partitioned_values.begin(), middle_it,
+                   partitioned_values.end());
+
+  if (partitioned_values.size() % 2 == 1) {
+    return *middle_it;
+  }
+
+  // For even counts, the lower median is the largest value in the lower
+  // partition, while the upper median is the middle element itself.
+  const double upper = *middle_it;
+  const double lower =
+      *std::max_element(partitioned_values.begin(), middle_it);
   return std::midpoint(lower, upper);
 }
 
 double DataLog::Min() const {
-  assert(!mDataValues.empty());
+  if (mDataValues.empty()) {
+    throw std::logic_error("Min requires at least one logged value.");
+  }
   return mMin;
 }
 
 double DataLog::Max() const {
-  assert(!mDataValues.empty());
+  if (mDataValues.empty()) {
+    throw std::logic_error("Max requires at least one logged value.");
+  }
   return mMax;
 }
 
-std::size_t DataLog::Count() const { return mDataValues.size(); }
+std::size_t DataLog::Count() const noexcept { return mDataValues.size(); }
 
-bool DataLog::IsEmpty() const { return mDataValues.empty(); }
+bool DataLog::IsEmpty() const noexcept { return mDataValues.empty(); }
 
-void DataLog::Clear() {
+void DataLog::Clear() noexcept {
   mDataValues.clear();
   mSum = 0.0;
   mMin = 0.0;
