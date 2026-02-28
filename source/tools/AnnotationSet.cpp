@@ -7,6 +7,7 @@
 //only one or multiple. 
 
 #include "AnnotationSet.hpp"
+#include "TagManager.hpp"
 #include <set>
 #include <string>
 #include <algorithm>
@@ -27,6 +28,9 @@ void AnnotationSet::AddTag(std::string tag){
     std::pair<bool,std::string>newTagPair=RemoveWhiteSpace(tag);
     if (!newTagPair.first){
         tags.insert(newTagPair.second);
+        if(tagManager){
+            tagManager->AddTag(static_cast<TagManager::ObjectId>(objectId),newTagPair.second);
+        }
     }
 }
 
@@ -37,6 +41,9 @@ void AnnotationSet::AddTags(const std::vector<std::string>& addedTags) {
         std::pair<bool,std::string>newTagPair=RemoveWhiteSpace(tag);
         if (!newTagPair.first){
             tags.insert(newTagPair.second);
+            if(tagManager){
+                tagManager->AddTag(static_cast<TagManager::ObjectId>(objectId),newTagPair.second);
+            }
         }
     }
 }
@@ -53,6 +60,11 @@ bool AnnotationSet::RemoveTags(const std::vector<std::string>& removedTags){
         if (tags.erase(newTagPair.second) == 0) {
             allRemoved = false;
         }
+        else{
+            if(tagManager){
+                tagManager->RemoveTag(static_cast<TagManager::ObjectId>(objectId),newTagPair.second);
+            }
+        }
     }
 
     return allRemoved;
@@ -63,7 +75,15 @@ bool AnnotationSet::RemoveTags(const std::vector<std::string>& removedTags){
 bool AnnotationSet::RemoveTag(const std::string& tag){
     std::string newTag=tag;
     std::pair<bool,std::string>newTagPair=RemoveWhiteSpace(newTag);
-    return tags.erase(newTagPair.second);
+    if (tags.erase(newTagPair.second) == 0) {
+        return false;
+    }
+    else{
+        if(tagManager){
+            tagManager->RemoveTag(static_cast<TagManager::ObjectId>(objectId),newTagPair.second);
+        }
+        return true;
+    }
 }
 
 //checks if a certain tag is attached to object
@@ -106,6 +126,11 @@ bool AnnotationSet::FindAllTags(const std::vector<std::string>& searchTags){
 
 //deletes all tags in the set without deleting the object
 void AnnotationSet::DeleteAllTags(){
+    if(tagManager){
+        for(const auto& tag:tags){
+            tagManager->RemoveTag(static_cast<TagManager::ObjectId>(objectId),tag);
+        }
+    }
     tags.clear();
 }
 
@@ -129,5 +154,12 @@ std::pair<bool,std::string> AnnotationSet::RemoveWhiteSpace(std::string tag){
     tag.erase(std::remove_if(tag.begin(), tag.end(), [](unsigned char x){ return std::isspace(x); }), tag.end());
     std::pair<bool,std::string> result={tag.empty(),tag};
     return(result);
+}
+void AnnotationSet::AttachTagManager(TagManager& tm){
+    tagManager=&tm;
+    tm.RegisterObject(static_cast<TagManager::ObjectId>(objectId));
+    for(const auto& tag:tags){
+        tm.AddTag(static_cast<TagManager::ObjectId>(objectId),tag);
+    }
 }
 }
