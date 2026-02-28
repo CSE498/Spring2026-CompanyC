@@ -3,6 +3,8 @@
 #include "Scheduler.hpp"
 #include <array>
 #include <cassert>
+#include <optional>
+#include <stdexcept>
 #include <unordered_map>
 
 namespace cse498 {
@@ -32,6 +34,9 @@ public:
    * @brief Registers a process into a specific scheduler tier
    */
   void AddProcess(size_t id, ProcessTier tier, double priority) {
+    if (m_id_to_tier.find(id) != m_id_to_tier.end()) {
+      throw std::invalid_argument("Duplicate process ID");
+    }
     size_t idx = static_cast<size_t>(tier);
     m_tiers[idx].AddProcess(id, priority);
     m_id_to_tier[id] = tier;
@@ -41,6 +46,8 @@ public:
    * @brief Refills the 'remaining_ms' for each tier at frame start
    */
   void ResetFrameBudgets(double total_frame_time_ms) {
+    assert(total_frame_time_ms > 0 &&
+           "total_frame_time_ms must be positive");
     for (size_t i = 0; i < static_cast<size_t>(ProcessTier::COUNT); ++i) {
       m_tier_configs[i].remaining_ms =
           total_frame_time_ms * m_tier_configs[i].weight;
@@ -76,7 +83,11 @@ public:
    * @brief Subtracts execution time from the tier that just ran
    */
   void RecordExecutionTime(double actual_ms) {
-    size_t idx = static_cast<size_t>(m_current_running_tier);
+    if (!m_current_running_tier.has_value()) {
+      throw std::logic_error(
+          "RecordExecutionTime called before a successful GetNext()");
+    }
+    size_t idx = static_cast<size_t>(m_current_running_tier.value());
     m_tier_configs[idx].remaining_ms -= actual_ms;
   }
 
@@ -108,7 +119,7 @@ private:
   std::unordered_map<size_t, ProcessTier> m_id_to_tier;
 
   // Track which tier was last picked by GetNext()
-  ProcessTier m_current_running_tier = ProcessTier::CRITICAL;
+  std::optional<ProcessTier> m_current_running_tier;
 };
 
 } // namespace cse498
