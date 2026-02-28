@@ -11,10 +11,16 @@
 
 namespace cse498 {
 
-// Single helper to silence unused-parameter warnings in native builds.
+// Helpers/constants local to this translation unit.
 namespace {
+
+// Named constant to avoid magic numbers.
+static constexpr double kTwoPi = 6.283185307179586;
+
+// Helper to silence unused-parameter warnings in native builds.
 template <typename... Ts>
 inline void Unused(Ts&&...) {}
+
 }  // namespace
 
 WebCanvas::WebCanvas(const std::string& canvas_id, int width, int height)
@@ -29,7 +35,8 @@ WebCanvas::WebCanvas(const std::string& canvas_id, int width, int height)
 #ifdef __EMSCRIPTEN__
     InitDOM();
 #else
-    std::cout << "[WebCanvas] Created '" << id_ << "' size " << width_ << "x" << height_ << "\n";
+    std::cout << "[WebCanvas] Created '" << id_ << "' size "
+              << width_ << "x" << height_ << "\n";
 #endif
 }
 
@@ -107,7 +114,8 @@ void WebCanvas::Resize(int new_width, int new_height) {
     canvas_.set("width", width_);
     canvas_.set("height", height_);
 #else
-    std::cout << "[WebCanvas] Resize to " << width_ << "x" << height_ << "\n";
+    std::cout << "[WebCanvas] Resize to "
+              << width_ << "x" << height_ << "\n";
 #endif
 }
 
@@ -140,7 +148,8 @@ void WebCanvas::SetStrokeColor(const std::string& css) {
 
 void WebCanvas::SetLineWidth(float w) {
     if (w <= 0.f) {
-        throw std::invalid_argument("WebCanvas::SetLineWidth: line width must be positive");
+        throw std::invalid_argument(
+            "WebCanvas::SetLineWidth: line width must be positive");
     }
 
 #ifdef __EMSCRIPTEN__
@@ -151,29 +160,29 @@ void WebCanvas::SetLineWidth(float w) {
 #endif
 }
 
-void WebCanvas::FillRect(float x, float y, float w, float h) {
-    if (w <= 0.f || h <= 0.f) {
+void WebCanvas::FillRect(float x, float y, float width, float height) {
+    if (width <= 0.f || height <= 0.f) {
         throw std::invalid_argument("WebCanvas::FillRect: invalid rectangle");
     }
 
 #ifdef __EMSCRIPTEN__
     EnsureReady_();
-    ctx_.call<void>("fillRect", x, y, w, h);
+    ctx_.call<void>("fillRect", x, y, width, height);
 #else
-    Unused(x, y, w, h);
+    Unused(x, y, width, height);
 #endif
 }
 
-void WebCanvas::StrokeRect(float x, float y, float w, float h) {
-    if (w <= 0.f || h <= 0.f) {
+void WebCanvas::StrokeRect(float x, float y, float width, float height) {
+    if (width <= 0.f || height <= 0.f) {
         throw std::invalid_argument("WebCanvas::StrokeRect: invalid rectangle");
     }
 
 #ifdef __EMSCRIPTEN__
     EnsureReady_();
-    ctx_.call<void>("strokeRect", x, y, w, h);
+    ctx_.call<void>("strokeRect", x, y, width, height);
 #else
-    Unused(x, y, w, h);
+    Unused(x, y, width, height);
 #endif
 }
 
@@ -197,7 +206,7 @@ void WebCanvas::FillCircle(float cx, float cy, float r) {
 #ifdef __EMSCRIPTEN__
     EnsureReady_();
     ctx_.call<void>("beginPath");
-    ctx_.call<void>("arc", cx, cy, r, 0.0, 6.283185307179586);
+    ctx_.call<void>("arc", cx, cy, r, 0.0, kTwoPi);
     ctx_.call<void>("fill");
 #else
     Unused(cx, cy, r);
