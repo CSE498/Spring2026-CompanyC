@@ -14,7 +14,7 @@
 
 #include <limits>
 
-namespace cse498 {
+namespace cse498{
 
 /*
   Constructor: Uses default construction
@@ -24,7 +24,7 @@ TagManager::TagManager() = default;
 
 /*
   NormalizeTag(tag):
-    Trims leading and trailing whitespace
+    Removes all whitespace
 
     Returns:
       "" if tag is empty or all whitespace
@@ -32,12 +32,12 @@ TagManager::TagManager() = default;
 */
 
 std::string TagManager::NormalizeTag(std::string_view tag) {
-  auto begin = tag.find_first_not_of(" \t\n\r\f\v");
-  if (begin == std::string_view::npos) return ""; // all whitespace
-  auto end = tag.find_last_not_of(" \t\n\r\f\v");
-  tag = tag.substr(begin, end - begin + 1);
-
-  return std::string(tag);
+  std::string out;
+  out.reserve(tag.size());
+  for (unsigned char ch : tag) {
+    if (!std::isspace(ch)) out.push_back(static_cast<char>(ch));
+  }
+  return out;
 }
 
 /*
@@ -100,7 +100,7 @@ bool TagManager::IsRegistered(ObjectId id) const {
       
 */
 bool TagManager::AddTag(ObjectId id, std::string_view tag_view) {
-  assert(IsRegistered(id) && "AddTag called for unregistered object");
+  if (!IsRegistered(id)) return false;
 
   const std::string tag = NormalizeTag(tag_view);
   if (tag.empty()) return false;
@@ -128,7 +128,7 @@ bool TagManager::AddTag(ObjectId id, std::string_view tag_view) {
       tag must be valid after normalization  
 */
 bool TagManager::RemoveTag(ObjectId id, std::string_view tag_view) {
-  assert(IsRegistered(id) && "RemoveTag called for unregistered object");
+  if (!IsRegistered(id)) return false;
 
   const std::string tag = NormalizeTag(tag_view);
   if (tag.empty()) return false;
@@ -155,7 +155,7 @@ bool TagManager::RemoveTag(ObjectId id, std::string_view tag_view) {
 
 */
 bool TagManager::HasTag(ObjectId id, std::string_view tag_view) const {
-  assert(IsRegistered(id) && "HasTag called for unregistered object");
+  if (!IsRegistered(id)) return false;
 
   const std::string tag = NormalizeTag(tag_view);
   if (tag.empty()) return false;
@@ -172,8 +172,10 @@ bool TagManager::HasTag(ObjectId id, std::string_view tag_view) const {
       id must be registered
 */
 const std::unordered_set<std::string>& TagManager::GetTags(ObjectId id) const {
-  assert(IsRegistered(id) && "GetTags called for unregistered object");
-  return id_to_tags_.at(id);
+  static const TagSet empty{};
+  auto it = id_to_tags_.find(id);
+  if (it == id_to_tags_.end()) return empty;
+  return it->second;
 }
 
 /*
@@ -226,19 +228,20 @@ void TagManager::DedupStringsInPlace(std::vector<std::string>& v) {
 std::vector<TagManager::ObjectId> TagManager::FindAny(const std::vector<std::string>& tags) const {
   if (tags.empty()) return {};
 
+  std::vector<std::string> norm;
+  norm.reserve(tags.size());
+  for (const auto& s : tags) {
+    std::string t = NormalizeTag(s);
+    if (!t.empty()) norm.push_back(std::move(t));
+  }
+  DedupStringsInPlace(norm);
+  if (norm.empty()) return {};
+
   std::unordered_set<ObjectId> result_set;
-  for (const std::string& raw_tag : tags) {
-
-    const std::string tag = NormalizeTag(raw_tag);
-    if (tag.empty()) continue;
-
+  for (const auto& tag : norm) {
     auto it = tag_to_ids_.find(tag);
     if (it == tag_to_ids_.end()) continue;
-
-    for (ObjectId id : it->second) {
-      result_set.insert(id);
-    }
-
+    result_set.insert(it->second.begin(), it->second.end());
   }
 
   return std::vector<ObjectId>(result_set.begin(), result_set.end());
@@ -283,7 +286,10 @@ std::vector<TagManager::ObjectId> TagManager::FindAllExcept(
       for (ObjectId id : all_ids) {
         bool bad = false;
         for (const std::string& t : forbid) {
-          if (!t.empty() && BucketContainsId(NormalizeTag(t), id)) {
+          const std::string tag = NormalizeTag(t);
+          if (tag.empty()) continue;
+
+          if (BucketContainsId(tag, id)) {
             bad = true;
             break;
           }
@@ -320,7 +326,7 @@ std::vector<TagManager::ObjectId> TagManager::FindAllExcept(
     }
   }
 
-  assert(start_bucket != nullptr);
+  if (start_bucket == nullptr) return {};
 
   // Dedup forbidden list too
   std::vector<std::string> forbid = must_not_have;
@@ -346,7 +352,7 @@ std::vector<TagManager::ObjectId> TagManager::FindAllExcept(
     // must not have any forbidden
     for (const std::string& t : forbid) {
       const std::string tag = NormalizeTag(t);
-      if (t.empty()) continue;
+      if (tag.empty()) continue;
       if (BucketContainsId(tag, id)) {
         ok = false;
         break;

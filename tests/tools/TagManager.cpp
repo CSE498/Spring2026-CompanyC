@@ -190,3 +190,15 @@ TEST_CASE("TagNormalization-TagManager", "[tools][edge]") {
   CHECK(tags.size() == 1);
   CHECK(tags.count("apple") == 1);
 }
+
+TEST_CASE("TagManager: unregistered behavior is safe") {
+  cse498::TagManager tm;
+
+  CHECK(tm.IsRegistered(999) == false);
+  CHECK(tm.HasTag(999, "x") == false);
+  CHECK(tm.RemoveTag(999, "x") == false);
+  CHECK(tm.AddTag(999, "x") == false);
+
+  CHECK(tm.Count("x") == 0);
+  CHECK(tm.GetTags(999).empty());
+}
