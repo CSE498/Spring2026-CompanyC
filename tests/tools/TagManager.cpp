@@ -4,7 +4,7 @@
   Tests for TagManager class
 */
 
-#include "../../third-party/Catch/single_include/catch2/catch.hpp"
+#include "catch2/catch.hpp"
 #include "../../source/tools/TagManager.hpp"
 
 #include <set>
