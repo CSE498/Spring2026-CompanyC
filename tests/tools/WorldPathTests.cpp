@@ -1,6 +1,6 @@
-#include <catch2/catch_test_macros.hpp>
+#include "catch2/catch.hpp"
 
-#include "../Classes/WorldPath.hpp"
+#include "tools/WorldPath.hpp"
 
 namespace cse498
 {

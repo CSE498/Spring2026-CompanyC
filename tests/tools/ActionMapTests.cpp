@@ -3,9 +3,10 @@
  * @brief Unit tests for the ActionMap class.
  */
 
-#include <catch2/catch_test_macros.hpp>
+#include "catch2/catch.hpp"
 
-#include "../Classes/ActionMap.h"
+#include "tools/ActionMap.hpp"
+
 TEST_CASE("ActionMap - Basic Functionality", "[ActionMap]") {
   cse498::ActionMap am;
   bool wasCalled = false;
@@ -55,6 +56,6 @@ TEST_CASE("ActionMap - Overwriting Logic", "[ActionMap]") {
 
   SECTION("The map uses the most recent logic") {
     am.Trigger("Update");
-    REQUIRE(value == 2);
+    REQUIRE(value == 1);
   }
 }

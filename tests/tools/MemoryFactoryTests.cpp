@@ -1,8 +1,8 @@
-#include <catch2/catch_test_macros.hpp>
+#include "catch2/catch.hpp"
 #include <unordered_set>
 #include <vector>
 
-#include "../Classes/MemoryFactory.hpp"
+#include "tools/MemoryFactory.hpp"
 
 namespace {
 

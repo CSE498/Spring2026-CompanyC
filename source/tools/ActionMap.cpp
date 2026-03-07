@@ -1,4 +1,4 @@
-#include "ActionMap.h"
+#include "ActionMap.hpp"
 #include <algorithm>
 #include <cassert>
 

@@ -5,10 +5,10 @@
  * 06.
  */
 
-#include "../Classes/CompositeNodes.hpp"
-#include "../Classes/DecoratorNodes.hpp"
-#include "../Classes/LeafNodes.hpp"
-#include <catch2/catch_test_macros.hpp>
+#include "tools/CompositeNodes.hpp"
+#include "tools/DecoratorNodes.hpp"
+#include "tools/LeafNodes.hpp"
+#include "catch2/catch.hpp"
 
 using namespace cse498;
 
