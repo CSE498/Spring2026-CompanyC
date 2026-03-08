@@ -1,0 +1,77 @@
+John Korreck (StateGrid) Script:
+
+This is an overview of Group 7’s classes and how they may be used in our module and throughout the project as a whole. Our module is a Dynamic World (which we imagine will most likely be grid-based), and we are mostly hoping to use our classes in ways that will improve the performance / development process of this module.
+
+This is the StateGrid class. The idea behind the class is to provide a sort of management for the state of the entire World. If we choose to create a grid-based Dynamic World, this class will support the core logic and ownership of the state of that grid. 
+
+For example, the StateGrid class owns a 2D array filled with “State” objects, each describing the current state on that position of the board. The current state could define things such as physical properties, ownership, or a uniqueID. Currently I have provided support for an ID, as well as a boolean property that can be altered based on the accessibility of the location, initially set to 0 and false, respectively.
+
+The StateGrid class itself has multiple APIs currently, and more will be added as we move forward in development.
+
+There are 2 constructors for this class. One custom constructor takes 2 parameters, height and width, and instantiates a grid of this size. The second constructor is a default constructor that sets the height and width both to zero, creating an empty internal grid.
+
+The accessors for private data members are GetHeight, GetWidth, and GetState. GetHeight and GetWidth are fairly straightforward - just returning the current height and width of the grid. GetState, however, returns the current state at a given position, and takes a StateGridPosition variable as a parameter.
+
+Lastly, 2 more core public functions of the class are SetState and InBounds. Both functions take a StateGridPosition as a parameter, but SetState also requires one to provide a State object. SetState will then be the main API used to alter the state of the StateGrid by our future DynamicGrid class. InBounds just returns a boolean that lets the caller know if a certain position is valid.
+
+
+Logan Langmeyer: StateGridPosition:
+Hi, I’m Logan Langmeyer from Group 07, and I implemented the StateGridPosition.hpp and StateGridPosition.cpp classes.
+StateGridPosition represents a single location within our StateGrid. It acts as the coordinate abstraction for agents in our simulation. Instead of passing raw integers around, we use this class to safely and consistently represent positions in the world.
+The class contains two private member variables, mX and mY, which represent the agent’s location on the grid. There’s a default constructor, as well as a parameterized constructor that ensures coordinates are valid.
+I added accessor functions so other modules can retrieve the X and Y values in a controlled way. I also implemented the three-way comparison operator (<=>), which automatically enables all comparison operators like ==, <, and >. This makes positions easy to compare and useful for sorting or storing in containers.
+For movement, I implemented helper functions like MoveUp, MoveDown, MoveLeft, and MoveRight. These functions return a new StateGridPosition rather than modifying the existing one. This keeps the class clean and consistent with our design principle that the world is the authority — movement is proposed here, but validated by the StateGrid.
+I also added a Neighbors() function that returns the four adjacent positions. This will be especially useful for pathfinding, agent decision-making, and interaction logic.
+For utility functionality, I implemented DistanceTo, which calculates the Manhattan distance between two positions. This is useful for detecting proximity between agents, buildings, or resources. Finally, I added a ToString() function to make debugging and logging easier by converting a position into a readable string format.
+
+Sehaj Gupta (DataMap):
+Hi this is Sehaj Gupta, a member of group 7 in company C. I worked on the DataMap class.
+
+DataMap class is supposed to serve as a dynamic map that can match names to arbitrary types of data. The user provides the key and the data type while adding the pair to the map and again when the Get method is called so that the type is known at compile time.
+
+Looking at the hpp file for this class, I have a map of strings to “any” data type to support any type of value for each key. Looking at the functions, I have a SetData function that sets the value for the key that is being passed to the function. The parameters are const and references to avoid copies and to prevent the parameters from changing within the function. Moving on to the next function, GetData. As you can see GetData is a templated function with the return type being std::expected to account for error conditions. This function being a templated function makes it easier to retrieve the data of any type as per the key in our map. It takes in the key as a parameter and the expected return type of the value. Next function in the list in Contains. Contains is used to check if our underlying map contains the key we are looking for irrespective of the value. Next function is RemoveData. This function makes the use of pre defined erase function to delete the given key, and its associated value, from our underlying map. Next we have Clear. This function makes a call to the pre defined clear funn our underlying map to delete everything in it.
+
+And that is DataMap.
+Myles Spencer-Walker (ExpressionParser):
+Hi, I’m Myles from Group 7, and I implemented the ExpressionParser class.
+The purpose of this class is to convert text-based mathematical expressions into callable C++ function objects that can be evaluated at runtime using dynamic data. Instead of hardcoding formulas directly into our simulation, we can define them as strings and evaluate them dynamically.
+For example, if we have an expression like "value * scale + offset", the ExpressionParser parses that string and produces a function that takes a std::map<std::string, double>. When that function is called, it looks up the variable values in the map and computes the result.
+Internally, the class first tokenizes the input string into numbers, variables, operators, and parentheses. Then it builds an internal representation of the expression while respecting operator precedence. Finally, it compiles that structure into a std::function so the expression can be evaluated efficiently many times during the simulation.
+The parser supports numeric constants, variables, the four basic arithmetic operators, parentheses, and unary minus. It also includes error handling for invalid expressions, missing variables, and division by zero.
+Within our Dynamic World module, ExpressionParser allows rules and computed properties to be defined in a data-driven way rather than hardcoded into the engine. This makes the system more flexible and easier to modify as development continues.
+And that is the ExpressionParser class.
+Dmitry Starodubtsev - scheduler class
+
+At the center of the simulation is WorldBase. Every tick it does the same three things: run agents, 
+  execute their actions, update the world. Simple loop. The question is — with 50 agents, how do you  
+  decide who runs, in what order, and how often? That's the Scheduler's job.                          
+
+  The TieredScheduler is the single execution coordinator. Before the tick starts, it divides the
+  available frame time across four tiers — Critical gets 40%, Gameplay 30%, Economy 20%, Cosmetic 10%.
+   Within each tier, a stride-based Scheduler determines the exact ordering. Every process has a
+  priority, and from that we derive a stride. Each time a process runs, its internal pass value
+  increases by that stride. The process with the lowest pass always runs next. Higher priority means a
+   smaller stride — it stays near the front and gets picked more often. So a market simulation running
+   at priority 10 will run roughly 10 times more frequently than grass growth at priority 1, and both
+  make progress every frame.
+
+  When GetNext() is called, the TieredScheduler works top-down — it checks Critical first, then
+  Gameplay, and so on — and pulls from whichever tier still has budget. The World gets back a process
+  ID, maps that to an agent, and calls SelectAction(). The agent reads the grid, makes a decision, and
+   returns an action ID. The World then calls DoAction() — and this is where the sync/async split
+  happens.
+
+  If the action is immediate — move, attack, interact — DoAction() executes it right there,
+  synchronously, and reports the result back to the agent. Sequential, one agent at a time,
+  deterministic.
+
+  If the action has a delayed consequence — a building that finishes in 5 seconds, a cooldown that
+  expires, a chain reaction — that gets handed to the TimedEventQueue, which lives inside the
+  TieredScheduler. It's a sorted set of callbacks indexed by simulation time. Each tick, after sync
+  execution, the Scheduler fires ProcessDue(current_time) — anything whose scheduled time has passed
+  gets executed immediately.
+
+  So the Scheduler owns both axes. Sync: stride ordering within a tick. Async: time-triggered
+  callbacks across ticks. The World only ever talks to the Scheduler — it doesn't know about the
+  internal queue or the individual tier schedulers. Agents don't know about the Scheduler at all.
+  Clean separation, one coordinator.
