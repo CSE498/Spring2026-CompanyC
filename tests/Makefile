@@ -48,17 +48,17 @@ test: $(BIN)
 
 # Link test runner
 $(BIN): $(OBJ_FILES) | $(BUILD_DIR)
-	$(CXX) -std=c++23 $(CXXFLAGS) $(WARNFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
+	$(CXX) -std=c++2b $(CXXFLAGS) $(WARNFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 # Compile source/ -> build/tests/source/...
 $(BUILD_DIR)/source/%.o: $(SRC_DIR)/% | $(BUILD_DIR)
 	@mkdir -p $(dir $@)
-	$(CXX) -std=c++23 $(CPPFLAGS) $(CXXFLAGS) $(WARNFLAGS) -MMD -MP -c $< -o $@
+	$(CXX) -std=c++2b $(CPPFLAGS) $(CXXFLAGS) $(WARNFLAGS) -MMD -MP -c $< -o $@
 
 # Compile tests/ -> build/tests/tests/...
 $(BUILD_DIR)/tests/%.o: $(TEST_DIR)/% | $(BUILD_DIR)
 	@mkdir -p $(dir $@)
-	$(CXX) -std=c++23 $(CPPFLAGS) $(CXXFLAGS) $(WARNFLAGS) -MMD -MP -c $< -o $@
+	$(CXX) -std=c++2b $(CPPFLAGS) $(CXXFLAGS) $(WARNFLAGS) -MMD -MP -c $< -o $@
 
 $(BUILD_DIR):
 	@mkdir -p $(BUILD_DIR)
