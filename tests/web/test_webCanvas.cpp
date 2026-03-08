@@ -1,4 +1,4 @@
-#include "WebCanvas.h"
+#include "../../source/web/WebCanvas.hpp"
 
 using namespace cse498;
 

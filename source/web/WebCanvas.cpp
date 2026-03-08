@@ -1,4 +1,4 @@
-#include "WebCanvas.h"
+#include "WebCanvas.hpp"
 
 #include <iostream>
 #include <stdexcept>
