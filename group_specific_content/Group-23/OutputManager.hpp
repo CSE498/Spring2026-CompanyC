@@ -46,6 +46,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <fstream>
 #include <mutex>
 #include <string>
@@ -126,7 +127,9 @@ namespace cse498 {
              const LogContext & ctx = LogContext{});
 
   private:
-    LogLevel level = LogLevel::Normal;
+    // Log level is atomic so that it can be read without taking the mutex
+    // in fast paths (e.g., early filtering in log()).
+    std::atomic<LogLevel> level{LogLevel::Normal};
     bool timestamps_enabled = false;
     bool metadata_enabled = false;
 
