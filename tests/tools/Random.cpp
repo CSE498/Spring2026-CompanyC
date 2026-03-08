@@ -8,7 +8,7 @@
 
 #include "catch2/catch.hpp"
 
-#include "tools/Random.hpp"
+#include "../../source/tools/Random.hpp"
 
 using cse498::Random;
 

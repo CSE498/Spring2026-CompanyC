@@ -1,7 +1,7 @@
 // PathGeneratorTests.cpp
 #include "catch2/catch.hpp"
 
-#include "tools/PathGenerator.hpp"
+#include "../../source/tools/PathGenerator.hpp"
 
 static cse498::PathRequest MakeReq(
     cse498::PathType type,

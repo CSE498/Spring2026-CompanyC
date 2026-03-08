@@ -6,6 +6,8 @@
 #include <thread>
 #include <string>
 
+using namespace cse498;
+
 //edge cases to add 
 //start(A) called twice without stopping
 //stop(A) called before Start(A) 
