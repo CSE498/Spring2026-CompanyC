@@ -40,9 +40,6 @@
 # debug information files
 *.dwo
 
-# macOS
-.DS_Store
-
 # Emscripten build outputs
 # webtextbox_demo.js
 # webtextbox_demo.wasm
@@ -53,7 +50,14 @@ webtextbox_tests_grumpy
 
 # macOS debug symbols
 *.dSYM/
+
+# LLM Files
+.claude
+
+# IDE files
+.vscode/
+.idea
 **/.DS_Store
 
-# JetBrains IDE
-.idea
+#clang
+.clangd
