@@ -1,6 +1,6 @@
 #define CATCH_CONFIG_MAIN
-#include "../../../third-party/Catch/single_include/catch2/catch.hpp"
-#include "../source/Datum.hpp"
+#include "catch2/catch.hpp"
+#include "../../source/tools/Datum.hpp"
 #include <iostream>
 using namespace cse498;
 

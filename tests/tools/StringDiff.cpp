@@ -1,6 +1,6 @@
 #define CATCH_CONFIG_MAIN
 #include "catch2/catch.hpp"
-#include "../source/StringDiff.hpp"
+#include "../../source/tools/StringDiff.hpp"
 
 using cse498::StringDiff;
 using cse498::DiffError;

@@ -8,11 +8,12 @@
 #include <map>
 #include <climits>
 #include <cfloat>
-#include "Serializer.hpp"
+
+#include "../../source/tools/Serializer.hpp"
 
 static int passed = 0;
 static int failed = 0;
-static Serializer s;
+static cse498::Serializer s;
 
 static void check(const std::string& label, bool ok) {
     if (ok) {
@@ -773,7 +774,7 @@ static void testCustomTypeEdgeCases() {
           !s.Deserialize<Agent>("Agent", "custom:Agent:abc:stuff;").has_value());
 
     // --- Separate Serializer instances have independent registries ---
-    Serializer s2;
+    cse498::Serializer s2;
     check("separate instance: Agent not registered",
           !s2.IsTypeRegistered("Agent"));
     check("separate instance: deserialize fails",

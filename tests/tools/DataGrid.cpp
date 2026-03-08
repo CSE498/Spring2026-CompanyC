@@ -5,31 +5,31 @@
 
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch.hpp>
-#include "../source/DataGrid.hpp"
+#include "../../source/tools/DataGrid.hpp"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constructor
 // ─────────────────────────────────────────────────────────────────────────────
 TEST_CASE("DataGrid constructor allocates correct dimensions", "[constructor]") {
     SECTION("Standard dimensions") {
-        DataGrid dg(3, 4);
+        cse498::DataGrid dg(3, 4);
         // Row and Column should be accessible without throwing
         REQUIRE_NOTHROW(dg.Row(0));
         REQUIRE_NOTHROW(dg.Column(0));
     }
 
     SECTION("1x1 grid") {
-        DataGrid dg(1, 1);
+        cse498::DataGrid dg(1, 1);
         REQUIRE_NOTHROW(dg.At(0, 0));
     }
 
     SECTION("Single row grid") {
-        DataGrid dg(1, 5);
+        cse498::DataGrid dg(1, 5);
         REQUIRE(dg.Row(0).size() == 5);
     }
 
     SECTION("Single column grid") {
-        DataGrid dg(5, 1);
+        cse498::DataGrid dg(5, 1);
         REQUIRE(dg.Column(0).size() == 5);
     }
 }
@@ -38,7 +38,7 @@ TEST_CASE("DataGrid constructor allocates correct dimensions", "[constructor]") 
 // Insert(r, c, element)
 // ─────────────────────────────────────────────────────────────────────────────
 TEST_CASE("Insert at specific position", "[insert]") {
-    DataGrid dg(3, 3);
+    cse498::DataGrid dg(3, 3);
 
     SECTION("Insert int and retrieve with At()") {
         dg.Insert(0, 0, 42);
@@ -88,10 +88,10 @@ TEST_CASE("Insert at specific position", "[insert]") {
 // Append
 // ─────────────────────────────────────────────────────────────────────────────
 TEST_CASE("Append adds a new row", "[append]") {
-    DataGrid dg(2, 3);
+    cse498::DataGrid dg(2, 3);
 
     SECTION("Appended row is accessible") {
-        std::vector<Datum> newRow = {Datum(1.0), Datum(2.0), Datum(3.0)};
+        std::vector<cse498::Datum> newRow = {cse498::Datum(1.0), cse498::Datum(2.0), cse498::Datum(3.0)};
         dg.Append(newRow);
         // Grid should now have 3 rows
         REQUIRE_NOTHROW(dg.Row(2));
@@ -99,7 +99,7 @@ TEST_CASE("Append adds a new row", "[append]") {
     }
 
     SECTION("Appended values are correct") {
-        std::vector<Datum> newRow = {Datum(10.0), Datum(20.0), Datum(30.0)};
+        std::vector<cse498::Datum> newRow = {cse498::Datum(10.0), cse498::Datum(20.0), cse498::Datum(30.0)};
         dg.Append(newRow);
         REQUIRE(dg.At(2, 0).AsDouble() == Approx(10.0));
         REQUIRE(dg.At(2, 1).AsDouble() == Approx(20.0));
@@ -107,8 +107,8 @@ TEST_CASE("Append adds a new row", "[append]") {
     }
 
     SECTION("Multiple appends increase row count") {
-        dg.Append({Datum(1.0), Datum(2.0), Datum(3.0)});
-        dg.Append({Datum(4.0), Datum(5.0), Datum(6.0)});
+        dg.Append({cse498::Datum(1.0), cse498::Datum(2.0), cse498::Datum(3.0)});
+        dg.Append({cse498::Datum(4.0), cse498::Datum(5.0), cse498::Datum(6.0)});
         REQUIRE_NOTHROW(dg.Row(3));
     }
 
@@ -122,7 +122,7 @@ TEST_CASE("Append adds a new row", "[append]") {
 // Row
 // ─────────────────────────────────────────────────────────────────────────────
 TEST_CASE("Row returns correct data", "[row]") {
-    DataGrid dg(3, 3);
+    cse498::DataGrid dg(3, 3);
     dg.Insert(1, 0, 10);
     dg.Insert(1, 1, 20);
     dg.Insert(1, 2, 30);
@@ -150,7 +150,7 @@ TEST_CASE("Row returns correct data", "[row]") {
 // Column
 // ─────────────────────────────────────────────────────────────────────────────
 TEST_CASE("Column returns correct data", "[column]") {
-    DataGrid dg(3, 3);
+    cse498::DataGrid dg(3, 3);
     dg.Insert(0, 2, 100);
     dg.Insert(1, 2, 200);
     dg.Insert(2, 2, 300);
@@ -176,7 +176,7 @@ TEST_CASE("Column returns correct data", "[column]") {
 // At
 // ─────────────────────────────────────────────────────────────────────────────
 TEST_CASE("At retrieves correct element", "[at]") {
-    DataGrid dg(4, 4);
+    cse498::DataGrid dg(4, 4);
     dg.Insert(0, 0, 1);
     dg.Insert(3, 3, 999);
 
@@ -196,12 +196,12 @@ TEST_CASE("At retrieves correct element", "[at]") {
 // ─────────────────────────────────────────────────────────────────────────────
 // Find
 // ─────────────────────────────────────────────────────────────────────────────
-// NOTE: Find() currently iterates over rows (std::vector<Datum>) using
+// NOTE: Find() currently iterates over rows (std::vector<cse498::Datum>) using
 // std::find_if, but the lambda compares a Datum to elements of
-// std::vector<Datum>. This is a type mismatch bug — Find will not compile
+// std::vector<cse498::Datum>. This is a type mismatch bug — Find will not compile
 // or will not work correctly until fixed. Tests below document intended behavior.
 TEST_CASE("Find locates elements correctly", "[find]") {
-    DataGrid dg(3, 3);
+    cse498::DataGrid dg(3, 3);
     dg.Insert(0, 0, 1.0);
     dg.Insert(1, 1, 42.0);
     dg.Insert(2, 2, 99.0);
@@ -234,7 +234,7 @@ TEST_CASE("Find locates elements correctly", "[find]") {
     }
 
     SECTION("Find in empty-valued grid returns unexpected") {
-        DataGrid empty(2, 2);
+        cse498::DataGrid empty(2, 2);
         auto result = empty.Find(1.0);
         REQUIRE_FALSE(result.has_value());
     }
@@ -244,7 +244,7 @@ TEST_CASE("Find locates elements correctly", "[find]") {
 // Iterator
 // ─────────────────────────────────────────────────────────────────────────────
 TEST_CASE("Iterator traverses grid correctly", "[iterator]") {
-    DataGrid dg(2, 3);
+    cse498::DataGrid dg(2, 3);
     dg.Insert(0, 0, 1); dg.Insert(0, 1, 2); dg.Insert(0, 2, 3);
     dg.Insert(1, 0, 4); dg.Insert(1, 1, 5); dg.Insert(1, 2, 6);
 
@@ -278,7 +278,7 @@ TEST_CASE("Iterator traverses grid correctly", "[iterator]") {
 // 2. Insert(r,c): mEnd.second++ is incremented regardless of column position,
 //    which will desync mEnd over multiple inserts.
 //
-// 3. Find(): std::find_if iterates over rows (vector<Datum>) but the lambda
+// 3. Find(): std::find_if iterates over rows (vector<cse498::Datum>) but the lambda
 //    expects a single Datum — type mismatch, won't compile as-is.
 //    Should iterate over a flattened view or use nested loops.
 //
