@@ -5,9 +5,9 @@
 * This unit test file was written with the help of GitHub Copilot. The test cases and design decisions were made by the author.
 */
 
-#include <catch2/catch_test_macros.hpp> // for TEST_CASE, REQUIRE, Approx
+#include "catch2/catch.hpp"
 
-#include "tools/WeightedSet.h"
+#include "tools/WeightedSet.hpp"
 
 #include <random>
 #include <string>

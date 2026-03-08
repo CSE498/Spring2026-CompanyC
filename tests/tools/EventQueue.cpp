@@ -6,10 +6,9 @@
  * ChatGPT and GitHub Copilot. 
  */
 
-#define CATCH_CONFIG_MAIN
 #include "../../third-party/Catch/single_include/catch2/catch.hpp"
 
-#include "../../source/tools/EventQueue.h"
+#include "../../source/tools/EventQueue.hpp"
 
 using cse498::EventQueue;
 using cse498::Event;

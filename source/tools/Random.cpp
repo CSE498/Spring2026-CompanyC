@@ -5,7 +5,7 @@
  * CITATION: LLM use for syntax, behavior is according to specifications.
  */
 
-#include "Random.h"
+#include "Random.hpp"
 
 #include <cassert>
 #include <limits>

@@ -22,10 +22,10 @@ namespace cse498
         std::string mData;
 
         // Priority of the event
-        int mPriority;
+        int mPriority = 0;
 
         // Insertion index used for tiebreaker 
-        std::size_t mTiebreaker;
+        std::size_t mTiebreaker = 0;
 
         /**
         * Default Constructor

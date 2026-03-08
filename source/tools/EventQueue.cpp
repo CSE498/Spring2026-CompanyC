@@ -6,7 +6,7 @@
  */
 
 // Include statements
-#include "EventQueue.h"
+#include "EventQueue.hpp"
 #include <algorithm> // For push_heap and pop_heap
 #include <cassert> // For assert statements
 

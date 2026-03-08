@@ -23,7 +23,7 @@ class MemoFunction
 {
 public:
     //Generic type to help with the wrapping 
-    using result_type = std::invoke_result<Func&, const Key&>;  /// This helps initialize my cache
+    using result_type = std::invoke_result_t<Func&, const Key&>;  /// This helps initialize my cache
 
 private:
     static constexpr std::size_t DEFAULT_CAPACITY = 3;

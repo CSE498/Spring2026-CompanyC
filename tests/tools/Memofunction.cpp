@@ -6,7 +6,6 @@
  * Written with help from ChatGPT and other sources.
  */
 
-#define CATCH_CONFIG_MAIN
 #include "../../third-party/Catch/single_include/catch2/catch.hpp"
 
 #include "../../source/tools/Memofunction.hpp"
