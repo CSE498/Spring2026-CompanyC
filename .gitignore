@@ -40,9 +40,14 @@
 # debug information files
 *.dwo
 
-# IDE Settings
+# Claude Code
+.claude
+
+# IDE files
 .vscode/
 **/.DS_Store
 
 # JetBrains IDE
 .idea
+#clang
+.clangd
