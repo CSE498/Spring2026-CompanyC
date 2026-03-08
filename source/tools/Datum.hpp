@@ -17,6 +17,7 @@
 #pragma once
 
 
+#include <concepts>
 #include <variant>
 #include <string>
 #include <cmath>
@@ -33,6 +34,9 @@ namespace cse498 {
         Datum(const char* );
         Datum(const double);
         Datum(const bool);
+
+        template<std::integral T>
+        Datum(T val) : Datum(static_cast<double>(val)) {}
 
         std::string AsString() const;
         double AsDouble() const;
