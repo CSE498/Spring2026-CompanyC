@@ -6,11 +6,10 @@
  *        world states and agent logs before database storage. LZW is a 
  *        dictionary based compression algorithm. Only a single number is 
  *        needed to represent a substring.
-          Standard Character-Set -> The 256 ASCII code chars
-          Claude AI was used to help make code below
+ *        Standard Character-Set -> The 256 ASCII code chars
+ *        Claude AI was used to help make code below & to make the
+ *        function definitions.
  */
-
-
 #pragma once
 #include <string>
 #include <vector>
@@ -29,6 +28,11 @@ enum class CompressorError {
 
 class StringCompressor {
 private:
+    // Prevent instantiation since all functions are static
+    StringCompressor() = delete;
+    StringCompressor(const StringCompressor&) = delete;
+    StringCompressor& operator=(const StringCompressor&) = delete;
+    
     // 4096 is standard for 12-bit LZW, but can be increased for larger worlds.
     static constexpr size_t MAX_DICT_SIZE = 4096;
     
@@ -46,35 +50,36 @@ public:
      * Compresses a standard string into a vector of 16-bit unsigned integers.
      * uint16_t allows for dictionary codes up to 65,535.
      */
-    static std::vector<uint16_t> Compress(const std::string& input);
+    [[nodiscard]] static std::vector<uint16_t> Compress(const std::string& input);
     
     /**
      * Reconstructs the original string from the compressed vector of codes.
      */
-    static std::expected<std::string, CompressorError> Decompress(const std::vector<uint16_t>& compressed);
+    [[nodiscard]] static std::expected<std::string, CompressorError> Decompress(
+        const std::vector<uint16_t>& compressed);
     
     /**
      * Calculates compression ratio (compressed_size / original_size)
      */
-    static double GetCompressionRatio(const std::string& original, 
-                                       const std::vector<uint16_t>& compressed);
+    [[nodiscard]] static double GetCompressionRatio(const std::string& original, 
+                                    const std::vector<uint16_t>& compressed);
     
     /**
      * Compresses string and converts to byte vector for database storage.
      * Format: [MAGIC_BYTE_1][MAGIC_BYTE_2][VERSION][compressed_codes...]
      */
-    static std::vector<uint8_t> CompressToBytes(const std::string& input);
+    [[nodiscard]] static std::vector<uint8_t> CompressToBytes(const std::string& input);
     
     /**
      * Decompresses from byte vector back to original string
      */
-    static std::expected<std::string, CompressorError> DecompressFromBytes(
+    [[nodiscard]] static std::expected<std::string, CompressorError> DecompressFromBytes(
         const std::vector<uint8_t>& data);
     
     /**
      * Checks if data has valid compression header
      */
-    static bool IsCompressed(const std::vector<uint8_t>& data);
+    [[nodiscard]] static bool IsCompressed(const std::vector<uint8_t>& data);
 };
 
 } // namespace cse498

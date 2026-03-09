@@ -1,5 +1,5 @@
 /**
- * @file StringCompressor.hpp
+ * @file StringCompressor.cpp
  * @author Krist Veseli
  */
 
@@ -16,8 +16,8 @@ namespace cse498 {
 // Helper to fill the dictionary with the initial 256 ASCII characters
 void StringCompressor::InitializeCompressionDict(std::unordered_map<std::string, uint16_t>& dict) {
     dict.clear();
-    for (int i = 0; i < 256; i++) {
-        dict[std::string(1, static_cast<char>(i))] = static_cast<uint16_t>(i);
+    for (uint16_t i = 0; i < 256; i++) {
+        dict[std::string(1, static_cast<char>(i))] = i;
     }
 }
 
@@ -29,25 +29,25 @@ std::vector<uint16_t> StringCompressor::Compress(const std::string& input) {
     InitializeCompressionDict(dict);
 
     uint16_t next_code = 256;
-    std::string p = "";
+    std::string currentPattern = "";
 
     for (char c : input) {
-        std::string pc = p + c;
+        std::string pc = currentPattern + c;
         
         if (dict.contains(pc)) {
-            p = pc;
+            currentPattern = pc;
         } else {
-            output.push_back(dict[p]);
+            output.push_back(dict[currentPattern]);
 
             if (next_code < MAX_DICT_SIZE) {
                 dict[pc] = next_code++;
             }
-            p = std::string(1, c);
+            currentPattern = std::string(1, c);
         }
     }
 
-    if (!p.empty()) {
-        output.push_back(dict[p]);
+    if (!currentPattern.empty()) {
+        output.push_back(dict[currentPattern]);
     }
 
     return output;
@@ -56,8 +56,8 @@ std::vector<uint16_t> StringCompressor::Compress(const std::string& input) {
 // Helper to fill the dictionary with the initial 256 ASCII characters
 void StringCompressor::InitializeDecompressionDict(std::unordered_map<uint16_t, std::string>& dict) {
     dict.clear();
-    for (int i = 0; i < 256; i++) {
-        dict[static_cast<uint16_t>(i)] = std::string(1, static_cast<char>(i));
+    for (uint16_t i = 0; i < 256; i++) {
+        dict[i] = std::string(1, static_cast<char>(i));
     }
 }
 
@@ -104,7 +104,7 @@ std::expected<std::string, CompressorError> StringCompressor::Decompress(const s
 }
 
 double StringCompressor::GetCompressionRatio(const std::string& original, 
-                                              const std::vector<uint16_t>& compressed) {
+                                const std::vector<uint16_t>& compressed) {
     if (original.empty()) return 0.0;
     size_t original_bytes = original.size();
     size_t compressed_bytes = compressed.size() * sizeof(uint16_t);

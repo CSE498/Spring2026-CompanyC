@@ -5,17 +5,7 @@
 
 // Claude AI was used to help make the test cases below
 
-// The test cases below are being compiled with:
-/*
-g++ -std=c++23 \
-    -I/opt/homebrew/opt/catch2/include \
-    -L/opt/homebrew/opt/catch2/lib \
-    StringCompressorTest.cpp StringCompressor.cpp \
-    -o test_compressor \
-    -lCatch2Main -lCatch2
-*/
-
-#include "catch2/catch.hpp"
+#include <catch2/catch_test_macros.hpp>
 #include "../../source/tools/StringCompressor.hpp"
 
 using namespace cse498;
