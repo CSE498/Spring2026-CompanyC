@@ -1,3 +1,20 @@
+/**
+ * @file StringDiff.hpp
+ * @brief Defines the StringDiff class for computing and applying compact string diffs.
+ * 
+ * StringDiff generates a patch that turns one string into another by storing
+ * the common prefix and suffix lengths and the modified middle section. Each patch
+ * also records the base string's length and hash for validation before applying.
+ * 
+ * Diffs can be encoded into a compact string format for storage and later decoded
+ * back into a Diff struct. Functions return std::expected values to report
+ * errors such as malformed encodings, invalid patches, size violations, or others.
+ * 
+ * @author Andrew Shilman
+ * @course CSE 498
+ */
+
+
 #pragma once
 
 #include <string>

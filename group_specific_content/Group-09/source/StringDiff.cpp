@@ -6,10 +6,17 @@ namespace cse498 {
 
 //Private helper
 uint64_t StringDiff::ComputeHash(const std::string& str) {
-    uint64_t hash = 14695981039346656037ULL; 
+
+    //constants used by the 64-bit FNV-1a hash algorithm I researched.
+    //keeps it deterministic, hash to verify the base string
+    const uint64_t offset = 14695981039346656037ULL;
+    const uint64_t prime = 1099511628211ULL;
+
+    uint64_t hash = offset;
+
     for (unsigned char byte : str) {
-        hash ^= byte;
-        hash *= 1099511628211ULL; 
+        hash ^= byte;   //mixes current byte into the hash
+        hash *= prime; //spread the bits according to the alg
     }
 
     return hash;
