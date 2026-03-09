@@ -48,7 +48,8 @@ StringDiff::Diff StringDiff::MakeDiff(const std::string& base, const std::string
 
     // prefix length
     uint64_t prefix_length = 0;
-    while (prefix_length < base.length() && prefix_length < updated.length() && base[prefix_length] == updated[prefix_length]) {
+    uint64_t max_prefix = std::min(base.length(), updated.length());
+    while (prefix_length < max_prefix && base[prefix_length] == updated[prefix_length]) {
         prefix_length++;
     }
 
@@ -60,7 +61,12 @@ StringDiff::Diff StringDiff::MakeDiff(const std::string& base, const std::string
     uint64_t base_remaining = base.length() - prefix_length;
     uint64_t updated_remaining = updated.length() - prefix_length;
 
-    while (suffix_length < base_remaining && suffix_length < updated_remaining && base[base.length() - 1 - suffix_length] == updated[updated.length() - 1 - suffix_length]) {
+    const uint64_t base_len = base.length();
+    const uint64_t updated_len = updated.length();
+
+    uint64_t max_suffix = std::min(base_remaining, updated_remaining);
+
+    while (suffix_length < max_suffix && base[base_len - 1 - suffix_length] == updated[updated_len - 1 - suffix_length]) {
         suffix_length++;
     }
 
