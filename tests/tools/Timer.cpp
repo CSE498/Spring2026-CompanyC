@@ -26,6 +26,34 @@ TEST_CASE("Timer records named durations and simple stats", "[core]")
     CHECK(timer.Max("A") == 0.0);
     CHECK(timer.Average("A") == 0.0);
   }
+  SECTION("Reset on an unknown timer does nothing") //added from peer review
+  {
+    CHECK(timer.HasData("NeverStarted") == false);
+    CHECK(timer.Count("NeverStarted") == 0);
+
+    timer.Reset("NeverStarted"); // should not crash or change anything
+
+    CHECK(timer.HasData("NeverStarted") == false);
+    CHECK(timer.Count("NeverStarted") == 0);
+    CHECK(timer.Last("NeverStarted") == 0.0);
+    CHECK(timer.Min("NeverStarted") == 0.0);
+    CHECK(timer.Max("NeverStarted") == 0.0);
+    CHECK(timer.Average("NeverStarted") == 0.0);
+  }
+
+  SECTION("Querying a timer while it is still running returns no completed data") //added from peer review
+  {
+    timer.Start("A");
+
+    CHECK(timer.HasData("A") == false);
+    CHECK(timer.Count("A") == 0);
+    CHECK(timer.Last("A") == 0.0);
+    CHECK(timer.Min("A") == 0.0);
+    CHECK(timer.Max("A") == 0.0);
+    CHECK(timer.Average("A") == 0.0);
+
+    timer.Stop("A");
+  }
 
   SECTION("Single timing run updates count and last") //testing one start/stop
   {
