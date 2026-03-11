@@ -1,6 +1,3 @@
-//
-// Created by Mitchell McAuley on 2/4/2026.
-//
 
 #include "DataGrid.hpp"
 
@@ -14,7 +11,7 @@ namespace cse498 {
      * @param c the horizontal capacity
      */
     DataGrid::DataGrid(int r, int c) {
-        mData = std::make_unique<std::vector<std::vector<Datum>>>(r, std::vector<Datum>(c));
+        mData = std::vector<std::vector<Datum>>(r, std::vector<Datum>(c));
         mEnd = {0,0};
         mDim = {r, c};
     }
@@ -24,7 +21,7 @@ namespace cse498 {
      * @param row row
      */
     void DataGrid::Append(const std::vector<Datum> & row) {
-        mData->push_back(row);
+        mData.push_back(row);
         mDim.first++;
     }
 
@@ -34,7 +31,9 @@ namespace cse498 {
      * @return a row from the grid
      */
     std::vector<Datum> DataGrid::Row(int r) const {
-        return (*mData)[r];
+        assert(r >= 0 && r < mDim.first);
+
+        return mData[r];
     }
 
     /**
@@ -47,7 +46,7 @@ namespace cse498 {
 
         std::vector<Datum> col;
         for (int i = 0; i < mDim.first; i++) {
-            col.push_back((*mData)[i][c]);
+            col.push_back(mData[i][c]);
         }
 
         return col;
@@ -57,6 +56,6 @@ namespace cse498 {
      * request a certain element from the grid.
      */
     Datum DataGrid::At(int r, int c) const {
-        return (*mData)[r][c];
+        return mData[r][c];
     }
 }

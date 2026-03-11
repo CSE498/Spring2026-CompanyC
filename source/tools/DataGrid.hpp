@@ -1,9 +1,13 @@
-//
-// Created by mitch on 2/4/2026.
-//
+/**
+* @file DataGrid.hpp
+ * @brief Defines the DataGrid class, which manages a 2d grid of Datum objects.
+ *
+ * @author  Mitchell McAuley
+ * @date    2/4/2026
+ * @course  CSE 498
+ */
 
-#ifndef UNTITLED_DATAGRID_H
-#define UNTITLED_DATAGRID_H
+#pragma once
 
 #include<vector>
 #include <memory>
@@ -12,6 +16,7 @@
 #include <algorithm>
 #include <string>
 #include <utility>
+#include <ranges>
 
 #include "Datum.hpp"
 
@@ -23,15 +28,15 @@ namespace cse498 {
     class DataGrid {
     private:
         // Underlying data structure
-        std::unique_ptr<std::vector<std::vector<Datum>>> mData;
+        std::vector<std::vector<Datum>> mData;
 
         // The first unoccupied space in the grid
-        std::pair<int, int> mEnd;
+        std::pair<size_t, size_t> mEnd;
         // The dimensions of the grid
-        std::pair<int, int> mDim;
+        std::pair<size_t, size_t> mDim;
     public:
         /**
-         * Iterator implentation for the grid.
+         * Iterator implementation for the grid.
          */
         class Iterator {
         public:
@@ -41,11 +46,15 @@ namespace cse498 {
                 return mRow != it.mRow || mCol != it.mCol;
             }
 
-            Datum operator*() const {
-                return (*mDg->mData)[mRow][mCol];
+            bool operator==(const Iterator& it) const {
+                return mRow == it.mRow && mCol == it.mCol;
             }
 
-            void operator++()
+            Datum operator*() const {
+                return mDg->mData[mRow][mCol];
+            }
+
+            Iterator& operator++()
             {
                 if (mCol >= mDg->mDim.second - 1)
                 {
@@ -55,6 +64,7 @@ namespace cse498 {
                 {
                     ++mCol;
                 }
+                return *this;
             }
 
             std::pair<int, int> Pos() { return std::make_pair(mRow, mCol); }
@@ -86,13 +96,15 @@ namespace cse498 {
      * @param element the new element
      */
     template<typename T> void DataGrid::Insert(T element) {
-        if (mEnd == mDim) {
-            mData->push_back(std::vector<Datum>{Datum(element)});
+        if (mEnd.second == 0 && mEnd.first != 0 && mEnd.first >= mDim.first) {
+            mData.push_back(std::vector<Datum>{Datum(element)});
             mEnd.first++;
             mEnd.second = 1;
             mDim.first++;
+
+            return;
         }
-        (*mData)[mEnd.first][mEnd.second] = Datum(element);
+        mData[mEnd.first][mEnd.second] = Datum(element);
         mEnd.second++;
         if (mEnd.second == mDim.second) {
             mEnd.second = 0;
@@ -114,11 +126,18 @@ namespace cse498 {
                     r, c, mDim.first, mDim.second));
         }
 
-        if (mEnd.second < c || mEnd.first < r) {
-            mEnd.first = r;
-            mEnd.second = c;
+        if (mEnd.first < r || (mEnd.second <= c && mEnd.first == r)) {
+            if (c + 1 >= mDim.second)
+            {
+                mEnd.second = 0;
+                mEnd.first = r + 1;
+            } else
+            {
+                mEnd.first = r;
+                mEnd.second = c + 1;
+            }
         }
-        (*mData)[r][c] = Datum(element);
+        mData[r][c] = Datum(element);
     }
 
     /**
@@ -130,19 +149,16 @@ namespace cse498 {
     template<typename T>
     std::expected<std::pair<int, int>, std::string> DataGrid::Find(T element) {
         Datum key(element);
-        for (auto v : *mData) {
-            auto it = std::find_if(mData->begin(), mData->end(),
-                [&key](const Datum & other){ return key.AsDouble() == other.AsDouble(); });
+        auto it = std::find_if(begin(), end(),
+            [&key](const Datum & other){ return key.AsDouble() == other.AsDouble(); });
 
-            if (it == mData->end())
-            {
-                return std::unexpected("Your element is not in the data grid.");
-            }
+        //auto it = std::ranges::find_if(*this, [&key](const Datum & other){ return key.AsDouble() == other.AsDouble(); });
 
-            return it.Pos();
+        if (it == end())
+        {
+            return std::unexpected("Your element is not in the data grid.");
         }
 
-        return std::unexpected("DataGrid empty!");
+        return it.Pos();
     }
 }
-#endif //UNTITLED_DATAGRID_H
