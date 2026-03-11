@@ -14,6 +14,10 @@
 #include "../tools/Datum.hpp"
 #include "../tools/DataGrid.hpp"
 
+#include <string>
+#include <unordered_map>
+#include <optional>
+
 namespace cse498 {
     class Database {
     public:
@@ -61,5 +65,7 @@ namespace cse498 {
         Serializer       mSerializer;
         StringCompressor mCompressor;
         StringDiff       mDiffer;
+
+        size_t mSize;
     };
 } // End namespace cse498
