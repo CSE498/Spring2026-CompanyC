@@ -5,7 +5,7 @@
 
 // Claude AI was used to help make the test cases below
 
-#include <catch2/catch_test_macros.hpp>
+#include "catch2/catch.hpp"
 #include "../../source/tools/StringCompressor.hpp"
 
 using namespace cse498;
