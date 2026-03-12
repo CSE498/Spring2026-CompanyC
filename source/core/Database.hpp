@@ -96,8 +96,10 @@ namespace cse498 {
         //Step 2, Decompress from bytes
         auto result = StringCompressor::DecompressFromBytes(mStorage.at(key));
         if (!result) return std::nullopt;  // handle CompressorError
+        // The reason I dereference this is so it is a string since above returns std::expected
         std::string serialized = *result;
         size_t pos = 0;
+        //Call Deserialize
         return mSerializer.DeserializeAt<T>(serialized, pos);
 }   
 
