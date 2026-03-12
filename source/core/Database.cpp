@@ -3,16 +3,25 @@
 namespace cse498{
 
     bool Database::Exists(const std::string & key) const {
-        return false;   
+        return mStorage.count(key) > 0; 
     }
 
     void Database::Clear(){
         mStorage.clear();
-        mSize = 0;
+        
     }
     size_t Database::Size() const {
-        return mSize;
+        return mStorage.size();
     }
+
+    bool Database::Delete(const std::string & key) {
+        if (!Exists(key)) return false; 
+        mStorage.erase(key);
+        return true;
+    }
+    
+
+
 
      
 
