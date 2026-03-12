@@ -1,4 +1,3 @@
-#define CATCH_CONFIG_MAIN
 #include <catch2/catch.hpp>
 #include "../../source/tools/DataGrid.hpp"
 #include "../../source/tools/Datum.hpp"
@@ -343,13 +342,17 @@ TEST_CASE("Iterator dereference returns correct Datum", "[iterator]") {
 TEST_CASE("Iterator Pos() returns correct (row, col)", "[iterator]") {
     DataGrid dg(2, 3);
     auto it = dg.begin();
-    REQUIRE(it.Pos() == std::make_pair(0, 0));
+    REQUIRE(it.Pos() == std::make_pair<size_t, size_t>(0, 0));
 
     ++it;
-    REQUIRE(it.Pos() == std::make_pair(0, 1));
+    auto pos = it.Pos();
+    REQUIRE(pos.first == size_t{0});
+    REQUIRE(pos.second == size_t{1});
 
     ++it; ++it;
-    REQUIRE(it.Pos() == std::make_pair(1, 0));
+    pos = it.Pos();
+    REQUIRE(pos.first == size_t{1});
+    REQUIRE(pos.second == size_t{0});
 }
 
 TEST_CASE("Iterator wraps column to next row correctly", "[iterator]") {

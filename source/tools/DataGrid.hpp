@@ -17,8 +17,10 @@
 #include <string>
 #include <utility>
 #include <ranges>
-
+#include <iterator>
 #include "Datum.hpp"
+
+
 
 
 namespace cse498 {
@@ -40,7 +42,13 @@ namespace cse498 {
          */
         class Iterator {
         public:
-            Iterator(DataGrid* dg, int r, int c) : mDg(dg), mRow(r), mCol(c) {}
+            using iterator_category = std::forward_iterator_tag;
+            using value_type        = Datum;
+            using difference_type   = std::ptrdiff_t;
+            using pointer           = Datum*;
+            using reference         = Datum&;
+
+            Iterator(DataGrid* dg, size_t r, size_t c) : mDg(dg), mRow(r), mCol(c) {}
 
             bool operator!=(const Iterator& it) const {
                 return mRow != it.mRow || mCol != it.mCol;
@@ -56,23 +64,30 @@ namespace cse498 {
 
             Iterator& operator++()
             {
+                
+                if (mDg->mDim.second == 0) return *this;
+
+                
+                
+
                 if (mCol >= mDg->mDim.second - 1)
                 {
                     mCol = 0;
                     mRow++;
-                }else
-                {
+                } else {
                     ++mCol;
                 }
+
                 return *this;
             }
 
-            std::pair<int, int> Pos() { return std::make_pair(mRow, mCol); }
+        
+            std::pair<size_t, size_t> Pos() const { return std::make_pair(mRow, mCol); }
 
         private:
             DataGrid* mDg;
-            int mRow;
-            int mCol;
+            size_t mRow;
+            size_t mCol;
         };
 
         DataGrid(int r, int c);
@@ -121,23 +136,27 @@ namespace cse498 {
      */
     template<typename T>
     void DataGrid::Insert(int r, int c, T element) {
-        if (r >= mDim.first || c >= mDim.second || r < 0 || c < 0) {
+
+        auto ur = static_cast<size_t>(r);
+        auto uc = static_cast<size_t>(c);
+
+        if (ur >= mDim.first || uc >= mDim.second || r < 0 || c < 0) {
             throw std::out_of_range(std::format("Indices outside the current grid. Input ({}, {}) in grid of size ({}, {})",
-                    r, c, mDim.first, mDim.second));
+                    ur, uc, mDim.first, mDim.second));
         }
 
-        if (mEnd.first < r || (mEnd.second <= c && mEnd.first == r)) {
-            if (c + 1 >= mDim.second)
+        if (mEnd.first < ur || (mEnd.second <= uc && mEnd.first == ur)) {
+            if (uc + 1 >= mDim.second)
             {
                 mEnd.second = 0;
-                mEnd.first = r + 1;
+                mEnd.first = ur + 1;
             } else
             {
-                mEnd.first = r;
-                mEnd.second = c + 1;
+                mEnd.first = ur;
+                mEnd.second = uc + 1;
             }
         }
-        mData[r][c] = Datum(element);
+        mData[ur][uc] = Datum(element);
     }
 
     /**
