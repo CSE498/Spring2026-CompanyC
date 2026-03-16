@@ -104,6 +104,12 @@ public:
     [[nodiscard]] const DatabaseConfig& GetConfig() const { return mConfig; }
 
 private:
+    /// Storage format indicator
+    enum class StorageFormat : uint8_t {
+        Raw = 0,
+        Compressed = 1
+    };
+
     std::unordered_map<std::string, std::vector<uint8_t>> mStorage;  // Key -> compressed bytes
     std::unordered_map<std::string, std::string> mSerializedCache;   // For diff calculation
     Serializer mSerializer;
@@ -122,10 +128,7 @@ std::expected<void, DatabaseError> Database::Store(const std::string& key, const
 
     // Serialize
     std::string serialized = mSerializer.Serialize(obj);
-    if (serialized.empty()) {
-        return std::unexpected(DatabaseError::SerializationFailed);
-    }
-
+    
     Log("[Store] Serialized size: " + std::to_string(serialized.size()) + " bytes");
 
     // Cache for diffs
@@ -134,25 +137,32 @@ std::expected<void, DatabaseError> Database::Store(const std::string& key, const
         Log("[Store] Cached serialized data for diff");
     }
 
-    // Compress if enabled and above threshold
-    std::vector<uint8_t> compressed;
+    // Prepare final storage with format header
+    std::vector<uint8_t> final_data;
     
     if (mConfig.auto_compress && serialized.size() >= mConfig.compression_threshold) {
         Log("[Store] Compressing...");
-        compressed = StringCompressor::CompressToBytes(serialized);
         
+        auto compressed = StringCompressor::CompressToBytes(serialized);
         if (compressed.empty()) {
             return std::unexpected(DatabaseError::CompressionFailed);
         }
         
         Log("[Store] Compressed size: " + std::to_string(compressed.size()) + " bytes");
+        
+        // Format: [Compressed byte][compressed data]
+        final_data.push_back(static_cast<uint8_t>(StorageFormat::Compressed));
+        final_data.insert(final_data.end(), compressed.begin(), compressed.end());
     } else {
         Log("[Store] Skipping compression (below threshold or disabled)");
-        compressed.assign(serialized.begin(), serialized.end());
+        
+        // Format: [Raw byte][serialized string as bytes]
+        final_data.push_back(static_cast<uint8_t>(StorageFormat::Raw));
+        final_data.insert(final_data.end(), serialized.begin(), serialized.end());
     }
 
     // Store
-    mStorage[key] = std::move(compressed);
+    mStorage[key] = std::move(final_data);
     Log("[Store] Stored successfully");
 
     return {};
@@ -168,22 +178,36 @@ std::expected<T, DatabaseError> Database::Load(const std::string& key) {
     }
 
     const std::vector<uint8_t>& data = mStorage.at(key);
+    
+    // Validate minimum size (at least format byte)
+    if (data.empty()) {
+        return std::unexpected(DatabaseError::InvalidData);
+    }
+    
+    // Read format byte
+    StorageFormat format = static_cast<StorageFormat>(data[0]);
+    std::vector<uint8_t> payload(data.begin() + 1, data.end());
+    
     std::string serialized;
 
-    // Decompress if needed
-    if (StringCompressor::IsCompressed(data)) {
+    // Decompress if needed based on format byte
+    if (format == StorageFormat::Compressed) {
         Log("[Load] Data is compressed, decompressing...");
         
-        auto result = StringCompressor::DecompressFromBytes(data);
+        auto result = StringCompressor::DecompressFromBytes(payload);
         if (!result) {
             return std::unexpected(DatabaseError::DecompressionFailed);
         }
         
         serialized = *result;
         Log("[Load] Decompressed size: " + std::to_string(serialized.size()) + " bytes");
-    } else {
+    } else if (format == StorageFormat::Raw) {
         Log("[Load] Data is not compressed");
-        serialized.assign(data.begin(), data.end());
+        // Convert bytes back to string
+        serialized.assign(payload.begin(), payload.end());
+    } else {
+        // Unknown format
+        return std::unexpected(DatabaseError::InvalidData);
     }
 
     // Cache for diffs

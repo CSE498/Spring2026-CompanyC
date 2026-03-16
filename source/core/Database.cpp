@@ -14,6 +14,7 @@ bool Database::Exists(const std::string& key) const {
 
 void Database::Clear() {
     mStorage.clear();
+    mSerializedCache.clear();
 }
 
 size_t Database::Size() const {
@@ -23,6 +24,7 @@ size_t Database::Size() const {
 bool Database::Delete(const std::string& key) {
     if (!Exists(key)) return false;
     mStorage.erase(key);
+    mSerializedCache.erase(key);
     return true;
 }
 
