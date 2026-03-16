@@ -1,8 +1,5 @@
 #include "PathGenerator.hpp"
 
-#include <queue>
-#include <unordered_map>
-#include <vector>
 #include <algorithm>
 
 namespace cse498 {
@@ -11,107 +8,134 @@ void PathGenerator::SetWorldView(const WorldView& world) {
     world_view = std::cref(world);
 }
 
-SampleWorldPath PathGenerator::GeneratePath(const PathRequest& req) const {
-    if (!world_view.has_value()) {
-        return SampleWorldPath{};
-    }
+Point PathGenerator::ToDoublePoint(const StateGridPosition& p)
+{
+    return Point{
+        static_cast<double>(p.GetX()),
+        static_cast<double>(p.GetY())
+    };
+}
 
-    switch (req.type) {
+WorldPath PathGenerator::GeneratePath(const PathRequest& req) const
+{
+    assert(!world_view.has_value());
+
+    switch (req.type)
+    {
         case PathType::Shortest:
             return GenerateShortestPath(req.start, req.goal);
+
         case PathType::Patrol:
             return GeneratePatrolPath(req.start, req.max_length);
+
         case PathType::Avoid:
             return GenerateAvoidPath(req.start, req.goal, req.avoid);
+
         case PathType::Explore:
             return GenerateExplorePath(req.start, req.max_length);
+
         default:
-            return SampleWorldPath{};
+            return WorldPath{};
     }
 }
 
-SampleWorldPath PathGenerator::GenerateShortestPath(Position start, Position goal) const {
-    SampleWorldPath path;
-
-    // Defensive in case someone calls GenerateShortestPath directly without SetWorldView.
-    if (!world_view.has_value()) {
-        return path;
-    }
+WorldPath PathGenerator::GenerateShortestPath(
+    StateGridPosition start,
+    StateGridPosition goal
+) const
+{
+    WorldPath path;
 
     const WorldView& w = world_view->get();
 
-    // Validate start/goal are in-bounds/walkable (review comment)
-    if (!w.IsWalkable(start) || !w.IsWalkable(goal)) {
-        return SampleWorldPath{};
-    }
+    if (!w.IsWalkable(start) || !w.IsWalkable(goal))
+        return path;
 
-    std::queue<Position> q;
-    std::unordered_map<Position, Position, PositionHash> parent;
+    std::queue<StateGridPosition> q;
+
+    std::unordered_map<
+        StateGridPosition,
+        StateGridPosition,
+        StateGridPositionHash
+    > parent;
 
     q.push(start);
-    parent[start] = start;  // mark visited
+    parent[start] = start;
 
     bool found = false;
 
-    while (!q.empty()) {
-        Position current = q.front();
+    while (!q.empty())
+    {
+        StateGridPosition current = q.front();
         q.pop();
 
-        if (current == goal) {
+        if (current == goal)
+        {
             found = true;
             break;
         }
 
-        std::vector<Position> neighbors;
-        w.GetNeighbors(current, neighbors);
+        for (const auto& next : current.Neighbors())
+        {
+            if (!w.IsWalkable(next))
+                continue;
 
-        for (const Position& next : neighbors) {
-            // GetNeighbors already filters by IsWalkable(), but this is harmless.
-            if (parent.find(next) == parent.end()) {
+            if (parent.find(next) == parent.end())
+            {
                 parent[next] = current;
                 q.push(next);
             }
         }
     }
 
-    if (!found) {
-        return SampleWorldPath{};
-    }
+    if (!found)
+        return path;
 
-    // Reconstruct path: goal -> start
-    Position p = goal;
-    while (!(p == parent[p])) {
-        path.Add(p);
+    std::vector<Point> points;
+
+    StateGridPosition p = goal;
+
+    while (!(p == parent[p]))
+    {
+        points.push_back(ToDoublePoint(p));
         p = parent[p];
     }
-    path.Add(start);
 
-    // Reverse path: start -> goal
-    path.Reverse();
-    return path;
+    points.push_back(ToDoublePoint(start));
+
+    std::reverse(points.begin(), points.end());
+
+    return WorldPath(points);
 }
 
-SampleWorldPath PathGenerator::GeneratePatrolPath(Position start, int max_length) const {
-    (void)start;
-    (void)max_length;
-    return SampleWorldPath{};
+WorldPath PathGenerator::GeneratePatrolPath(
+    StateGridPosition start,
+    std::optional<int> max_length
+) const
+{
+    return WorldPath{};
 }
 
-SampleWorldPath PathGenerator::GenerateAvoidPath(
-    Position start,
-    Position goal,
-    const std::vector<Position>& avoid
-) const {
+WorldPath PathGenerator::GenerateAvoidPath(
+    StateGridPosition start,
+    StateGridPosition goal,
+    const std::vector<StateGridPosition>& avoid
+) const
+{
     (void)start;
     (void)goal;
     (void)avoid;
-    return SampleWorldPath{};
+    return WorldPath{};
 }
 
-SampleWorldPath PathGenerator::GenerateExplorePath(Position start, int max_length) const {
+WorldPath PathGenerator::GenerateExplorePath(
+    StateGridPosition start,
+    std::optional<int> max_length
+) const
+{
     (void)start;
     (void)max_length;
-    return SampleWorldPath{};
+    return WorldPath{};
 }
 
-} // namespace cse498
+}
