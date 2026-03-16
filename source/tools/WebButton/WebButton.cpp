@@ -4,20 +4,16 @@
  */
 
 #include "WebButton.hpp"
+#include <cassert>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
 
 namespace cse498 {
 
-// Static member initialization
-int WebButton::next_id = 0;
-
 #ifdef __EMSCRIPTEN__
-std::map<std::string, WebButton*> WebButton::button_registry;
-
 // C++ function that JavaScript will call
-void _WebButton_HandleClick(const std::string& button_id) {
+void WebButtonHandleClick(const std::string& button_id) {
     auto it = WebButton::button_registry.find(button_id);
     if (it != WebButton::button_registry.end()) {
         it->second->Click();
@@ -26,7 +22,7 @@ void _WebButton_HandleClick(const std::string& button_id) {
 
 // Bind the C++ function so JavaScript can call it
 EMSCRIPTEN_BINDINGS(WebButton) {
-    emscripten::function("_WebButton_HandleClick", &_WebButton_HandleClick);
+    emscripten::function("WebButtonHandleClick", &WebButtonHandleClick);
 }
 #endif
 
@@ -34,43 +30,9 @@ EMSCRIPTEN_BINDINGS(WebButton) {
 // Constructors
 //
 
-WebButton::WebButton()
-    : element_id("btn_" + std::to_string(next_id++))
-    , label(DEFAULT_LABEL)
-    , is_enabled(true)
-    , is_pressed(false)
-    , on_click_callback(nullptr)
-    , width(DEFAULT_WIDTH)
-    , height(DEFAULT_HEIGHT)
-    , bg_color(DEFAULT_BG_COLOR)
-    , text_color(DEFAULT_TEXT_COLOR)
-    , border_color(DEFAULT_BORDER_COLOR)
-    , border_width(DEFAULT_BORDER_WIDTH)
-    , border_radius(DEFAULT_BORDER_RADIUS)
-#ifdef __EMSCRIPTEN__
-    , dom_element(emscripten::val::null())
-#endif
-{
-#ifdef __EMSCRIPTEN__
-    CreateDOMElement();
-#else
-    std::cout << "[WebButton] Created: " << element_id << " - '" << label << "'" << std::endl;
-#endif
-}
-
 WebButton::WebButton(const std::string& label)
     : element_id("btn_" + std::to_string(next_id++))
     , label(label)
-    , is_enabled(true)
-    , is_pressed(false)
-    , on_click_callback(nullptr)
-    , width(DEFAULT_WIDTH)
-    , height(DEFAULT_HEIGHT)
-    , bg_color(DEFAULT_BG_COLOR)
-    , text_color(DEFAULT_TEXT_COLOR)
-    , border_color(DEFAULT_BORDER_COLOR)
-    , border_width(DEFAULT_BORDER_WIDTH)
-    , border_radius(DEFAULT_BORDER_RADIUS)
 #ifdef __EMSCRIPTEN__
     , dom_element(emscripten::val::null())
 #endif
@@ -83,27 +45,13 @@ WebButton::WebButton(const std::string& label)
 }
 
 WebButton::WebButton(const std::string& label, std::function<void()> onClick)
-    : element_id("btn_" + std::to_string(next_id++))
-    , label(label)
-    , is_enabled(true)
-    , is_pressed(false)
-    , on_click_callback(std::move(onClick))
-    , width(DEFAULT_WIDTH)
-    , height(DEFAULT_HEIGHT)
-    , bg_color(DEFAULT_BG_COLOR)
-    , text_color(DEFAULT_TEXT_COLOR)
-    , border_color(DEFAULT_BORDER_COLOR)
-    , border_width(DEFAULT_BORDER_WIDTH)
-    , border_radius(DEFAULT_BORDER_RADIUS)
-#ifdef __EMSCRIPTEN__
-    , dom_element(emscripten::val::null())
-#endif
+    : WebButton(label)
 {
+    on_click_callback = std::move(onClick);
 #ifdef __EMSCRIPTEN__
-    CreateDOMElement();
     AttachEventListener();
 #else
-    std::cout << "[WebButton] Created: " << element_id << " - '" << label << "' with callback" << std::endl;
+    std::cout << "...with callback" << std::endl;
 #endif
 }
 
@@ -152,18 +100,18 @@ WebButton& WebButton::operator=(WebButton&& other) noexcept {
         // Remove the old ID from the registry before overwriting it
         button_registry.erase(element_id);
 #endif
-        element_id = std::move(other.element_id);
-        label = std::move(other.label);
-        is_enabled = other.is_enabled;
-        is_pressed = other.is_pressed;
+        element_id        = std::move(other.element_id);
+        label             = std::move(other.label);
+        is_enabled        = other.is_enabled;
+        is_pressed        = other.is_pressed;
         on_click_callback = std::move(other.on_click_callback);
-        width = other.width;
-        height = other.height;
-        bg_color = std::move(other.bg_color);
-        text_color = std::move(other.text_color);
-        border_color = std::move(other.border_color);
-        border_width = other.border_width;
-        border_radius = other.border_radius;
+        width             = other.width;
+        height            = other.height;
+        bg_color          = std::move(other.bg_color);
+        text_color        = std::move(other.text_color);
+        border_color      = std::move(other.border_color);
+        border_width      = other.border_width;
+        border_radius     = other.border_radius;
 
 #ifdef __EMSCRIPTEN__
         dom_element = std::move(other.dom_element);
@@ -222,13 +170,13 @@ void WebButton::UpdateDOMStyle() {
 void WebButton::AttachEventListener() {
     if (dom_element.isNull()) return;
 
-    // Use onclick property assignment so repeated calls replace the handler
-    // rather than stacking multiple listeners via addEventListener
+    // Use onclick property assignment so repeated calls replace the handler 
+    // instead of adding multiple listeners
     EM_ASM({
         var btn = document.getElementById(UTF8ToString($0));
         if (btn) {
             btn.onclick = function() {
-                Module._WebButton_HandleClick(UTF8ToString($0));
+                Module.WebButtonHandleClick(UTF8ToString($0));
             };
         }
     }, element_id.c_str());
@@ -334,10 +282,10 @@ void WebButton::TogglePressed() {
 //
 
 void WebButton::SetSize(int w, int h) {
-    if (w <= 0) throw std::invalid_argument("Width must be positive");
-    if (h <= 0) throw std::invalid_argument("Height must be positive");
+    assert(w > 0 && "Width must be positive");
+    assert(h > 0 && "Height must be positive");
 
-    width = w;
+    width  = w;
     height = h;
 #ifdef __EMSCRIPTEN__
     UpdateDOMStyle();
@@ -348,7 +296,7 @@ void WebButton::SetSize(int w, int h) {
 }
 
 void WebButton::SetWidth(int w) {
-    if (w <= 0) throw std::invalid_argument("Width must be positive");
+    assert(w > 0 && "Width must be positive");
     width = w;
 #ifdef __EMSCRIPTEN__
     UpdateDOMStyle();
@@ -358,7 +306,7 @@ void WebButton::SetWidth(int w) {
 }
 
 void WebButton::SetHeight(int h) {
-    if (h <= 0) throw std::invalid_argument("Height must be positive");
+    assert(h > 0 && "Height must be positive");
     height = h;
 #ifdef __EMSCRIPTEN__
     UpdateDOMStyle();
@@ -411,7 +359,7 @@ const std::string& WebButton::GetBackgroundColor() const {
 //
 
 void WebButton::SetBorderWidth(int w) {
-    if (w < 0) throw std::invalid_argument("Border width cannot be negative");
+    assert(w >= 0 && "Border width cannot be negative");
     border_width = w;
 #ifdef __EMSCRIPTEN__
     UpdateDOMStyle();
@@ -421,7 +369,7 @@ void WebButton::SetBorderWidth(int w) {
 }
 
 void WebButton::SetBorderRadius(int r) {
-    if (r < 0) throw std::invalid_argument("Border radius cannot be negative");
+    assert(r >= 0 && "Border radius cannot be negative");
     border_radius = r;
 #ifdef __EMSCRIPTEN__
     UpdateDOMStyle();

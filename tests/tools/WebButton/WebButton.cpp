@@ -142,23 +142,7 @@ TEST_CASE("WebButton - Sizing", "[WebButton]") {
 
 TEST_CASE("WebButton - Error Handling", "[WebButton]") {
     WebButton btn("Error Test");
-    
-    SECTION("Negative width throws") {
-        REQUIRE_THROWS_AS(btn.SetWidth(-10), std::invalid_argument);
-    }
-    
-    SECTION("Negative height throws") {
-        REQUIRE_THROWS_AS(btn.SetHeight(-5), std::invalid_argument);
-    }
-    
-    SECTION("Negative border width throws") {
-        REQUIRE_THROWS_AS(btn.SetBorderWidth(-1), std::invalid_argument);
-    }
-    
-    SECTION("Negative border radius throws") {
-        REQUIRE_THROWS_AS(btn.SetBorderRadius(-1), std::invalid_argument);
-    }
-    
+
     SECTION("Empty parent ID throws") {
         REQUIRE_THROWS_AS(btn.AppendTo(""), std::invalid_argument);
     }
