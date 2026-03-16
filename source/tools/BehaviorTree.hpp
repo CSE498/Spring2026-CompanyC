@@ -64,6 +64,8 @@ public:
     Status update();
 
     void setMemory(const std::string& key, BBValue value);
+
+    const Blackboard& getBlackboard() const { return blackboard ;}
 };
 }
 #endif
