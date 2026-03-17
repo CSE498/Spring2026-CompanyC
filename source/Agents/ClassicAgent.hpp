@@ -11,8 +11,6 @@ namespace cse498 {
 class ClassicAgent : public AgentBase {
 protected:
     BehaviorTree tree;
-    bool vertical = true;   ///< Currently unused in this version, but kept for future movement logic.
-    bool reverse = false;   ///< Currently unused in this version, but kept for future movement logic.
 
     void BuildTree();
     void Sense(const WorldGrid & grid);
@@ -24,17 +22,10 @@ public:
 
     ~ClassicAgent() = default;
 
-    ClassicAgent & SetHorizontal() { vertical = false; return *this; }
-    ClassicAgent & SetVertical()   { vertical = true;  return *this; }
-    ClassicAgent & ToggleDirection() { reverse = !reverse; return *this; }
-
     bool Initialize() override {
         BuildTree();
 
-        // Add/remove required actions depending on what your world supports.
-        return HasAction("attack")
-            && HasAction("gather")
-            && HasAction("up")
+        return HasAction("up")
             && HasAction("down")
             && HasAction("left")
             && HasAction("right");

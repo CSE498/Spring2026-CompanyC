@@ -3,6 +3,7 @@
 #include <memory>
 #include <string>
 #include <variant>
+#include <cstdlib>
 
 #include "../tools/CompositeNodes.hpp"
 #include "../tools/LeafNodes.hpp"
@@ -69,13 +70,21 @@ void ClassicAgent::BuildTree() {
     auto explore_action = std::make_shared<ActionNode>(
         "Explore",
         [](Blackboard & bb) -> Status {
-            bb["chosen_action"] = std::string("right"); // default just explore around, need an explore path to call
+            int r = rand() % 4;
+
+            switch (r) {
+                case 0: bb["chosen_action"] = std::string("up"); break;
+                case 1: bb["chosen_action"] = std::string("down"); break;
+                case 2: bb["chosen_action"] = std::string("left"); break;
+                case 3: bb["chosen_action"] = std::string("right"); break;
+            }
+
             return Status::Success;
         }
     );
 
-    root->addChild(attack_branch);
-    root->addChild(gather_branch);
+    //root->addChild(attack_branch);
+    //root->addChild(gather_branch);
     root->addChild(explore_action);
 
     tree.setRoot(root);
@@ -97,12 +106,10 @@ void ClassicAgent::Sense(const WorldGrid & grid) {
 
     (void)grid; // suppress unused warning until real sensing is added
 
-    tree.setMemory("enemy_nearby", enemy_nearby);
-    tree.setMemory("material_nearby", material_nearby);
+    //tree.setMemory("enemy_nearby", enemy_nearby);
+    //tree.setMemory("material_nearby", material_nearby);
 
-    // Optional: keep these in memory if you want them later
-    tree.setMemory("vertical", vertical);
-    tree.setMemory("reverse", reverse);
+
 }
 
 
