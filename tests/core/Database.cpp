@@ -148,12 +148,12 @@ TEST_CASE("Database - Exists and Delete", "[database]") {
     }
 
     SECTION("Exists returns true after Store") {
-        db.Store("key", 42);
+        (void)db.Store("key", 42);
         REQUIRE(db.Exists("key"));
     }
 
     SECTION("Delete removes key") {
-        db.Store("key", 42);
+        (void)db.Store("key", 42);
         REQUIRE(db.Exists("key"));
 
         bool deleted = db.Delete("key");
@@ -177,7 +177,7 @@ TEST_CASE("Database - Update", "[database]") {
     }
 
     SECTION("Update succeeds if key exists") {
-        db.Store("counter", 10);
+        (void)db.Store("counter", 10);
         
         auto update_result = db.Update("counter", 20);
         REQUIRE(update_result.has_value());
@@ -188,7 +188,7 @@ TEST_CASE("Database - Update", "[database]") {
     }
 
     SECTION("Update can change type (overwrites)") {
-        db.Store("value", 42);
+        (void)db.Store("value", 42);
         
         auto update_result = db.Update("value", std::string("hello"));
         REQUIRE(update_result.has_value());
@@ -207,27 +207,27 @@ TEST_CASE("Database - Size and Clear", "[database]") {
     }
 
     SECTION("Size increases with Store") {
-        db.Store("key1", 1);
+        (void)db.Store("key1", 1);
         REQUIRE(db.Size() == 1);
 
-        db.Store("key2", 2);
+        (void)db.Store("key2", 2);
         REQUIRE(db.Size() == 2);
 
-        db.Store("key3", 3);
+        (void)db.Store("key3", 3);
         REQUIRE(db.Size() == 3);
     }
 
     SECTION("Size doesn't change on overwrite") {
-        db.Store("key", 1);
+        (void)db.Store("key", 1);
         REQUIRE(db.Size() == 1);
 
-        db.Store("key", 2);  // Overwrite
+        (void)db.Store("key", 2);  // Overwrite
         REQUIRE(db.Size() == 1);
     }
 
     SECTION("Size decreases with Delete") {
-        db.Store("key1", 1);
-        db.Store("key2", 2);
+        (void)db.Store("key1", 1);
+        (void)db.Store("key2", 2);
         REQUIRE(db.Size() == 2);
 
         db.Delete("key1");
@@ -235,9 +235,9 @@ TEST_CASE("Database - Size and Clear", "[database]") {
     }
 
     SECTION("Clear removes all entries") {
-        db.Store("key1", 1);
-        db.Store("key2", 2);
-        db.Store("key3", 3);
+        (void)db.Store("key1", 1);
+        (void)db.Store("key2", 2);
+        (void)db.Store("key3", 3);
         REQUIRE(db.Size() == 3);
 
         db.Clear();
@@ -257,9 +257,9 @@ TEST_CASE("Database - ListKeys", "[database]") {
     }
 
     SECTION("ListKeys returns all stored keys") {
-        db.Store("key1", 1);
-        db.Store("key2", 2);
-        db.Store("key3", 3);
+        (void)db.Store("key1", 1);
+        (void)db.Store("key2", 2);
+        (void)db.Store("key3", 3);
 
         auto keys = db.ListKeys();
         REQUIRE(keys.size() == 3);
@@ -281,7 +281,7 @@ TEST_CASE("Database - GetStorageSize", "[database]") {
     }
 
     SECTION("GetStorageSize returns size in bytes") {
-        db.Store("key", 42);
+        (void)db.Store("key", 42);
         
         auto result = db.GetStorageSize("key");
         REQUIRE(result.has_value());
@@ -301,7 +301,7 @@ TEST_CASE("Database - Compression behavior", "[database][compression]") {
         Database db(config);
 
         std::string small_data = "short";  // 5 bytes < 100 threshold
-        db.Store("small", small_data);
+        (void)db.Store("small", small_data);
 
         auto size_result = db.GetStorageSize("small");
         REQUIRE(size_result.has_value());
@@ -318,7 +318,7 @@ TEST_CASE("Database - Compression behavior", "[database][compression]") {
 
         // Create repetitive string (compresses well)
         std::string large_data(200, 'A');  // "AAAA..." 200 bytes
-        db.Store("large", large_data);
+        (void)db.Store("large", large_data);
 
         auto size_result = db.GetStorageSize("large");
         REQUIRE(size_result.has_value());
@@ -333,7 +333,7 @@ TEST_CASE("Database - Compression behavior", "[database][compression]") {
         Database db(config);
 
         std::string data(200, 'A');
-        db.Store("data", data);
+        (void)db.Store("data", data);
 
         auto size_result = db.GetStorageSize("data");
         REQUIRE(size_result.has_value());
@@ -357,7 +357,7 @@ TEST_CASE("Database - Error handling", "[database][errors]") {
     }
 
     SECTION("Load with wrong type returns error") {
-        db.Store("number", 42);
+        (void)db.Store("number", 42);
         
         // Try to load as string (wrong type)
         auto result = db.Load<std::string>("number");
@@ -375,7 +375,7 @@ TEST_CASE("Database - Edge cases", "[database][edge]") {
 
     SECTION("Empty string") {
         std::string empty = "";
-        db.Store("empty", empty);
+        (void)db.Store("empty", empty);
 
         auto result = db.Load<std::string>("empty");
         REQUIRE(result.has_value());
@@ -384,7 +384,7 @@ TEST_CASE("Database - Edge cases", "[database][edge]") {
 
     SECTION("Empty vector") {
         std::vector<int> empty_vec;
-        db.Store("empty_vec", empty_vec);
+        (void)db.Store("empty_vec", empty_vec);
 
         auto result = db.Load<std::vector<int>>("empty_vec");
         REQUIRE(result.has_value());
@@ -392,7 +392,7 @@ TEST_CASE("Database - Edge cases", "[database][edge]") {
     }
 
     SECTION("Zero value") {
-        db.Store("zero", 0);
+        (void)db.Store("zero", 0);
 
         auto result = db.Load<int>("zero");
         REQUIRE(result.has_value());
@@ -400,7 +400,7 @@ TEST_CASE("Database - Edge cases", "[database][edge]") {
     }
 
     SECTION("Negative numbers") {
-        db.Store("negative", -42);
+        (void)db.Store("negative", -42);
 
         auto result = db.Load<int>("negative");
         REQUIRE(result.has_value());
@@ -408,7 +408,7 @@ TEST_CASE("Database - Edge cases", "[database][edge]") {
     }
 
     SECTION("Very large number") {
-        db.Store("large", 9999999);
+        (void)db.Store("large", 9999999);
 
         auto result = db.Load<int>("large");
         REQUIRE(result.has_value());
@@ -417,7 +417,7 @@ TEST_CASE("Database - Edge cases", "[database][edge]") {
 
     SECTION("Special characters in string") {
         std::string special = "Hello\nWorld\t!@#$%^&*()";
-        db.Store("special", special);
+        (void)db.Store("special", special);
 
         auto result = db.Load<std::string>("special");
         REQUIRE(result.has_value());
@@ -426,7 +426,7 @@ TEST_CASE("Database - Edge cases", "[database][edge]") {
 
     SECTION("Unicode string") {
         std::string unicode = "Hello 世界 🌍";
-        db.Store("unicode", unicode);
+        (void)db.Store("unicode", unicode);
 
         auto result = db.Load<std::string>("unicode");
         REQUIRE(result.has_value());
@@ -442,10 +442,10 @@ TEST_CASE("Database - Multiple operations", "[database]") {
     Database db;
 
     SECTION("Store multiple different types") {
-        db.Store("int", 42);
-        db.Store("double", 3.14);
-        db.Store("string", std::string("hello"));
-        db.Store("bool", true);
+        (void)db.Store("int", 42);
+        (void)db.Store("double", 3.14);
+        (void)db.Store("string", std::string("hello"));
+        (void)db.Store("bool", true);
 
         REQUIRE(db.Size() == 4);
         REQUIRE(*db.Load<int>("int") == 42);
@@ -455,22 +455,22 @@ TEST_CASE("Database - Multiple operations", "[database]") {
     }
 
     SECTION("Overwrite existing key") {
-        db.Store("key", 100);
+        (void)db.Store("key", 100);
         REQUIRE(*db.Load<int>("key") == 100);
 
-        db.Store("key", 200);
+        (void)db.Store("key", 200);
         REQUIRE(*db.Load<int>("key") == 200);
         REQUIRE(db.Size() == 1);  // Still just one key
     }
 
     SECTION("Store, delete, store again") {
-        db.Store("key", 1);
+        (void)db.Store("key", 1);
         REQUIRE(db.Exists("key"));
 
         db.Delete("key");
         REQUIRE_FALSE(db.Exists("key"));
 
-        db.Store("key", 2);
+        (void)db.Store("key", 2);
         REQUIRE(db.Exists("key"));
         REQUIRE(*db.Load<int>("key") == 2);
     }
@@ -499,9 +499,50 @@ TEST_CASE("Database - Configuration", "[database][config]") {
         config.verbose = true;
         Database db(config);
 
-        db.Store("key", 42);
+        (void)db.Store("key", 42);
         auto result = db.Load<int>("key");
         REQUIRE(result.has_value());
         REQUIRE(*result == 42);
+    }
+}
+
+// ============================================================================
+// FindKeys Pattern Matching Tests
+// ============================================================================
+
+TEST_CASE("Database - FindKeys pattern matching", "[database][findkeys]") {
+    Database db;
+    
+    SECTION("FindKeys with exact match") {
+        (void)db.Store("player:alice", 100);
+        (void)db.Store("world:main", 200);
+        
+        auto keys = db.FindKeys("player:alice");
+        REQUIRE(keys.size() == 1);
+        REQUIRE(keys[0] == "player:alice");
+    }
+    
+    SECTION("FindKeys with wildcard") {
+        (void)db.Store("player:alice", 1);
+        (void)db.Store("player:bob", 2);
+        (void)db.Store("world:main", 3);
+        (void)db.Store("npc:guard", 4);
+        
+        auto players = db.FindKeys("player:*");
+        REQUIRE(players.size() == 2);
+        REQUIRE(std::find(players.begin(), players.end(), "player:alice") != players.end());
+        REQUIRE(std::find(players.begin(), players.end(), "player:bob") != players.end());
+    }
+    
+    SECTION("FindKeys with no matches") {
+        (void)db.Store("player:alice", 1);
+        
+        auto keys = db.FindKeys("npc:*");
+        REQUIRE(keys.empty());
+    }
+    
+    SECTION("FindKeys in empty database") {
+        auto keys = db.FindKeys("*");
+        REQUIRE(keys.empty());
     }
 }

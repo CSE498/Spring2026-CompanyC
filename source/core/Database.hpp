@@ -1,24 +1,44 @@
 /**
  * @file Database.hpp
  * @author Group-9
- * @brief A simple database class for serializing,
- *  compressing and storing, as well as loading game states back from memory.
- * Uses Serializer to convert objects to/from strings -> Then uses
- * StringCompressor to compress large data -> Datum is used indirectly through
- * Serializer
- * Not currently integrated:
- * - StringDiff: Differential updates would require metadata to distinguish
- *   full vs diff storage. Planned enhancement for future optimization.
- * - DataGrid: 2D grid structure used by other groups for game logic (tiles,
- *   boards, etc.). Not needed for key-value object storage. Can be stored
- *   as a custom type if serialization is added.
+ * @brief Key-value database
+ * 
+ * Simple, fast in-memory storage with automatic serialization and compression.
+ * Uses naming conventions for organization.
+ * 
+ * Architecture:
+ * - Serializer: Converts C++ objects ↔ strings
+ * - StringCompressor: LZW compression for large data (>100 bytes)
+ * - Format byte: Explicit raw vs compressed distinction
+ * 
+ * Thread Safety: NOT thread-safe. Use external synchronization if accessing
+ * from multiple threads (e.g., std::mutex or thread-local instances).
+ * 
+ * Key Naming Conventions:
+ *   player:<id>                - Player data
+ *   world:<name>:chunk:<x>:<y> - World chunks
+ *   npc:<id>                   - NPCs
+ *   config:<setting>           - Configuration
+ *
+ * Example:
+ * @code
+ * Database db;
+ * db.Store("player:alice", playerObject);
+ * auto player = db.Load<Player>("player:alice");
+ * db.Update("player:alice", updatedPlayer);
+ * 
+ * // Find all players
+ * auto players = db.FindKeys("player:*");
+ * 
+ * // Find all chunks in a world
+ * auto chunks = db.FindKeys("world:main:chunk:*");
+ * @endcode
  **/
 
 #pragma once
 
 #include "../tools/Serializer.hpp"
 #include "../tools/StringCompressor.hpp"
-#include "../tools/StringDiff.hpp"
 #include "../tools/Datum.hpp"
 
 #include <string>
@@ -36,23 +56,20 @@ enum class DatabaseError {
     DeserializationFailed,
     CompressionFailed,
     DecompressionFailed,
-    InvalidData,
-    DiffFailed
+    InvalidData
 };
 
 /// Configuration for Database behavior
 struct DatabaseConfig {
-    size_t compression_threshold = 100;  // Min size to compress
-    bool auto_compress = true;           // Enable compression
-    bool use_diffs = true;               // Enable diff updates
-    double diff_threshold = 0.5;         // Use diff if < 50% of full
-    bool verbose = false;                // Debug logging
+    size_t compression_threshold = 100;  // Min size (bytes) to trigger compression
+    bool auto_compress = true;           // Enable automatic compression
+    bool verbose = false;                // Enable debug logging to stderr
 };
 
 /**
  * @brief High-level database for game state persistence
  * 
- * Orchestrates serialization, compression, and differential updates.
+ * Orchestrates serialization and compression for storing C++ objects.
  */
 class Database {
 public:
@@ -64,18 +81,19 @@ public:
     
     ~Database() = default;
 
+    // Prevent copying (storage contains unique data)
     Database(const Database&) = delete;
     Database& operator=(const Database&) = delete;
 
-    /// Serialize and store an object
+    /// Serialize and store an object (overwrites if key exists)
     template <typename T>
     std::expected<void, DatabaseError> Store(const std::string& key, const T& obj);
 
-    /// Load and deserialize an object
+    /// Load and deserialize an object (read-only operation)
     template <typename T>
-    std::expected<T, DatabaseError> Load(const std::string& key);
+    [[nodiscard]] std::expected<T, DatabaseError> Load(const std::string& key) const;
 
-    /// Update using diff if beneficial, otherwise full store
+    /// Update existing key (returns KeyNotFound if key doesn't exist)
     template <typename T>
     std::expected<void, DatabaseError> Update(const std::string& key, const T& obj);
 
@@ -94,6 +112,10 @@ public:
     /// Get all keys
     [[nodiscard]] std::vector<std::string> ListKeys() const;
 
+    /// Find keys matching pattern (supports * and ? wildcards)
+    /// Examples: "player:*", "world:*:chunk:*", "config:???"
+    [[nodiscard]] std::vector<std::string> FindKeys(const std::string& pattern) const;
+
     /// Get storage size in bytes for a key
     [[nodiscard]] std::expected<size_t, DatabaseError> GetStorageSize(const std::string& key) const;
 
@@ -110,12 +132,14 @@ private:
         Compressed = 1
     };
 
-    std::unordered_map<std::string, std::vector<uint8_t>> mStorage;  // Key -> compressed bytes
-    std::unordered_map<std::string, std::string> mSerializedCache;   // For diff calculation
+    std::unordered_map<std::string, std::vector<uint8_t>> mStorage;  // Key → compressed bytes
     Serializer mSerializer;
     DatabaseConfig mConfig;
 
     void Log(const std::string& message) const;
+    
+    /// Glob-style pattern matching (supports * and ? wildcards)
+    bool MatchesGlob(const std::string& str, const std::string& pattern) const;
 };
 
 // ============================================================================
@@ -126,16 +150,10 @@ template <typename T>
 std::expected<void, DatabaseError> Database::Store(const std::string& key, const T& obj) {
     Log("[Store] Serializing key: " + key);
 
-    // Serialize
+    // Serialize the object
     std::string serialized = mSerializer.Serialize(obj);
     
     Log("[Store] Serialized size: " + std::to_string(serialized.size()) + " bytes");
-
-    // Cache for diffs
-    if (mConfig.use_diffs) {
-        mSerializedCache[key] = serialized;
-        Log("[Store] Cached serialized data for diff");
-    }
 
     // Prepare final storage with format header
     std::vector<uint8_t> final_data;
@@ -161,7 +179,7 @@ std::expected<void, DatabaseError> Database::Store(const std::string& key, const
         final_data.insert(final_data.end(), serialized.begin(), serialized.end());
     }
 
-    // Store
+    // Store in memory
     mStorage[key] = std::move(final_data);
     Log("[Store] Stored successfully");
 
@@ -169,7 +187,7 @@ std::expected<void, DatabaseError> Database::Store(const std::string& key, const
 }
 
 template <typename T>
-std::expected<T, DatabaseError> Database::Load(const std::string& key) {
+std::expected<T, DatabaseError> Database::Load(const std::string& key) const {
     Log("[Load] Loading key: " + key);
 
     // Check existence
@@ -186,7 +204,6 @@ std::expected<T, DatabaseError> Database::Load(const std::string& key) {
     
     // Read format byte
     StorageFormat format = static_cast<StorageFormat>(data[0]);
-    std::vector<uint8_t> payload(data.begin() + 1, data.end());
     
     std::string serialized;
 
@@ -194,6 +211,8 @@ std::expected<T, DatabaseError> Database::Load(const std::string& key) {
     if (format == StorageFormat::Compressed) {
         Log("[Load] Data is compressed, decompressing...");
         
+        // Create payload vector for decompression
+        std::vector<uint8_t> payload(data.begin() + 1, data.end());
         auto result = StringCompressor::DecompressFromBytes(payload);
         if (!result) {
             return std::unexpected(DatabaseError::DecompressionFailed);
@@ -203,16 +222,11 @@ std::expected<T, DatabaseError> Database::Load(const std::string& key) {
         Log("[Load] Decompressed size: " + std::to_string(serialized.size()) + " bytes");
     } else if (format == StorageFormat::Raw) {
         Log("[Load] Data is not compressed");
-        // Convert bytes back to string
-        serialized.assign(payload.begin(), payload.end());
+        // Direct assignment
+        serialized.assign(data.begin() + 1, data.end());
     } else {
         // Unknown format
         return std::unexpected(DatabaseError::InvalidData);
-    }
-
-    // Cache for diffs
-    if (mConfig.use_diffs) {
-        mSerializedCache[key] = serialized;
     }
 
     // Deserialize
@@ -230,16 +244,12 @@ std::expected<T, DatabaseError> Database::Load(const std::string& key) {
 
 template <typename T>
 std::expected<void, DatabaseError> Database::Update(const std::string& key, const T& obj) {
-    Log("[Update] Updating key: " + key);
-
     // Check existence
     if (!Exists(key)) {
         return std::unexpected(DatabaseError::KeyNotFound);
     }
 
-    // *****For now, just use Store(). Diff optimization can be added later
-    // with proper metadata tracking ******
-    Log("[Update] Using full Store");
+    // Update is equivalent to Store with existence check
     return Store(key, obj);
 }
 
