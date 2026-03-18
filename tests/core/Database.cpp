@@ -12,6 +12,25 @@ using namespace cse498;
 
 // Claude AI was used to help writing test cases & thinking of edge cases.
 
+namespace {
+
+std::string MakeRandomishString(size_t length) {
+    const std::string alphabet =
+        "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    std::string out;
+    out.reserve(length);
+
+    uint32_t state = 0xC0FFEEu;
+    for (size_t i = 0; i < length; ++i) {
+        state = state * 1664525u + 1013904223u;
+        out.push_back(alphabet[state % alphabet.size()]);
+    }
+
+    return out;
+}
+
+} // namespace
+
 // ============================================================================
 // Basic Operations Tests
 // ============================================================================
@@ -196,6 +215,74 @@ TEST_CASE("Database - Update", "[database]") {
         auto load_result = db.Load<std::string>("value");
         REQUIRE(load_result.has_value());
         REQUIRE(*load_result == "hello");
+    }
+
+    SECTION("Update can store a diff-backed representation when it is smaller") {
+        DatabaseConfig config;
+        config.auto_compress = true;
+        config.compression_threshold = 1;
+
+        Database diff_db(config);
+        Database full_db(config);
+
+        std::string base = MakeRandomishString(240);
+        std::string updated = base;
+        updated[120] = updated[120] == '!' ? '?' : '!';
+
+        REQUIRE(diff_db.Store("blob", base).has_value());
+        REQUIRE(full_db.Store("blob", updated).has_value());
+
+        auto full_store_size = full_db.GetStorageSize("blob");
+        REQUIRE(full_store_size.has_value());
+
+        auto update_result = diff_db.Update("blob", updated);
+        REQUIRE(update_result.has_value());
+
+        auto diff_store_size = diff_db.GetStorageSize("blob");
+        REQUIRE(diff_store_size.has_value());
+        REQUIRE(*diff_store_size < *full_store_size);
+
+        auto load_result = diff_db.Load<std::string>("blob");
+        REQUIRE(load_result.has_value());
+        REQUIRE(*load_result == updated);
+
+        std::string second_update = updated;
+        second_update[200] = second_update[200] == '#' ? '$' : '#';
+
+        auto second_result = diff_db.Update("blob", second_update);
+        REQUIRE(second_result.has_value());
+
+        auto second_load = diff_db.Load<std::string>("blob");
+        REQUIRE(second_load.has_value());
+        REQUIRE(*second_load == second_update);
+    }
+
+    SECTION("Update falls back to a full snapshot when diff storage is larger") {
+        DatabaseConfig config;
+        config.auto_compress = false;
+
+        Database updated_db(config);
+        Database full_db(config);
+
+        std::string base(180, 'A');
+        std::string updated = MakeRandomishString(180);
+
+        REQUIRE(updated_db.Store("blob", base).has_value());
+        REQUIRE(full_db.Store("blob", updated).has_value());
+
+        auto full_store_size = full_db.GetStorageSize("blob");
+        REQUIRE(full_store_size.has_value());
+
+        auto update_result = updated_db.Update("blob", updated);
+        REQUIRE(update_result.has_value());
+
+        auto updated_store_size = updated_db.GetStorageSize("blob");
+        REQUIRE(updated_store_size.has_value());
+        REQUIRE(*updated_store_size == *full_store_size);
+
+        auto load_result = updated_db.Load<std::string>("blob");
+        REQUIRE(load_result.has_value());
+        REQUIRE(*load_result == updated);
     }
 }
 

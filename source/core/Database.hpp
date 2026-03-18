@@ -9,6 +9,7 @@
  * Architecture:
  * - Serializer: Converts C++ objects ↔ strings
  * - StringCompressor: LZW compression for large data (>100 bytes)
+ * - StringDiff: Compact update patches when replacing existing values
  * - Format byte: Explicit raw vs compressed distinction
  * 
  * Thread Safety: NOT thread-safe. Use external synchronization if accessing
@@ -94,6 +95,8 @@ public:
     [[nodiscard]] std::expected<T, DatabaseError> Load(const std::string& key) const;
 
     /// Update existing key (returns KeyNotFound if key doesn't exist)
+    /// If a diff against the current value is smaller than a full replacement,
+    /// the database stores a diff-backed entry instead of a full snapshot.
     template <typename T>
     std::expected<void, DatabaseError> Update(const std::string& key, const T& obj);
 
@@ -129,7 +132,9 @@ private:
     /// Storage format indicator
     enum class StorageFormat : uint8_t {
         Raw = 0,
-        Compressed = 1
+        Compressed = 1,
+        DiffRaw = 2,
+        DiffCompressed = 3
     };
 
     std::unordered_map<std::string, std::vector<uint8_t>> mStorage;  // Key → compressed bytes
@@ -137,6 +142,9 @@ private:
     DatabaseConfig mConfig;
 
     void Log(const std::string& message) const;
+    [[nodiscard]] std::expected<std::vector<uint8_t>, DatabaseError> EncodeSnapshot(const std::string& serialized) const;
+    [[nodiscard]] std::expected<std::vector<uint8_t>, DatabaseError> EncodeDiffValue(const std::string& base_serialized, const std::string& updated_serialized) const;
+    [[nodiscard]] std::expected<std::string, DatabaseError> DecodeStoredValue(const std::vector<uint8_t>& data) const;
     
     /// Glob-style pattern matching (supports * and ? wildcards)
     bool MatchesGlob(const std::string& str, const std::string& pattern) const;
@@ -152,35 +160,14 @@ std::expected<void, DatabaseError> Database::Store(const std::string& key, const
 
     // Serialize the object
     std::string serialized = mSerializer.Serialize(obj);
-    
-    Log("[Store] Serialized size: " + std::to_string(serialized.size()) + " bytes");
 
-    // Prepare final storage with format header
-    std::vector<uint8_t> final_data;
-    
-    if (mConfig.auto_compress && serialized.size() >= mConfig.compression_threshold) {
-        Log("[Store] Compressing...");
-        
-        auto compressed = StringCompressor::CompressToBytes(serialized);
-        if (compressed.empty()) {
-            return std::unexpected(DatabaseError::CompressionFailed);
-        }
-        
-        Log("[Store] Compressed size: " + std::to_string(compressed.size()) + " bytes");
-        
-        // Format: [Compressed byte][compressed data]
-        final_data.push_back(static_cast<uint8_t>(StorageFormat::Compressed));
-        final_data.insert(final_data.end(), compressed.begin(), compressed.end());
-    } else {
-        Log("[Store] Skipping compression (below threshold or disabled)");
-        
-        // Format: [Raw byte][serialized string as bytes]
-        final_data.push_back(static_cast<uint8_t>(StorageFormat::Raw));
-        final_data.insert(final_data.end(), serialized.begin(), serialized.end());
+    auto final_data = EncodeSnapshot(serialized);
+    if (!final_data) {
+        return std::unexpected(final_data.error());
     }
 
     // Store in memory
-    mStorage[key] = std::move(final_data);
+    mStorage[key] = std::move(*final_data);
     Log("[Store] Stored successfully");
 
     return {};
@@ -195,44 +182,15 @@ std::expected<T, DatabaseError> Database::Load(const std::string& key) const {
         return std::unexpected(DatabaseError::KeyNotFound);
     }
 
-    const std::vector<uint8_t>& data = mStorage.at(key);
-    
-    // Validate minimum size (at least format byte)
-    if (data.empty()) {
-        return std::unexpected(DatabaseError::InvalidData);
-    }
-    
-    // Read format byte
-    StorageFormat format = static_cast<StorageFormat>(data[0]);
-    
-    std::string serialized;
-
-    // Decompress if needed based on format byte
-    if (format == StorageFormat::Compressed) {
-        Log("[Load] Data is compressed, decompressing...");
-        
-        // Create payload vector for decompression
-        std::vector<uint8_t> payload(data.begin() + 1, data.end());
-        auto result = StringCompressor::DecompressFromBytes(payload);
-        if (!result) {
-            return std::unexpected(DatabaseError::DecompressionFailed);
-        }
-        
-        serialized = *result;
-        Log("[Load] Decompressed size: " + std::to_string(serialized.size()) + " bytes");
-    } else if (format == StorageFormat::Raw) {
-        Log("[Load] Data is not compressed");
-        // Direct assignment
-        serialized.assign(data.begin() + 1, data.end());
-    } else {
-        // Unknown format
-        return std::unexpected(DatabaseError::InvalidData);
+    auto serialized = DecodeStoredValue(mStorage.at(key));
+    if (!serialized) {
+        return std::unexpected(serialized.error());
     }
 
     // Deserialize
     Log("[Load] Deserializing...");
     size_t pos = 0;
-    auto obj = mSerializer.DeserializeAt<T>(serialized, pos);
+    auto obj = mSerializer.DeserializeAt<T>(*serialized, pos);
     
     if (!obj.has_value()) {
         return std::unexpected(DatabaseError::DeserializationFailed);
@@ -249,8 +207,30 @@ std::expected<void, DatabaseError> Database::Update(const std::string& key, cons
         return std::unexpected(DatabaseError::KeyNotFound);
     }
 
-    // Update is equivalent to Store with existence check
-    return Store(key, obj);
+    Log("[Update] Serializing updated value for key: " + key);
+    const std::string updated_serialized = mSerializer.Serialize(obj);
+
+    auto full_snapshot = EncodeSnapshot(updated_serialized);
+    if (!full_snapshot) {
+        return std::unexpected(full_snapshot.error());
+    }
+
+    auto current_serialized = DecodeStoredValue(mStorage.at(key));
+    if (!current_serialized) {
+        return std::unexpected(current_serialized.error());
+    }
+
+    auto diff_value = EncodeDiffValue(*current_serialized, updated_serialized);
+    if (diff_value && diff_value->size() < full_snapshot->size()) {
+        Log("[Update] Storing diff-backed update");
+        mStorage[key] = std::move(*diff_value);
+        
+    } else {
+        Log("[Update] Storing full snapshot update");
+        mStorage[key] = std::move(*full_snapshot);
+    }
+
+    return {};
 }
 
 } // namespace cse498

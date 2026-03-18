@@ -53,6 +53,18 @@ TEST_CASE("MakeDiff: string to empty", "[StringDiff][MakeDiff]") {
     REQUIRE(patch.base_length == s.length());   //base should be the string
 }
 
+TEST_CASE("MakeDiff: repeated pattern keeps prefix and suffix disjoint", "[StringDiff][MakeDiff]") {
+    std::string base = "aaaaabaaaaa";
+    std::string updated = "aaaaacaaaaa";
+
+    auto patch = StringDiff::MakeDiff(base, updated);
+
+    REQUIRE(patch.prefix_length == 5);
+    REQUIRE(patch.suffix_length == 5);
+    REQUIRE(patch.replacement == "c");
+    REQUIRE(patch.prefix_length + patch.suffix_length < patch.base_length);
+}
+
 
 
 
@@ -161,6 +173,17 @@ TEST_CASE("ApplyDiff: prefix + suffix > base_length returns InvalidPatchInvarian
     REQUIRE(result.error() == DiffError::InvalidPatchInvariant);    //prefix + suffix > base_length
 }
 
+TEST_CASE("ApplyDiff: oversized replacement returns PatchTooLarge", "[StringDiff][ApplyDiff]") {
+    std::string base = "";
+    std::string updated((1024 * 1024) + 1, 'x');
+
+    auto patch = StringDiff::MakeDiff(base, updated);
+    auto result = StringDiff::ApplyDiff(base, patch);
+
+    REQUIRE_FALSE(result.has_value());
+    REQUIRE(result.error() == DiffError::PatchTooLarge);
+}
+
 
 //test complete ApplyDiff flow with a complete string replacement
 TEST_CASE("ApplyDiff: complete flow, complete string replacement", "[StringDiff][ApplyDiff]") {
@@ -260,6 +283,14 @@ TEST_CASE("EncodeDiff: Manual build comparison", "[StringDiff][EncodeDiff]") {
     oss << "C++ ";       // replacement is "C++ "
 
     REQUIRE(encoded == oss.str());
+}
+
+TEST_CASE("EncodeDiff: oversized replacement returns PatchTooLarge", "[StringDiff][EncodeDiff]") {
+    auto patch = StringDiff::MakeDiff("", std::string((1024 * 1024) + 1, 'x'));
+    auto encoded_result = StringDiff::EncodeDiff(patch);
+
+    REQUIRE_FALSE(encoded_result.has_value());
+    REQUIRE(encoded_result.error() == DiffError::PatchTooLarge);
 }
 
 
@@ -596,6 +627,25 @@ TEST_CASE("Complete: string has special chars", "[StringDiff][Complete]") {
 
     auto result = StringDiff::ApplyDiff(base, decoded.value());
 
+    REQUIRE(result.has_value());
+    REQUIRE(result.value() == updated);
+}
+
+TEST_CASE("Complete: replacement containing separators round-trips", "[StringDiff][Complete]") {
+    std::string base = "prefix-old-suffix";
+    std::string updated = "prefix-|new:\n;|-suffix";
+
+    auto patch = StringDiff::MakeDiff(base, updated);
+    REQUIRE(patch.replacement == "|new:\n;|");
+
+    auto encoded_result = StringDiff::EncodeDiff(patch);
+    REQUIRE(encoded_result.has_value());
+
+    auto decoded = StringDiff::DecodeDiff(encoded_result.value());
+    REQUIRE(decoded.has_value());
+    REQUIRE(decoded->replacement == "|new:\n;|");
+
+    auto result = StringDiff::ApplyDiff(base, decoded.value());
     REQUIRE(result.has_value());
     REQUIRE(result.value() == updated);
 }
