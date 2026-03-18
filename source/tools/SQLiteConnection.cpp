@@ -132,10 +132,17 @@ std::expected<void, SQLiteError> SQLiteConnection::UpsertBlob(const std::string&
     }
 
 
-    rc = sqlite3_bind_blob(stmt, 2, value.data(), static_cast<int>(value.size()), SQLITE_TRANSIENT);
-    if (rc != SQLITE_OK) { 
-        sqlite3_finalize(stmt); 
-        return std::unexpected(SQLiteError::BindFailed); 
+
+    if (value.empty()) {
+        rc = sqlite3_bind_zeroblob(stmt, 2, 0);
+
+    } else {
+        rc = sqlite3_bind_blob(stmt, 2, value.data(), static_cast<int>(value.size()), SQLITE_TRANSIENT);
+    }
+    
+    if (rc != SQLITE_OK) {
+        sqlite3_finalize(stmt);
+        return std::unexpected(SQLiteError::BindFailed);
     }
 
 

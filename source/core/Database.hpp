@@ -65,6 +65,11 @@ struct DatabaseConfig {
     size_t compression_threshold = 100;  // Min size (bytes) to trigger compression
     bool auto_compress = true;           // Enable automatic compression
     bool verbose = false;                // Enable debug logging to stderr
+
+    std::string db_path = "";            // Empty = in-memory only 
+    bool wal_mode = true;                // concurrent reads
+    bool auto_flush = true;              // commit after every write. slower but faster
+    bool store_type_metadata = true;     
 };
 
 /**
