@@ -11,52 +11,48 @@
 namespace cse498 {
 
 bool Database::Exists(const std::string& key) const {
-    return mStorage.count(key) > 0;
+    return EntryExists(key);
 }
 
 void Database::Clear() {
-    mStorage.clear();
+    if (mUsingSqlite) {
+        mSqlite->ClearTable(kTableName);
+
+    } else {
+        mMemoryStorage.clear();
+    }
 }
 
 size_t Database::Size() const {
-    return mStorage.size();
+    return EntryCount();
 }
 
 bool Database::Delete(const std::string& key) {
-    if (!Exists(key)) return false;
-    mStorage.erase(key);
-    return true;
+    return DeleteEntry(key);
 }
 
 std::vector<std::string> Database::ListKeys() const {
-    std::vector<std::string> keys;
-    keys.reserve(mStorage.size());
-    
-    for (const auto& [key, _] : mStorage) {
-        keys.push_back(key);
-    }
-    
-    return keys;
+    return AllKeys();
 }
 
 std::vector<std::string> Database::FindKeys(const std::string& pattern) const {
-    std::vector<std::string> matches;
-    
     // No wildcard - exact match only
     if (pattern.find('*') == std::string::npos && pattern.find('?') == std::string::npos) {
-        if (Exists(pattern)) {
-            matches.push_back(pattern);
+        if (EntryExists(pattern)) {
+            return {pattern};
         }
-        return matches;
+        return {};
     }
-    
+
     // Wildcard matching - check each key
-    for (const auto& [key, _] : mStorage) {
+    auto keys = AllKeys();
+    std::vector<std::string> matches;
+
+    for (const auto& key : keys) {
         if (MatchesGlob(key, pattern)) {
             matches.push_back(key);
         }
     }
-    
     return matches;
 }
 
@@ -98,11 +94,11 @@ bool Database::MatchesGlob(const std::string& str, const std::string& pattern) c
 }
 
 std::expected<size_t, DatabaseError> Database::GetStorageSize(const std::string& key) const {
-    if (!Exists(key)) {
-        return std::unexpected(DatabaseError::KeyNotFound);
+    auto raw = ReadEntry(key);
+    if (!raw) {
+        return std::unexpected(raw.error());
     }
-    
-    return mStorage.at(key).size();
+    return raw->size();
 }
 
 void Database::Log(const std::string& message) const {
@@ -238,6 +234,87 @@ Database::DecodeStoredValue(const std::vector<uint8_t>& data) const {
     }
 
     return *updated_serialized;
+}
+
+
+std::expected<void, DatabaseError> Database::WriteEntry(const std::string& key, const std::vector<uint8_t>& value, const std::string& type_tag) {
+    if (mUsingSqlite) {
+        auto result = mSqlite->UpsertBlob(kTableName, key, value, type_tag);
+        if (!result) {
+            return std::unexpected(DatabaseError::IOError);
+        }
+
+        return {};
+    }
+
+    mMemoryStorage[key] = value;
+    return {};
+}
+
+std::expected<std::vector<uint8_t>, DatabaseError> Database::ReadEntry(const std::string& key) const {
+    if (mUsingSqlite) {
+        auto result = mSqlite->GetBlob(kTableName, key);
+        if (!result) {
+            if (result.error() == SQLiteError::NotFound) {
+                return std::unexpected(DatabaseError::KeyNotFound);
+            }
+            return std::unexpected(DatabaseError::IOError);
+        }
+        return *result;
+    }
+
+    auto it = mMemoryStorage.find(key);
+    if (it == mMemoryStorage.end()) {
+        return std::unexpected(DatabaseError::KeyNotFound);
+    }
+    return it->second;
+}
+
+bool Database::DeleteEntry(const std::string& key) {
+    if (mUsingSqlite) {
+        auto exists = mSqlite->RowExists(kTableName, key);
+        if (!exists.has_value() || !*exists) return false;
+
+        auto result = mSqlite->DeleteRow(kTableName, key);
+        return result.has_value();
+    }
+
+    return mMemoryStorage.erase(key) > 0;
+}
+
+bool Database::EntryExists(const std::string& key) const {
+    if (mUsingSqlite) {
+        auto result = mSqlite->RowExists(kTableName, key);
+        return result.has_value() && *result;
+    }
+
+    return mMemoryStorage.count(key) > 0;
+}
+
+std::vector<std::string> Database::AllKeys() const {
+    if (mUsingSqlite) {
+        auto result = mSqlite->GetAllKeys(kTableName);
+        if (!result) return {};
+        return *result;
+    }
+
+    std::vector<std::string> keys;
+    keys.reserve(mMemoryStorage.size());
+
+    for (const auto& [key, _] : mMemoryStorage) {
+        keys.push_back(key);
+    }
+    return keys;
+}
+
+size_t Database::EntryCount() const {
+    if (mUsingSqlite) {
+        auto result = mSqlite->GetRowCount(kTableName);
+        if (!result) return 0;
+        
+        return *result;
+    }
+    return mMemoryStorage.size();
 }
 
 } // namespace cse498

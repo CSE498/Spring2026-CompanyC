@@ -40,6 +40,7 @@
 
 #include "../tools/Serializer.hpp"
 #include "../tools/StringCompressor.hpp"
+#include "../tools/SQLiteConnection.hpp"
 #include "../tools/Datum.hpp"
 
 #include <string>
@@ -47,6 +48,8 @@
 #include <expected>
 #include <vector>
 #include <cstdint>
+#include <memory>
+#include <shared_mutex>
 
 namespace cse498 {
 
@@ -57,7 +60,10 @@ enum class DatabaseError {
     DeserializationFailed,
     CompressionFailed,
     DecompressionFailed,
-    InvalidData
+    InvalidData,
+    IOError,              
+    TransactionFailed,    
+    TypeMismatch          
 };
 
 /// Configuration for Database behavior
@@ -142,9 +148,15 @@ private:
         DiffCompressed = 3
     };
 
-    std::unordered_map<std::string, std::vector<uint8_t>> mStorage;  // Key → compressed bytes
+    static constexpr const char* kTableName = "kv_store";
+
+    std::unordered_map<std::string, std::vector<uint8_t>> mMemoryStorage;
+    std::unique_ptr<SQLiteConnection> mSqlite;  
+    bool mUsingSqlite = false;
+
     Serializer mSerializer;
     DatabaseConfig mConfig;
+    mutable std::shared_mutex mMutex;
 
     void Log(const std::string& message) const;
     [[nodiscard]] std::expected<std::vector<uint8_t>, DatabaseError> EncodeSnapshot(const std::string& serialized) const;
@@ -153,6 +165,14 @@ private:
     
     /// Glob-style pattern matching (supports * and ? wildcards)
     bool MatchesGlob(const std::string& str, const std::string& pattern) const;
+
+    std::expected<void, DatabaseError> WriteEntry(const std::string& key, const std::vector<uint8_t>& value, const std::string& type_tag);
+    [[nodiscard]] std::expected<std::vector<uint8_t>, DatabaseError> ReadEntry(const std::string& key) const;
+    bool DeleteEntry(const std::string& key);
+    
+    [[nodiscard]] bool EntryExists(const std::string& key) const;
+    [[nodiscard]] std::vector<std::string> AllKeys() const;
+    [[nodiscard]] size_t EntryCount() const;
 };
 
 // ============================================================================
@@ -163,7 +183,7 @@ template <typename T>
 std::expected<void, DatabaseError> Database::Store(const std::string& key, const T& obj) {
     Log("[Store] Serializing key: " + key);
 
-    // Serialize the object
+
     std::string serialized = mSerializer.Serialize(obj);
 
     auto final_data = EncodeSnapshot(serialized);
@@ -171,10 +191,12 @@ std::expected<void, DatabaseError> Database::Store(const std::string& key, const
         return std::unexpected(final_data.error());
     }
 
-    // Store in memory
-    mStorage[key] = std::move(*final_data);
-    Log("[Store] Stored successfully");
+    auto result = WriteEntry(key, *final_data, "");
+    if (!result) {
+        return std::unexpected(result.error());
+    }
 
+    Log("[Store] Stored successfully");
     return {};
 }
 
@@ -182,21 +204,20 @@ template <typename T>
 std::expected<T, DatabaseError> Database::Load(const std::string& key) const {
     Log("[Load] Loading key: " + key);
 
-    // Check existence
-    if (!Exists(key)) {
-        return std::unexpected(DatabaseError::KeyNotFound);
+    auto raw = ReadEntry(key);
+    if (!raw) {
+        return std::unexpected(raw.error());
     }
 
-    auto serialized = DecodeStoredValue(mStorage.at(key));
+    auto serialized = DecodeStoredValue(*raw);
     if (!serialized) {
         return std::unexpected(serialized.error());
     }
 
-    // Deserialize
     Log("[Load] Deserializing...");
     size_t pos = 0;
     auto obj = mSerializer.DeserializeAt<T>(*serialized, pos);
-    
+
     if (!obj.has_value()) {
         return std::unexpected(DatabaseError::DeserializationFailed);
     }
@@ -207,8 +228,7 @@ std::expected<T, DatabaseError> Database::Load(const std::string& key) const {
 
 template <typename T>
 std::expected<void, DatabaseError> Database::Update(const std::string& key, const T& obj) {
-    // Check existence
-    if (!Exists(key)) {
+    if (!EntryExists(key)) {
         return std::unexpected(DatabaseError::KeyNotFound);
     }
 
@@ -220,7 +240,12 @@ std::expected<void, DatabaseError> Database::Update(const std::string& key, cons
         return std::unexpected(full_snapshot.error());
     }
 
-    auto current_serialized = DecodeStoredValue(mStorage.at(key));
+    auto current_raw = ReadEntry(key);
+    if (!current_raw) {
+        return std::unexpected(current_raw.error());
+    }
+
+    auto current_serialized = DecodeStoredValue(*current_raw);
     if (!current_serialized) {
         return std::unexpected(current_serialized.error());
     }
@@ -228,11 +253,15 @@ std::expected<void, DatabaseError> Database::Update(const std::string& key, cons
     auto diff_value = EncodeDiffValue(*current_serialized, updated_serialized);
     if (diff_value && diff_value->size() < full_snapshot->size()) {
         Log("[Update] Storing diff-backed update");
-        mStorage[key] = std::move(*diff_value);
-        
+        auto result = WriteEntry(key, *diff_value, "");
+
+        if (!result) return std::unexpected(result.error());
+
     } else {
         Log("[Update] Storing full snapshot update");
-        mStorage[key] = std::move(*full_snapshot);
+        auto result = WriteEntry(key, *full_snapshot, "");
+
+        if (!result) return std::unexpected(result.error());
     }
 
     return {};
