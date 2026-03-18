@@ -87,10 +87,13 @@ class Database {
 public:
     /// Default constructor
     Database() = default;
-    
+
     /// Constructor with config
-    explicit Database(const DatabaseConfig& config) : mConfig(config) {}
-    
+    explicit Database(const DatabaseConfig& config);
+
+    /// Convenience constructor
+    explicit Database(const std::string& db_path);
+
     ~Database() = default;
 
     // Prevent copying (storage contains unique data)
@@ -173,6 +176,8 @@ private:
     [[nodiscard]] bool EntryExists(const std::string& key) const;
     [[nodiscard]] std::vector<std::string> AllKeys() const;
     [[nodiscard]] size_t EntryCount() const;
+    
+    void InitSqlite();
 };
 
 // ============================================================================

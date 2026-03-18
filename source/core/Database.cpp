@@ -7,8 +7,48 @@
 #include "../tools/StringDiff.hpp"
 
 #include <iostream>
+#include <stdexcept>
 
 namespace cse498 {
+
+    
+Database::Database(const DatabaseConfig& config) : mConfig(config) {
+    InitSqlite();
+}
+
+Database::Database(const std::string& db_path) {
+    mConfig.db_path = db_path;
+    InitSqlite();
+}
+
+void Database::InitSqlite() {
+    if (mConfig.db_path.empty()) return;
+
+    mSqlite = std::make_unique<SQLiteConnection>(mConfig.db_path);
+    if (!mSqlite->IsOpen()) {
+        throw std::runtime_error("Failed to open database: " + mConfig.db_path);
+    }
+
+    if (mConfig.wal_mode) {
+        mSqlite->EnableWAL();
+    }
+
+    auto result = mSqlite->Execute(
+        "CREATE TABLE IF NOT EXISTS kv_store ("
+        "  key       TEXT PRIMARY KEY NOT NULL,"
+        "  value     BLOB NOT NULL,"
+        "  type_tag  TEXT NOT NULL DEFAULT '',"
+        "  created_at TEXT NOT NULL DEFAULT (datetime('now')),"
+        "  updated_at TEXT NOT NULL DEFAULT (datetime('now'))"
+        ");"
+    );
+    
+    if (!result) {
+        throw std::runtime_error("Failed to create kv_store table in: " + mConfig.db_path);
+    }
+
+    mUsingSqlite = true;
+}
 
 bool Database::Exists(const std::string& key) const {
     return EntryExists(key);
