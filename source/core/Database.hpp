@@ -142,6 +142,21 @@ public:
     /// Get current config
     [[nodiscard]] const DatabaseConfig& GetConfig() const { return mConfig; }
 
+    /// Register a custom type for serialization.
+    /// Other teams call this to enable Store/Load of their game objects.
+    template <typename T>
+    void RegisterType(const std::string& type_id, std::function<std::string(const T&)> serialize_fn, std::function<std::optional<T>(const std::string&)> deserialize_fn) {
+        mSerializer.RegisterType<T>(type_id, std::move(serialize_fn), std::move(deserialize_fn));
+    }
+
+    /// Check if a custom type is registered
+    [[nodiscard]] bool IsTypeRegistered(const std::string& type_id) const {
+        return mSerializer.IsTypeRegistered(type_id);
+    }
+
+    /// get const ref for serializer obj
+    [[nodiscard]] const Serializer& GetSerializer() const { return mSerializer; }
+
 private:
     /// Storage format indicator
     enum class StorageFormat : uint8_t {
