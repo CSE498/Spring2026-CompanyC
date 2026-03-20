@@ -7,6 +7,7 @@
 #include "../tools/StringDiff.hpp"
 
 #include <iostream>
+#include <fstream>
 #include <stdexcept>
 
 namespace cse498 {
@@ -60,6 +61,7 @@ void Database::Clear() {
 
     } else {
         mMemoryStorage.clear();
+        mTypeMetadata.clear();
     }
 }
 
@@ -288,6 +290,9 @@ std::expected<void, DatabaseError> Database::WriteEntry(const std::string& key, 
     }
 
     mMemoryStorage[key] = value;
+    if (!type_tag.empty()) {
+        mTypeMetadata[key] = type_tag;
+    }
     return {};
 }
 
@@ -319,6 +324,7 @@ bool Database::DeleteEntry(const std::string& key) {
         return result.has_value();
     }
 
+    mTypeMetadata.erase(key);
     return mMemoryStorage.erase(key) > 0;
 }
 
@@ -355,6 +361,180 @@ size_t Database::EntryCount() const {
         return *result;
     }
     return mMemoryStorage.size();
+}
+
+std::expected<std::string, DatabaseError> Database::GetType(const std::string& key) const {
+    if (!EntryExists(key)) {
+        return std::unexpected(DatabaseError::KeyNotFound);
+    }
+
+    if (mUsingSqlite) {
+        auto result = mSqlite->GetTypeTag(kTableName, key);
+        if (!result) {
+            return std::unexpected(DatabaseError::IOError);
+        }
+        return *result;
+    }
+
+    auto it = mTypeMetadata.find(key);
+    if (it != mTypeMetadata.end()) {
+        return it->second;
+    }
+
+    return std::string("");
+}
+
+std::string Database::DeriveTypeTag(const std::string& serialized) {
+    if (serialized.empty()) return "";
+
+    if (serialized.starts_with("custom:")) {
+        size_t second_colon = serialized.find(':', 7);
+        if (second_colon != std::string::npos) {
+            return serialized.substr(7, second_colon - 7);
+        }
+    }
+
+    switch (serialized[0]) {
+        case 'i': return "int";
+        case 'd': return "double";
+        case 'b': return "bool";
+        case 'c': return "char";
+        case 's': return "string";
+        case 'v': return "vector";
+        case 'm': return "map";
+        case 'u': return "unordered_map";
+        default: break;
+    }
+
+    return "";
+}
+
+std::expected<void, DatabaseError> Database::BeginTransaction() {
+    if (mInTransaction) {
+        return std::unexpected(DatabaseError::TransactionFailed);
+    }
+
+    if (mUsingSqlite) {
+        auto result = mSqlite->BeginTransaction();
+        if (!result) {
+            return std::unexpected(DatabaseError::TransactionFailed);
+        }
+
+    } else {
+        mSnapshotStorage = mMemoryStorage;
+        mSnapshotMetadata = mTypeMetadata;
+    }
+
+    mInTransaction = true;
+    return {};
+}
+
+std::expected<void, DatabaseError> Database::Commit() {
+    if (!mInTransaction) {
+        return std::unexpected(DatabaseError::TransactionFailed);
+    }
+
+    if (mUsingSqlite) {
+        auto result = mSqlite->Commit();
+        if (!result) {
+            return std::unexpected(DatabaseError::TransactionFailed);
+        }
+    } else {
+        mSnapshotStorage.clear();
+        mSnapshotMetadata.clear();
+    }
+
+    mInTransaction = false;
+    return {};
+}
+
+std::expected<void, DatabaseError> Database::Rollback() {
+    if (!mInTransaction) {
+        return std::unexpected(DatabaseError::TransactionFailed);
+    }
+
+    if (mUsingSqlite) {
+        auto result = mSqlite->Rollback();
+        if (!result) {
+            return std::unexpected(DatabaseError::TransactionFailed);
+        }
+    } else {
+        mMemoryStorage = std::move(mSnapshotStorage);
+        mTypeMetadata = std::move(mSnapshotMetadata);
+    }
+
+    mInTransaction = false;
+    return {};
+}
+
+std::expected<void, DatabaseError> Database::SaveToFile(const std::string& filepath) const {
+    std::ofstream out(filepath, std::ios::binary);
+    if (!out) {
+        return std::unexpected(DatabaseError::IOError);
+    }
+
+    auto keys = AllKeys();
+    uint64_t count = keys.size();
+    out.write(reinterpret_cast<const char*>(&count), sizeof(count));
+
+    for (const auto& key : keys) {
+        auto raw = ReadEntry(key);
+        if (!raw) {
+            return std::unexpected(raw.error());
+        }
+
+        uint64_t key_len = key.size();
+        out.write(reinterpret_cast<const char*>(&key_len), sizeof(key_len));
+        out.write(key.data(), static_cast<std::streamsize>(key_len));
+
+        uint64_t val_len = raw->size();
+        out.write(reinterpret_cast<const char*>(&val_len), sizeof(val_len));
+        out.write(reinterpret_cast<const char*>(raw->data()), static_cast<std::streamsize>(val_len));
+    }
+
+    if (!out) {
+        return std::unexpected(DatabaseError::IOError);
+    }
+
+    return {};
+}
+
+std::expected<void, DatabaseError> Database::LoadFromFile(const std::string& filepath) {
+    std::ifstream in(filepath, std::ios::binary);
+    if (!in) {
+        return std::unexpected(DatabaseError::IOError);
+    }
+
+    uint64_t count = 0;
+    in.read(reinterpret_cast<char*>(&count), sizeof(count));
+    if (!in) {
+        return std::unexpected(DatabaseError::InvalidData);
+    }
+
+    for (uint64_t i = 0; i < count; ++i) {
+        uint64_t key_len = 0;
+        in.read(reinterpret_cast<char*>(&key_len), sizeof(key_len));
+        if (!in) return std::unexpected(DatabaseError::InvalidData);
+
+        std::string key(key_len, '\0');
+        in.read(key.data(), static_cast<std::streamsize>(key_len));
+        if (!in) return std::unexpected(DatabaseError::InvalidData);
+
+        uint64_t val_len = 0;
+        in.read(reinterpret_cast<char*>(&val_len), sizeof(val_len));
+        if (!in) return std::unexpected(DatabaseError::InvalidData);
+
+        std::vector<uint8_t> value(val_len);
+        in.read(reinterpret_cast<char*>(value.data()), static_cast<std::streamsize>(val_len));
+        if (!in) return std::unexpected(DatabaseError::InvalidData);
+
+        auto result = WriteEntry(key, value, "");
+        if (!result) {
+            return std::unexpected(result.error());
+        }
+    }
+
+    return {};
 }
 
 } // namespace cse498
