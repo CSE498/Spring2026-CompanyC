@@ -633,3 +633,753 @@ TEST_CASE("Database - FindKeys pattern matching", "[database][findkeys]") {
         REQUIRE(keys.empty());
     }
 }
+
+
+namespace {
+
+/// Helper to generate a temp DB path and clean up 
+struct TempDB {
+    std::string path;
+
+    TempDB(const std::string& name = "test_db") {
+        static int counter = 0;
+        path = "/tmp/cse498_" + name + "_" + std::to_string(counter++) + ".db";
+        Cleanup(); 
+    }
+
+    ~TempDB() { Cleanup(); }
+
+    void Cleanup() {
+        std::remove(path.c_str());
+        std::remove((path + "-wal").c_str());
+        std::remove((path + "-shm").c_str());
+    }
+};
+
+} // namespace
+
+TEST_CASE("SQLite Database - Construction", "[database][sqlite]") {
+    TempDB tmp("construct");
+
+    SECTION("Construct with file path") {
+        Database db(tmp.path);
+        REQUIRE(db.Size() == 0);
+        REQUIRE_FALSE(db.Exists("anything"));
+    }
+
+    SECTION("Construct with config") {
+        DatabaseConfig config;
+        config.db_path = tmp.path;
+        config.wal_mode = true;
+
+        Database db(config);
+        REQUIRE(db.Size() == 0);
+        REQUIRE(db.GetConfig().db_path == tmp.path);
+    }
+}
+
+TEST_CASE("SQLite Database - Store and Load primitives", "[database][sqlite]") {
+    TempDB tmp("primitives");
+    Database db(tmp.path);
+
+    SECTION("int") {
+        REQUIRE(db.Store("score", 42).has_value());
+        auto r = db.Load<int>("score");
+        REQUIRE(r.has_value());
+        REQUIRE(*r == 42);
+    }
+
+    SECTION("double") {
+        REQUIRE(db.Store("pi", 3.14159).has_value());
+        auto r = db.Load<double>("pi");
+        REQUIRE(r.has_value());
+        REQUIRE(*r == 3.14159);
+    }
+
+    SECTION("bool") {
+        REQUIRE(db.Store("flag", true).has_value());
+        auto r = db.Load<bool>("flag");
+        REQUIRE(r.has_value());
+        REQUIRE(*r == true);
+    }
+
+    SECTION("char") {
+        REQUIRE(db.Store("letter", 'Z').has_value());
+        auto r = db.Load<char>("letter");
+        REQUIRE(r.has_value());
+        REQUIRE(*r == 'Z');
+    }
+
+    SECTION("string") {
+        std::string name = "Alice";
+        REQUIRE(db.Store("name", name).has_value());
+        auto r = db.Load<std::string>("name");
+        REQUIRE(r.has_value());
+        REQUIRE(*r == "Alice");
+    }
+}
+
+TEST_CASE("SQLite Database - Store and Load containers", "[database][sqlite]") {
+    TempDB tmp("containers");
+    Database db(tmp.path);
+
+    SECTION("vector<int>") {
+        std::vector<int> v = {10, 20, 30};
+        REQUIRE(db.Store("vec", v).has_value());
+        auto r = db.Load<std::vector<int>>("vec");
+        REQUIRE(r.has_value());
+        REQUIRE(*r == v);
+    }
+
+    SECTION("vector<string>") {
+        std::vector<std::string> v = {"Alice", "Bob"};
+        REQUIRE(db.Store("names", v).has_value());
+        auto r = db.Load<std::vector<std::string>>("names");
+        REQUIRE(r.has_value());
+        REQUIRE(*r == v);
+    }
+
+    SECTION("map<string,int>") {
+        std::map<std::string, int> m = {{"a", 1}, {"b", 2}};
+        REQUIRE(db.Store("scores", m).has_value());
+        auto r = db.Load<std::map<std::string, int>>("scores");
+        REQUIRE(r.has_value());
+        REQUIRE(*r == m);
+    }
+
+    SECTION("unordered_map<string,double>") {
+        std::unordered_map<std::string, double> m = {{"x", 1.5}, {"y", 2.5}};
+        REQUIRE(db.Store("pos", m).has_value());
+        auto r = db.Load<std::unordered_map<std::string, double>>("pos");
+        REQUIRE(r.has_value());
+        REQUIRE(*r == m);
+    }
+}
+
+TEST_CASE("SQLite Database - Exists and Delete", "[database][sqlite]") {
+    TempDB tmp("exists_delete");
+    Database db(tmp.path);
+
+    SECTION("Exists returns false for missing key") {
+        REQUIRE_FALSE(db.Exists("nope"));
+    }
+
+    SECTION("Exists returns true after Store") {
+        (void)db.Store("k", 1);
+        REQUIRE(db.Exists("k"));
+    }
+
+    SECTION("Delete removes key") {
+        (void)db.Store("k", 1);
+        REQUIRE(db.Delete("k"));
+        REQUIRE_FALSE(db.Exists("k"));
+    }
+
+    SECTION("Delete returns false for missing key") {
+        REQUIRE_FALSE(db.Delete("nope"));
+    }
+}
+
+TEST_CASE("SQLite Database - Update", "[database][sqlite]") {
+    TempDB tmp("update");
+    Database db(tmp.path);
+
+    SECTION("Update fails if key missing") {
+        auto r = db.Update("missing", 99);
+        REQUIRE_FALSE(r.has_value());
+        REQUIRE(r.error() == DatabaseError::KeyNotFound);
+    }
+
+    SECTION("Update changes value") {
+        (void)db.Store("counter", 10);
+        REQUIRE(db.Update("counter", 20).has_value());
+        REQUIRE(*db.Load<int>("counter") == 20);
+    }
+
+    SECTION("Update with diff-backed storage") {
+        DatabaseConfig config;
+        config.db_path = tmp.path;
+        config.auto_compress = true;
+        config.compression_threshold = 1;
+
+        Database diff_db(config);
+
+        std::string base = MakeRandomishString(240);
+        std::string updated = base;
+        updated[120] = updated[120] == '!' ? '?' : '!';
+
+        REQUIRE(diff_db.Store("blob", base).has_value());
+        REQUIRE(diff_db.Update("blob", updated).has_value());
+
+        auto loaded = diff_db.Load<std::string>("blob");
+        REQUIRE(loaded.has_value());
+        REQUIRE(*loaded == updated);
+    }
+}
+
+TEST_CASE("SQLite Database - Size and Clear", "[database][sqlite]") {
+    TempDB tmp("size_clear");
+    Database db(tmp.path);
+
+    SECTION("Size starts at 0") {
+        REQUIRE(db.Size() == 0);
+    }
+
+    SECTION("Size tracks inserts") {
+        (void)db.Store("a", 1);
+        (void)db.Store("b", 2);
+        REQUIRE(db.Size() == 2);
+    }
+
+    SECTION("Overwrite does not increase size") {
+        (void)db.Store("k", 1);
+        (void)db.Store("k", 2);
+        REQUIRE(db.Size() == 1);
+    }
+
+    SECTION("Clear removes all entries") {
+        (void)db.Store("a", 1);
+        (void)db.Store("b", 2);
+        db.Clear();
+        REQUIRE(db.Size() == 0);
+        REQUIRE_FALSE(db.Exists("a"));
+    }
+}
+
+TEST_CASE("SQLite Database - ListKeys and FindKeys", "[database][sqlite]") {
+    TempDB tmp("keys");
+    Database db(tmp.path);
+
+    (void)db.Store("player:alice", 1);
+    (void)db.Store("player:bob", 2);
+    (void)db.Store("world:main", 3);
+
+    SECTION("ListKeys returns all keys") {
+        auto keys = db.ListKeys();
+        REQUIRE(keys.size() == 3);
+        REQUIRE(std::find(keys.begin(), keys.end(), "player:alice") != keys.end());
+        REQUIRE(std::find(keys.begin(), keys.end(), "player:bob") != keys.end());
+        REQUIRE(std::find(keys.begin(), keys.end(), "world:main") != keys.end());
+    }
+
+    SECTION("FindKeys with wildcard") {
+        auto players = db.FindKeys("player:*");
+        REQUIRE(players.size() == 2);
+    }
+
+    SECTION("FindKeys exact match") {
+        auto keys = db.FindKeys("world:main");
+        REQUIRE(keys.size() == 1);
+        REQUIRE(keys[0] == "world:main");
+    }
+
+    SECTION("FindKeys no matches") {
+        auto keys = db.FindKeys("npc:*");
+        REQUIRE(keys.empty());
+    }
+}
+
+TEST_CASE("SQLite Database - GetStorageSize", "[database][sqlite]") {
+    TempDB tmp("storage_size");
+    Database db(tmp.path);
+
+    SECTION("Error for missing key") {
+        auto r = db.GetStorageSize("nope");
+        REQUIRE_FALSE(r.has_value());
+        REQUIRE(r.error() == DatabaseError::KeyNotFound);
+    }
+
+    SECTION("Returns positive size") {
+        (void)db.Store("k", 42);
+        auto r = db.GetStorageSize("k");
+        REQUIRE(r.has_value());
+        REQUIRE(*r > 0);
+    }
+}
+
+TEST_CASE("SQLite Database - Compression", "[database][sqlite]") {
+    TempDB tmp("compression");
+
+    SECTION("Large repetitive data is compressed") {
+        DatabaseConfig config;
+        config.db_path = tmp.path;
+        config.auto_compress = true;
+        config.compression_threshold = 50;
+        Database db(config);
+
+        std::string big(200, 'A');
+        (void)db.Store("big", big);
+
+        auto sz = db.GetStorageSize("big");
+        REQUIRE(sz.has_value());
+        REQUIRE(*sz < big.size());
+
+        // Verify round-trip
+        auto loaded = db.Load<std::string>("big");
+        REQUIRE(loaded.has_value());
+        REQUIRE(*loaded == big);
+    }
+}
+
+TEST_CASE("SQLite Database - Error handling", "[database][sqlite]") {
+    TempDB tmp("errors");
+    Database db(tmp.path);
+
+    SECTION("Load missing key") {
+        auto r = db.Load<int>("missing");
+        REQUIRE_FALSE(r.has_value());
+        REQUIRE(r.error() == DatabaseError::KeyNotFound);
+    }
+
+    SECTION("Load wrong type") {
+        (void)db.Store("num", 42);
+        auto r = db.Load<std::string>("num");
+        REQUIRE_FALSE(r.has_value());
+        REQUIRE(r.error() == DatabaseError::DeserializationFailed);
+    }
+}
+
+TEST_CASE("SQLite Database - Edge cases", "[database][sqlite]") {
+    TempDB tmp("edge");
+    Database db(tmp.path);
+
+    SECTION("Empty string") {
+        (void)db.Store("empty", std::string(""));
+        auto r = db.Load<std::string>("empty");
+        REQUIRE(r.has_value());
+        REQUIRE(r->empty());
+    }
+
+    SECTION("Empty vector") {
+        std::vector<int> v;
+        (void)db.Store("ev", v);
+        auto r = db.Load<std::vector<int>>("ev");
+        REQUIRE(r.has_value());
+        REQUIRE(r->empty());
+    }
+
+    SECTION("Zero and negative") {
+        (void)db.Store("zero", 0);
+        (void)db.Store("neg", -42);
+        REQUIRE(*db.Load<int>("zero") == 0);
+        REQUIRE(*db.Load<int>("neg") == -42);
+    }
+
+    SECTION("Special characters in string") {
+        std::string special = "Hello\nWorld\t!@#$%^&*()";
+        (void)db.Store("special", special);
+        REQUIRE(*db.Load<std::string>("special") == special);
+    }
+
+    SECTION("Unicode string") {
+        std::string unicode = "Hello 世界 🌍";
+        (void)db.Store("unicode", unicode);
+        REQUIRE(*db.Load<std::string>("unicode") == unicode);
+    }
+
+    SECTION("Long key name") {
+        std::string long_key(500, 'k');
+        (void)db.Store(long_key, 99);
+        REQUIRE(db.Exists(long_key));
+        REQUIRE(*db.Load<int>(long_key) == 99);
+    }
+}
+
+TEST_CASE("SQLite Database - Multiple operations", "[database][sqlite]") {
+    TempDB tmp("multi_ops");
+    Database db(tmp.path);
+
+    SECTION("Store multiple types") {
+        (void)db.Store("i", 42);
+        (void)db.Store("d", 3.14);
+        (void)db.Store("s", std::string("hello"));
+        (void)db.Store("b", true);
+
+        REQUIRE(db.Size() == 4);
+        REQUIRE(*db.Load<int>("i") == 42);
+        REQUIRE(*db.Load<double>("d") == 3.14);
+        REQUIRE(*db.Load<std::string>("s") == "hello");
+        REQUIRE(*db.Load<bool>("b") == true);
+    }
+
+    SECTION("Overwrite existing key") {
+        (void)db.Store("k", 100);
+        (void)db.Store("k", 200);
+        REQUIRE(db.Size() == 1);
+        REQUIRE(*db.Load<int>("k") == 200);
+    }
+
+    SECTION("Store, delete, store again") {
+        (void)db.Store("k", 1);
+        db.Delete("k");
+        (void)db.Store("k", 2);
+        REQUIRE(*db.Load<int>("k") == 2);
+    }
+}
+
+// ============================================================================
+// SQLite Persistence Tests (data survives across Database instances)
+// ============================================================================
+
+TEST_CASE("SQLite Database - Persistence across instances", "[database][sqlite][persistence]") {
+    TempDB tmp("persist");
+
+    SECTION("Data survives destruction and reload") {
+        {
+            Database db(tmp.path);
+            (void)db.Store("player:hp", 100);
+            (void)db.Store("player:name", std::string("Alice"));
+            (void)db.Store("player:scores", std::vector<int>{10, 20, 30});
+        }  // db destroyed, SQLite connection closed
+
+        {
+            Database db2(tmp.path);
+            REQUIRE(db2.Size() == 3);
+            REQUIRE(*db2.Load<int>("player:hp") == 100);
+            REQUIRE(*db2.Load<std::string>("player:name") == "Alice");
+            REQUIRE(*db2.Load<std::vector<int>>("player:scores") == std::vector<int>{10, 20, 30});
+        }
+    }
+
+    SECTION("Overwrite persists") {
+        {
+            Database db(tmp.path);
+            (void)db.Store("val", 1);
+        }
+        {
+            Database db2(tmp.path);
+            REQUIRE(*db2.Load<int>("val") == 1);
+            (void)db2.Store("val", 2);
+        }
+        {
+            Database db3(tmp.path);
+            REQUIRE(*db3.Load<int>("val") == 2);
+        }
+    }
+
+    SECTION("Delete persists") {
+        {
+            Database db(tmp.path);
+            (void)db.Store("a", 1);
+            (void)db.Store("b", 2);
+            db.Delete("a");
+        }
+        {
+            Database db2(tmp.path);
+            REQUIRE_FALSE(db2.Exists("a"));
+            REQUIRE(db2.Exists("b"));
+            REQUIRE(db2.Size() == 1);
+        }
+    }
+
+    SECTION("Clear persists") {
+        {
+            Database db(tmp.path);
+            (void)db.Store("a", 1);
+            (void)db.Store("b", 2);
+            db.Clear();
+        }
+        {
+            Database db2(tmp.path);
+            REQUIRE(db2.Size() == 0);
+        }
+    }
+}
+
+// ============================================================================
+// SQLite Transaction Tests
+// ============================================================================
+
+TEST_CASE("SQLite Database - Transactions", "[database][sqlite][transactions]") {
+    TempDB tmp("txn");
+
+    SECTION("Commit makes writes visible") {
+        Database db(tmp.path);
+        REQUIRE(db.BeginTransaction().has_value());
+        (void)db.Store("x", 10);
+        (void)db.Store("y", 20);
+        REQUIRE(db.Commit().has_value());
+
+        REQUIRE(*db.Load<int>("x") == 10);
+        REQUIRE(*db.Load<int>("y") == 20);
+    }
+
+    SECTION("Rollback discards writes") {
+        Database db(tmp.path);
+        (void)db.Store("before", 1);
+
+        REQUIRE(db.BeginTransaction().has_value());
+        (void)db.Store("during", 2);
+        REQUIRE(db.Rollback().has_value());
+
+        REQUIRE(db.Exists("before"));
+        REQUIRE_FALSE(db.Exists("during"));
+    }
+
+    SECTION("Commit persists across instances") {
+        {
+            Database db(tmp.path);
+            REQUIRE(db.BeginTransaction().has_value());
+            (void)db.Store("committed", 42);
+            REQUIRE(db.Commit().has_value());
+        }
+        {
+            Database db2(tmp.path);
+            REQUIRE(*db2.Load<int>("committed") == 42);
+        }
+    }
+
+    SECTION("Double begin fails") {
+        Database db(tmp.path);
+        REQUIRE(db.BeginTransaction().has_value());
+        auto r = db.BeginTransaction();
+        REQUIRE_FALSE(r.has_value());
+        REQUIRE(r.error() == DatabaseError::TransactionFailed);
+    }
+
+    SECTION("Commit without begin fails") {
+        Database db(tmp.path);
+        auto r = db.Commit();
+        REQUIRE_FALSE(r.has_value());
+        REQUIRE(r.error() == DatabaseError::TransactionFailed);
+    }
+
+    SECTION("Rollback without begin fails") {
+        Database db(tmp.path);
+        auto r = db.Rollback();
+        REQUIRE_FALSE(r.has_value());
+        REQUIRE(r.error() == DatabaseError::TransactionFailed);
+    }
+}
+
+// ============================================================================
+// SQLite Type Metadata Tests
+// ============================================================================
+
+TEST_CASE("SQLite Database - Type metadata (GetType)", "[database][sqlite]") {
+    TempDB tmp("type_meta");
+    Database db(tmp.path);
+
+    SECTION("Primitive type tags") {
+        (void)db.Store("i", 42);
+        (void)db.Store("d", 3.14);
+        (void)db.Store("b", true);
+        (void)db.Store("c", 'X');
+        (void)db.Store("s", std::string("hi"));
+
+        REQUIRE(*db.GetType("i") == "int");
+        REQUIRE(*db.GetType("d") == "double");
+        REQUIRE(*db.GetType("b") == "bool");
+        REQUIRE(*db.GetType("c") == "char");
+        REQUIRE(*db.GetType("s") == "string");
+    }
+
+    SECTION("Container type tags") {
+        (void)db.Store("v", std::vector<int>{1, 2});
+        (void)db.Store("m", std::map<std::string, int>{{"a", 1}});
+        (void)db.Store("u", std::unordered_map<std::string, int>{{"b", 2}});
+
+        REQUIRE(*db.GetType("v") == "vector");
+        REQUIRE(*db.GetType("m") == "map");
+        REQUIRE(*db.GetType("u") == "unordered_map");
+    }
+
+    SECTION("GetType on missing key") {
+        auto r = db.GetType("nope");
+        REQUIRE_FALSE(r.has_value());
+        REQUIRE(r.error() == DatabaseError::KeyNotFound);
+    }
+
+    SECTION("Type metadata persists across instances") {
+        (void)db.Store("val", 99);
+        REQUIRE(*db.GetType("val") == "int");
+
+        // Reopen
+        Database db2(tmp.path);
+        REQUIRE(*db2.GetType("val") == "int");
+    }
+}
+
+// ============================================================================
+// SQLite SaveToFile / LoadFromFile Tests
+// ============================================================================
+
+TEST_CASE("SQLite Database - SaveToFile and LoadFromFile", "[database][sqlite]") {
+    TempDB tmp_db("savefile_db");
+    std::string save_path = "/tmp/cse498_savefile_test.bin";
+
+    SECTION("Round-trip: SQLite -> file -> new in-memory DB") {
+        // Store data in SQLite-backed DB
+        {
+            Database db(tmp_db.path);
+            (void)db.Store("a", 1);
+            (void)db.Store("b", std::string("hello"));
+            (void)db.Store("c", std::vector<int>{5, 6, 7});
+
+            auto r = db.SaveToFile(save_path);
+            REQUIRE(r.has_value());
+        }
+
+        // Load into a fresh in-memory DB
+        Database mem_db;
+        auto r = mem_db.LoadFromFile(save_path);
+        REQUIRE(r.has_value());
+
+        REQUIRE(mem_db.Size() == 3);
+        REQUIRE(*mem_db.Load<int>("a") == 1);
+        REQUIRE(*mem_db.Load<std::string>("b") == "hello");
+        REQUIRE(*mem_db.Load<std::vector<int>>("c") == std::vector<int>{5, 6, 7});
+
+        std::remove(save_path.c_str());
+    }
+
+    SECTION("Round-trip: in-memory -> file -> new SQLite DB") {
+        Database mem_db;
+        (void)mem_db.Store("x", 42);
+        (void)mem_db.Store("y", std::string("world"));
+
+        REQUIRE(mem_db.SaveToFile(save_path).has_value());
+
+        // Load into SQLite-backed DB
+        Database sqlite_db(tmp_db.path);
+        REQUIRE(sqlite_db.LoadFromFile(save_path).has_value());
+
+        REQUIRE(*sqlite_db.Load<int>("x") == 42);
+        REQUIRE(*sqlite_db.Load<std::string>("y") == "world");
+
+        std::remove(save_path.c_str());
+    }
+
+    SECTION("LoadFromFile overwrites on key collision") {
+        Database db(tmp_db.path);
+        (void)db.Store("k", 1);
+        REQUIRE(db.SaveToFile(save_path).has_value());
+
+        // Modify the value in-place
+        (void)db.Store("k", 999);
+        REQUIRE(*db.Load<int>("k") == 999);
+
+        // Reload from file — should restore to 1
+        REQUIRE(db.LoadFromFile(save_path).has_value());
+        REQUIRE(*db.Load<int>("k") == 1);
+
+        std::remove(save_path.c_str());
+    }
+
+    SECTION("SaveToFile to invalid path returns IOError") {
+        Database db(tmp_db.path);
+        auto r = db.SaveToFile("/nonexistent/dir/file.bin");
+        REQUIRE_FALSE(r.has_value());
+        REQUIRE(r.error() == DatabaseError::IOError);
+    }
+
+    SECTION("LoadFromFile from missing file returns IOError") {
+        Database db(tmp_db.path);
+        auto r = db.LoadFromFile("/nonexistent/file.bin");
+        REQUIRE_FALSE(r.has_value());
+        REQUIRE(r.error() == DatabaseError::IOError);
+    }
+}
+
+// ============================================================================
+// SQLite Custom Type Registration Tests
+// ============================================================================
+
+TEST_CASE("SQLite Database - RegisterType and custom objects", "[database][sqlite]") {
+    TempDB tmp("custom_type");
+
+    struct Player {
+        int id;
+        std::string name;
+        double health;
+
+        bool operator==(const Player& o) const {
+            return id == o.id && name == o.name && health == o.health;
+        }
+    };
+
+    auto register_player = [](Database& db) {
+        db.RegisterType<Player>("Player",
+            [](const Player& p) {
+                Serializer s;
+                return s.Serialize(p.id) + s.Serialize(p.name) + s.Serialize(p.health);
+            },
+            [](const std::string& data) -> std::optional<Player> {
+                Serializer s;
+                size_t pos = 0;
+                auto id = s.DeserializeAt<int>(data, pos);
+                auto name = s.DeserializeAt<std::string>(data, pos);
+                auto health = s.DeserializeAt<double>(data, pos);
+                if (!id || !name || !health) return std::nullopt;
+                return Player{*id, *name, *health};
+            }
+        );
+    };
+
+    SECTION("Store and Load custom type") {
+        Database db(tmp.path);
+        register_player(db);
+        Player alice{1, "Alice", 100.0};
+        REQUIRE(db.Store("player:1", alice).has_value());
+
+        auto loaded = db.Load<Player>("player:1");
+        REQUIRE(loaded.has_value());
+        REQUIRE(*loaded == alice);
+    }
+
+    SECTION("Custom type with GetType") {
+        Database db(tmp.path);
+        register_player(db);
+        Player bob{2, "Bob", 85.5};
+        (void)db.Store("player:2", bob);
+        REQUIRE(*db.GetType("player:2") == "Player");
+    }
+
+    SECTION("Custom type persists (re-register to load)") {
+        Player charlie{3, "Charlie", 50.0};
+        {
+            Database db(tmp.path);
+            register_player(db);
+            (void)db.Store("player:3", charlie);
+        }
+        {
+            Database db2(tmp.path);
+            register_player(db2);  // must re-register type
+            auto loaded = db2.Load<Player>("player:3");
+            REQUIRE(loaded.has_value());
+            REQUIRE(*loaded == charlie);
+        }
+    }
+
+    SECTION("IsTypeRegistered") {
+        Database db(tmp.path);
+        register_player(db);
+        REQUIRE(db.IsTypeRegistered("Player"));
+        REQUIRE_FALSE(db.IsTypeRegistered("Enemy"));
+    }
+}
+
+// ============================================================================
+// SQLite Stress / Multi-key Tests
+// ============================================================================
+
+TEST_CASE("SQLite Database - Stress test with many keys", "[database][sqlite]") {
+    TempDB tmp("stress");
+    Database db(tmp.path);
+
+    const int N = 200;
+    for (int i = 0; i < N; ++i) {
+        (void)db.Store("key:" + std::to_string(i), i * 10);
+    }
+
+    REQUIRE(db.Size() == N);
+
+    for (int i = 0; i < N; ++i) {
+        auto r = db.Load<int>("key:" + std::to_string(i));
+        REQUIRE(r.has_value());
+        REQUIRE(*r == i * 10);
+    }
+
+    auto all = db.FindKeys("key:*");
+    REQUIRE(all.size() == N);
+}
