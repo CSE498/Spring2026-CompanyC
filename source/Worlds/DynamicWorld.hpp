@@ -21,6 +21,9 @@ protected:
     BUILD_LUMBERYARD, BUILD_QUARRY, BUILD_SPAWNER, BUILD_FARM, BUILD_TOWNHALL
   };
 
+  // Counter for amount of times UpdateWorld has been called
+  size_t update_counter = 0;
+
   // CellType IDs
   size_t grass_id = 0;
   size_t tree_id = 0;
@@ -50,6 +53,7 @@ protected:
     agent.AddAction("build_townhall", BUILD_TOWNHALL);
   }
 
+  // Helper to configure the main_grid
   void ConfigureCellTypes() {
     grass_id = main_grid.AddCellType("grass", "Open buildable terrain.", '.');
     tree_id  = main_grid.AddCellType("tree", "Wood resource.", 'T');
@@ -130,7 +134,7 @@ protected:
 
   // This will handle resource generation from buildings, as well as any other future autonomous world actions
   void UpdateWorld() override {
-
+    update_counter++;
   }
 };
 
