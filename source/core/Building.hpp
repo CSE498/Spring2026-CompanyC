@@ -20,5 +20,7 @@ namespace cse498{
             }
             
             std::map<std::string, size_t> GetResources() const { return resources;}
+
+            size_t GetBuiltTime() const { return internalCounter; }
     };
 }
