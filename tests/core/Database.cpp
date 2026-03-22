@@ -1383,3 +1383,149 @@ TEST_CASE("SQLite Database - Stress test with many keys", "[database][sqlite]") 
     auto all = db.FindKeys("key:*");
     REQUIRE(all.size() == N);
 }
+
+
+TEST_CASE("DataGrid: Store and Load basic grid", "[database][datagrid]") {
+    Database db;
+
+    DataGrid grid(2, 3);
+    grid.Insert(0, 0, 1.0);
+    grid.Insert(0, 1, 2.0);
+    grid.Insert(0, 2, 3.0);
+    grid.Insert(1, 0, 4.0);
+    grid.Insert(1, 1, 5.0);
+    grid.Insert(1, 2, 6.0);
+
+    auto store_result = db.Store("grid:basic", grid);
+    REQUIRE(store_result.has_value());
+
+    auto loaded = db.Load<DataGrid>("grid:basic");
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->NumRows() == 2);
+    REQUIRE(loaded->NumCols() == 3);
+
+    REQUIRE(loaded->At(0, 0).AsDouble() == 1.0);
+    REQUIRE(loaded->At(0, 1).AsDouble() == 2.0);
+    REQUIRE(loaded->At(0, 2).AsDouble() == 3.0);
+    REQUIRE(loaded->At(1, 0).AsDouble() == 4.0);
+    REQUIRE(loaded->At(1, 1).AsDouble() == 5.0);
+    REQUIRE(loaded->At(1, 2).AsDouble() == 6.0);
+}
+
+TEST_CASE("DataGrid: Store and Load mixed types", "[database][datagrid]") {
+    Database db;
+
+    DataGrid grid(2, 2);
+    grid.Insert(0, 0, 42.0);
+    grid.Insert(0, 1, std::string("hello"));
+    grid.Insert(1, 0, true);
+    grid.Insert(1, 1, 3.14);
+
+    auto store_result = db.Store("grid:mixed", grid);
+    REQUIRE(store_result.has_value());
+
+    auto loaded = db.Load<DataGrid>("grid:mixed");
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->NumRows() == 2);
+    REQUIRE(loaded->NumCols() == 2);
+
+    REQUIRE(loaded->At(0, 0).AsDouble() == 42.0);
+    REQUIRE(loaded->At(0, 1).AsString() == "hello");
+    REQUIRE(loaded->At(1, 0).AsBool() == true);
+    REQUIRE(loaded->At(1, 1).AsDouble() == 3.14);
+}
+
+TEST_CASE("DataGrid: Store and Load string-only grid", "[database][datagrid]") {
+    Database db;
+
+    DataGrid grid(1, 3);
+    grid.Insert(0, 0, std::string("alpha"));
+    grid.Insert(0, 1, std::string("beta"));
+    grid.Insert(0, 2, std::string("gamma"));
+
+    (void)db.Store("grid:strings", grid);
+
+    auto loaded = db.Load<DataGrid>("grid:strings");
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->At(0, 0).AsString() == "alpha");
+    REQUIRE(loaded->At(0, 1).AsString() == "beta");
+    REQUIRE(loaded->At(0, 2).AsString() == "gamma");
+}
+
+TEST_CASE("DataGrid: Store and Load bool-only grid", "[database][datagrid]") {
+    Database db;
+
+    DataGrid grid(2, 2);
+    grid.Insert(0, 0, true);
+    grid.Insert(0, 1, false);
+    grid.Insert(1, 0, false);
+    grid.Insert(1, 1, true);
+
+    (void)db.Store("grid:bools", grid);
+
+    auto loaded = db.Load<DataGrid>("grid:bools");
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->At(0, 0).AsBool() == true);
+    REQUIRE(loaded->At(0, 1).AsBool() == false);
+    REQUIRE(loaded->At(1, 0).AsBool() == false);
+    REQUIRE(loaded->At(1, 1).AsBool() == true);
+}
+
+TEST_CASE("DataGrid: Update existing grid", "[database][datagrid]") {
+    Database db;
+
+    DataGrid grid1(1, 2);
+    grid1.Insert(0, 0, 1.0);
+    grid1.Insert(0, 1, 2.0);
+    (void)db.Store("grid:update", grid1);
+
+    DataGrid grid2(1, 2);
+    grid2.Insert(0, 0, 10.0);
+    grid2.Insert(0, 1, 20.0);
+    auto update_result = db.Update("grid:update", grid2);
+    REQUIRE(update_result.has_value());
+
+    auto loaded = db.Load<DataGrid>("grid:update");
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->At(0, 0).AsDouble() == 10.0);
+    REQUIRE(loaded->At(0, 1).AsDouble() == 20.0);
+}
+
+TEST_CASE("DataGrid: Type metadata is DataGrid", "[database][datagrid]") {
+    Database db;
+
+    DataGrid grid(1, 1);
+    grid.Insert(0, 0, 99.0);
+    (void)db.Store("grid:meta", grid);
+
+    auto type = db.GetType("grid:meta");
+    REQUIRE(type.has_value());
+    REQUIRE(*type == "DataGrid");
+}
+
+TEST_CASE("DataGrid: DataGrid type is registered by default", "[database][datagrid]") {
+    Database db;
+    REQUIRE(db.IsTypeRegistered("DataGrid"));
+}
+
+TEST_CASE("DataGrid: SQLite db Store and Load", "[database][datagrid][sqlite]") {
+    TempDB tmp("test_datagrid_sqlite");
+    Database db(tmp.path);
+
+    DataGrid grid(2, 2);
+    grid.Insert(0, 0, std::string("cell00"));
+    grid.Insert(0, 1, 3.14);
+    grid.Insert(1, 0, true);
+    grid.Insert(1, 1, std::string("cell11"));
+
+    (void)db.Store("grid:sqlite", grid);
+
+    auto loaded = db.Load<DataGrid>("grid:sqlite");
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->NumRows() == 2);
+    REQUIRE(loaded->NumCols() == 2);
+    REQUIRE(loaded->At(0, 0).AsString() == "cell00");
+    REQUIRE(loaded->At(0, 1).AsDouble() == Approx(3.14));
+    REQUIRE(loaded->At(1, 0).AsBool() == true);
+    REQUIRE(loaded->At(1, 1).AsString() == "cell11");
+}
