@@ -14,12 +14,81 @@ namespace cse498 {
 
     
 Database::Database(const DatabaseConfig& config) : mConfig(config) {
+    InitCoreTypes();
     InitSqlite();
 }
 
 Database::Database(const std::string& db_path) {
     mConfig.db_path = db_path;
+    InitCoreTypes();
     InitSqlite();
+}
+
+void Database::InitCoreTypes() {
+    RegisterType<DataGrid>("DataGrid", [](const DataGrid& grid) -> std::string {
+        //serialize
+
+        Serializer s;
+        std::string result;
+        result += s.Serialize(static_cast<int>(grid.NumRows()));
+        result += s.Serialize(static_cast<int>(grid.NumCols()));
+            
+        for (size_t r = 0; r < grid.NumRows(); ++r) {
+            for (size_t c = 0; c < grid.NumCols(); ++c) {
+                Datum d = grid.At(static_cast<int>(r), static_cast<int>(c));
+                if (d.IsString()) {
+                    result += s.Serialize(std::string("S"));
+                    result += s.Serialize(d.AsString());
+
+                } else if (d.IsBool()) {
+                    result += s.Serialize(std::string("B"));
+                    result += s.Serialize(d.AsBool());
+
+                } else {
+                    result += s.Serialize(std::string("D"));
+                    result += s.Serialize(d.AsDouble());
+                }
+            }
+        }
+        
+        return result;
+    }, [](const std::string& data) -> std::optional<DataGrid> {
+        //deserialize
+
+        Serializer s;
+        size_t pos = 0;
+        auto rows = s.DeserializeAt<int>(data, pos);
+        auto cols = s.DeserializeAt<int>(data, pos);
+        if (!rows || !cols) return std::nullopt;
+
+        DataGrid grid(*rows, *cols);
+        for (int r = 0; r < *rows; ++r) {
+            for (int c = 0; c < *cols; ++c) {
+                auto tag = s.DeserializeAt<std::string>(data, pos);
+                if (!tag) return std::nullopt;
+
+                if (*tag == "S") {
+                    auto val = s.DeserializeAt<std::string>(data, pos);
+                    if (!val) return std::nullopt;
+                    grid.Insert(r, c, *val);
+
+                } else if (*tag == "B") {
+                    auto val = s.DeserializeAt<bool>(data, pos);
+                    if (!val) return std::nullopt;
+                    grid.Insert(r, c, *val);
+                    
+                } else if (*tag == "D") {
+                    auto val = s.DeserializeAt<double>(data, pos);
+                    if (!val) return std::nullopt;
+                    grid.Insert(r, c, *val);
+                } else {
+                    return std::nullopt;
+                }
+            }
+        }
+        return grid;
+
+    });
 }
 
 void Database::InitSqlite() {

@@ -42,6 +42,7 @@
 #include "../tools/StringCompressor.hpp"
 #include "../tools/SQLiteConnection.hpp"
 #include "../tools/Datum.hpp"
+#include "../tools/DataGrid.hpp"
 
 #include <string>
 #include <unordered_map>
@@ -100,7 +101,7 @@ struct DatabaseConfig {
 class Database {
 public:
     /// Default constructor
-    Database() = default;
+    Database() {InitCoreTypes();}
 
     /// Constructor with config
     explicit Database(const DatabaseConfig& config);
@@ -237,6 +238,7 @@ private:
     static std::string DeriveTypeTag(const std::string& serialized);
 
     void InitSqlite();
+    void InitCoreTypes();
 };
 
 // ============================================================================
