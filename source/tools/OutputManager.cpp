@@ -33,14 +33,14 @@ namespace cse498
 
   void OutputManager::setLevel(LogLevel in_level)
   {
-    std::lock_guard<std::mutex> guard(mutex);
-    level = in_level;
+    // Relaxed ordering is sufficient: log() only needs a consistent value,
+    // not a synchronization point with other state protected by mutex.
+    level.store(in_level, std::memory_order_relaxed);
   }
 
   LogLevel OutputManager::getLevel() const
   {
-    std::lock_guard<std::mutex> guard(mutex);
-    return level;
+    return level.load(std::memory_order_relaxed);
   }
 
   void OutputManager::enableTimestamps(bool on)
@@ -135,8 +135,17 @@ namespace cse498
                           const std::string &message,
                           const LogContext &ctx)
   {
+    // Fast-path: avoid taking the mutex at all if this message would be
+    // filtered out at the current log level.
+    if (!ShouldLogUnlocked(msg_level))
+    {
+      return;
+    }
+
     std::lock_guard<std::mutex> guard(mutex);
 
+    // Re-check under the mutex in case the level changed concurrently
+    // between the fast-path check and acquiring the lock.
     if (!ShouldLogUnlocked(msg_level))
     {
       return;
@@ -148,7 +157,9 @@ namespace cse498
 
   bool OutputManager::ShouldLogUnlocked(LogLevel msg_level) const
   {
-    switch (level)
+    const LogLevel current_level = level.load(std::memory_order_relaxed);
+
+    switch (current_level)
     {
     case LogLevel::Silent:
       return false;
