@@ -6,6 +6,7 @@
 
 #include "catch2/catch.hpp"
 #include "../../source/core/Database.hpp"
+#include "../../source/core/Location.hpp"
 #include "../../source/tools/Datum.hpp"
 
 using namespace cse498;
@@ -1680,4 +1681,177 @@ TEST_CASE("WorldPosition: FindKeys with position pattern", "[database][worldposi
 
     auto all_positions = db.FindKeys("pos:*");
     REQUIRE(all_positions.size() == 3);
+}
+
+// Location Serialization 
+
+TEST_CASE("Location: Store and Load WorldPosition variant", "[database][location]") {
+    Database db;
+
+    Location loc(WorldPosition(3.5, 7.25));
+    auto store_result = db.Store("loc:wp", loc);
+    REQUIRE(store_result.has_value());
+
+    auto loaded = db.Load<Location>("loc:wp");
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->IsPosition());
+    REQUIRE(loaded->AsWorldPosition().X() == 3.5);
+    REQUIRE(loaded->AsWorldPosition().Y() == 7.25);
+}
+
+TEST_CASE("Location: Store and Load ItemID variant", "[database][location]") {
+    Database db;
+
+    Location loc(ItemID{42});
+    (void)db.Store("loc:item", loc);
+
+    auto loaded = db.Load<Location>("loc:item");
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->IsItemID());
+    REQUIRE(loaded->AsItemID() == 42);
+}
+
+TEST_CASE("Location: Store and Load AgentID variant", "[database][location]") {
+    Database db;
+
+    Location loc(AgentID{99});
+    (void)db.Store("loc:agent", loc);
+
+    auto loaded = db.Load<Location>("loc:agent");
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->IsAgentID());
+    REQUIRE(loaded->AsAgentID() == 99);
+}
+
+TEST_CASE("Location: Update from WorldPosition to AgentID", "[database][location]") {
+    Database db;
+
+    Location loc1(WorldPosition(1.0, 2.0));
+    (void)db.Store("loc:update", loc1);
+
+    Location loc2(AgentID{55});
+    auto update_result = db.Update("loc:update", loc2);
+    REQUIRE(update_result.has_value());
+
+    auto loaded = db.Load<Location>("loc:update");
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->IsAgentID());
+    REQUIRE(loaded->AsAgentID() == 55);
+}
+
+TEST_CASE("Location: Update from ItemID to WorldPosition", "[database][location]") {
+    Database db;
+
+    Location loc1(ItemID{10});
+    (void)db.Store("loc:update2", loc1);
+
+    Location loc2(WorldPosition(50.5, 60.5));
+    auto update_result = db.Update("loc:update2", loc2);
+    REQUIRE(update_result.has_value());
+
+    auto loaded = db.Load<Location>("loc:update2");
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->IsPosition());
+    REQUIRE(loaded->AsWorldPosition().X() == 50.5);
+    REQUIRE(loaded->AsWorldPosition().Y() == 60.5);
+}
+
+TEST_CASE("Location: Type metadata is Location", "[database][location]") {
+    Database db;
+
+    Location loc(WorldPosition(1.0, 2.0));
+    (void)db.Store("loc:meta", loc);
+
+    auto type = db.GetType("loc:meta");
+    REQUIRE(type.has_value());
+    REQUIRE(*type == "Location");
+}
+
+TEST_CASE("Location: Type is registered by default", "[database][location]") {
+    Database db;
+    REQUIRE(db.IsTypeRegistered("Location"));
+}
+
+TEST_CASE("Location: Large IDs round-trip correctly", "[database][location]") {
+    Database db;
+
+    Location loc_item(ItemID{999999999});
+    Location loc_agent(AgentID{123456789});
+
+    (void)db.Store("loc:bigitem", loc_item);
+    (void)db.Store("loc:bigagent", loc_agent);
+
+    auto li = db.Load<Location>("loc:bigitem");
+    auto la = db.Load<Location>("loc:bigagent");
+
+    REQUIRE(li.has_value());
+    REQUIRE(li->IsItemID());
+    REQUIRE(li->AsItemID() == 999999999);
+
+    REQUIRE(la.has_value());
+    REQUIRE(la->IsAgentID());
+    REQUIRE(la->AsAgentID() == 123456789);
+}
+
+TEST_CASE("Location: Multiple variant types stored independently", "[database][location]") {
+    Database db;
+
+    (void)db.Store("loc:a", Location(WorldPosition(1.0, 2.0)));
+    (void)db.Store("loc:b", Location(ItemID{10}));
+    (void)db.Store("loc:c", Location(AgentID{20}));
+
+    auto a = db.Load<Location>("loc:a");
+    auto b = db.Load<Location>("loc:b");
+    auto c = db.Load<Location>("loc:c");
+
+    REQUIRE(a->IsPosition());
+    REQUIRE(b->IsItemID());
+    REQUIRE(c->IsAgentID());
+
+    REQUIRE(a->AsWorldPosition().X() == 1.0);
+    REQUIRE(b->AsItemID() == 10);
+    REQUIRE(c->AsAgentID() == 20);
+}
+
+TEST_CASE("Location: SQLite-backed Store and Load all variants", "[database][location][sqlite]") {
+    TempDB tmp("test_location_sqlite");
+    Database db(tmp.path);
+
+    (void)db.Store("loc:wp", Location(WorldPosition(5.5, 6.6)));
+    (void)db.Store("loc:item", Location(ItemID{77}));
+    (void)db.Store("loc:agent", Location(AgentID{88}));
+
+    auto wp = db.Load<Location>("loc:wp");
+    auto item = db.Load<Location>("loc:item");
+    auto agent = db.Load<Location>("loc:agent");
+
+    REQUIRE(wp.has_value());
+    REQUIRE(wp->IsPosition());
+    REQUIRE(wp->AsWorldPosition().X() == Approx(5.5));
+    REQUIRE(wp->AsWorldPosition().Y() == Approx(6.6));
+
+    REQUIRE(item.has_value());
+    REQUIRE(item->IsItemID());
+    REQUIRE(item->AsItemID() == 77);
+
+    REQUIRE(agent.has_value());
+    REQUIRE(agent->IsAgentID());
+    REQUIRE(agent->AsAgentID() == 88);
+}
+
+TEST_CASE("Location: SQLite persistence across instances", "[database][location][sqlite]") {
+    TempDB tmp("test_location_persist");
+
+    {
+        Database db(tmp.path);
+        (void)db.Store("loc:persist", Location(ItemID{333}));
+    }
+
+    {
+        Database db(tmp.path);
+        auto loaded = db.Load<Location>("loc:persist");
+        REQUIRE(loaded.has_value());
+        REQUIRE(loaded->IsItemID());
+        REQUIRE(loaded->AsItemID() == 333);
+    }
 }
