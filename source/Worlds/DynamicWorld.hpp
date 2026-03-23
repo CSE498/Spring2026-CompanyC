@@ -77,12 +77,12 @@ protected:
         int x = center_x + dx;
         int y = center_y + dy;
 
-        if (!main_grid.IsValid(x, y)) continue;
+        if (!mMainGrid.IsValid(x, y)) continue;
 
         if (dx * dx + dy * dy <= radius * radius) {
           WorldPosition pos(x, y);
-          if (main_grid[pos] == grass_id) {
-            main_grid[pos] = type_id;
+          if (mMainGrid[pos] == mGrassId) {
+            mMainGrid[pos] = type_id;
           }
         }
       }
@@ -100,14 +100,14 @@ protected:
     std::uniform_int_distribution<int> x_dist(2, static_cast<int>(width) - 3);
     std::uniform_int_distribution<int> y_dist(2, static_cast<int>(height) - 3);
 
-    PlaceCluster(tree_id, x_dist(gen), y_dist(gen), 3);
-    PlaceCluster(tree_id, x_dist(gen), y_dist(gen), 3);
+    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 3);
+    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 3);
 
-    PlaceCluster(stone_id, x_dist(gen), y_dist(gen), 3);
-    PlaceCluster(stone_id, x_dist(gen), y_dist(gen), 3);
+    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 3);
+    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 3);
 
-    PlaceCluster(wheat_id, x_dist(gen), y_dist(gen), 3);
-    PlaceCluster(wheat_id, x_dist(gen), y_dist(gen), 3);
+    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 3);
+    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 3);
   }
 
   // Temporary: any in-bounds tile is currently walkable.
