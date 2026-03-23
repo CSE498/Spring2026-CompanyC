@@ -39,7 +39,7 @@ namespace cse498 {
             } catch (const std::bad_any_cast&) {
                 return std::unexpected("Type mismatch for key: " + key);
             }
-        }
+        };
 
 
         /**
