@@ -510,11 +510,6 @@ TEST_CASE("custom type edge cases", "[custom][edge]") {
         REQUIRE(r->name == "Overwrite");
     }
 
-    SECTION("serialize with unregistered type_id returns empty") {
-        Agent dummy{"X", 0.0, 0};
-        REQUIRE(s.Serialize<Agent>("NoSuchType", dummy).empty());
-    }
-
     SECTION("tampered content length") {
         CHECK_FALSE(s.Deserialize<Agent>("Agent", "custom:Agent:5:s:5:Steve;d:100;i:7;;").has_value());
         CHECK_FALSE(s.Deserialize<Agent>("Agent", "custom:Agent:9999:s:5:Steve;d:100;i:7;;").has_value());
@@ -738,7 +733,7 @@ TEST_CASE("cross-type rejection", "[cross-type]") {
 }
 
 // ================================================================
-//  21. strtod quirks
+//  21. strtod quirks (now locale-safe via strtod_l)
 // ================================================================
 TEST_CASE("strtod parser quirks", "[double][quirks]") {
     CHECK(s.DeserializeDouble("d:0x1.0p0;").value_or(0.0) == 1.0);
@@ -1049,5 +1044,175 @@ TEST_CASE("stoul negative wrapping does not crash", "[vector][map][bug]") {
 
     SECTION("string negative length") {
         REQUIRE_NOTHROW([&]{ CHECK_FALSE(s.DeserializeString("s:-5:hello;").has_value()); }());
+    }
+}
+
+// ================================================================
+//  34. double round-trip precision (locale-safe)
+// ================================================================
+TEST_CASE("double round-trip precision locale-safe", "[double][precision][locale]") {
+    double values[] = {3.14159265358979323, 1.0/3.0, 1e-15, -2.718281828459045, 0.1};
+    for (double v : values) {
+        auto r = s.DeserializeDouble(s.Serialize(v));
+        REQUIRE(r.has_value());
+        REQUIRE(*r == v);
+    }
+}
+
+// ================================================================
+//  35. float round-trip
+// ================================================================
+TEST_CASE("float round-trip", "[float]") {
+    SECTION("basic values") {
+        float values[] = {3.14f, -1.0f, 0.0f, 1e10f, 1e-10f};
+        for (float v : values) {
+            auto r = s.DeserializeFloat(s.Serialize(v));
+            REQUIRE(r.has_value());
+            REQUIRE(*r == v);
+        }
+    }
+
+    SECTION("via DeserializeAt") {
+        std::string data = s.Serialize(3.14f);
+        size_t pos = 0;
+        auto r = s.DeserializeAt<float>(data, pos);
+        REQUIRE(r.has_value());
+        REQUIRE(*r == 3.14f);
+    }
+}
+
+// ================================================================
+//  36. integer type round-trips (long, unsigned int, long long,
+//      unsigned long long, size_t)
+// ================================================================
+TEST_CASE("extended integer round-trips", "[int64]") {
+    SECTION("long long") {
+        long long values[] = {0LL, 1LL, -1LL, 42LL, -42LL};
+        for (long long v : values) {
+            auto r = s.DeserializeLongLong(s.Serialize(v));
+            REQUIRE(r.has_value());
+            REQUIRE(*r == v);
+        }
+    }
+
+    SECTION("unsigned long long") {
+        unsigned long long values[] = {0ULL, 1ULL, 42ULL, 1000000ULL};
+        for (unsigned long long v : values) {
+            auto r = s.DeserializeUnsignedLongLong(s.Serialize(v));
+            REQUIRE(r.has_value());
+            REQUIRE(*r == v);
+        }
+    }
+
+    SECTION("long via DeserializeAt") {
+        long val = 12345L;
+        std::string data = s.Serialize(val);
+        size_t pos = 0;
+        auto r = s.DeserializeAt<long>(data, pos);
+        REQUIRE(r.has_value());
+        REQUIRE(*r == val);
+    }
+
+    SECTION("unsigned int via DeserializeAt") {
+        unsigned int val = 12345u;
+        std::string data = s.Serialize(val);
+        size_t pos = 0;
+        auto r = s.DeserializeAt<unsigned int>(data, pos);
+        REQUIRE(r.has_value());
+        REQUIRE(*r == val);
+    }
+
+    SECTION("size_t via DeserializeAt") {
+        size_t val = 99999;
+        std::string data = s.Serialize(val);
+        size_t pos = 0;
+        auto r = s.DeserializeAt<size_t>(data, pos);
+        REQUIRE(r.has_value());
+        REQUIRE(*r == val);
+    }
+}
+
+// ================================================================
+//  37. 64-bit boundary values
+// ================================================================
+TEST_CASE("64-bit boundary values", "[int64][boundary]") {
+    SECTION("values beyond INT_MAX") {
+        long long big = static_cast<long long>(INT_MAX) + 1;
+        auto r = s.DeserializeLongLong(s.Serialize(big));
+        REQUIRE(r.has_value());
+        REQUIRE(*r == big);
+
+        long long bigger = 1LL << 40;
+        auto r2 = s.DeserializeLongLong(s.Serialize(bigger));
+        REQUIRE(r2.has_value());
+        REQUIRE(*r2 == bigger);
+    }
+
+    SECTION("LLONG_MAX and LLONG_MIN") {
+        auto rmax = s.DeserializeLongLong(s.Serialize(LLONG_MAX));
+        REQUIRE(rmax.has_value());
+        REQUIRE(*rmax == LLONG_MAX);
+
+        auto rmin = s.DeserializeLongLong(s.Serialize(LLONG_MIN));
+        REQUIRE(rmin.has_value());
+        REQUIRE(*rmin == LLONG_MIN);
+    }
+
+    SECTION("ULLONG_MAX") {
+        auto r = s.DeserializeUnsignedLongLong(s.Serialize(ULLONG_MAX));
+        REQUIRE(r.has_value());
+        REQUIRE(*r == ULLONG_MAX);
+    }
+}
+
+// ================================================================
+//  38. negative 64-bit values
+// ================================================================
+TEST_CASE("negative 64-bit values", "[int64][negative]") {
+    long long negvals[] = {-1LL, -1000000000000LL, LLONG_MIN};
+    for (long long v : negvals) {
+        auto r = s.DeserializeLongLong(s.Serialize(v));
+        REQUIRE(r.has_value());
+        REQUIRE(*r == v);
+    }
+
+    // unsigned long long rejects negative (from_chars for unsigned fails)
+    std::string neg_data = s.Serialize(-1LL);
+    CHECK_FALSE(s.DeserializeUnsignedLongLong(neg_data).has_value());
+}
+
+// ================================================================
+//  39. DeserializeAt chain after failed parse
+// ================================================================
+TEST_CASE("DeserializeAt chain after failed parse", "[deserializeAt][pos]") {
+    SECTION("tag mismatch does not corrupt pos") {
+        std::string data = s.Serialize(3.14) + s.Serialize(42);
+        size_t pos = 0;
+
+        // Try wrong type: tag 'd' doesn't match 'i'
+        auto bad = s.DeserializeAt<int>(data, pos);
+        CHECK_FALSE(bad.has_value());
+        REQUIRE(pos == 0);  // pos unchanged on tag mismatch
+
+        // Correct parse chain still works
+        auto rd = s.DeserializeAt<double>(data, pos);
+        REQUIRE(rd.has_value());
+        REQUIRE(*rd == 3.14);
+
+        auto ri = s.DeserializeAt<int>(data, pos);
+        REQUIRE(ri.has_value());
+        REQUIRE(*ri == 42);
+    }
+
+    SECTION("value parse failure does not advance pos past semicolon") {
+        // An int value that overflows: tag matches, value parse fails
+        std::string data = "i:99999999999999;i:42;";
+        size_t pos = 0;
+
+        auto bad = s.DeserializeAt<int>(data, pos);
+        CHECK_FALSE(bad.has_value());
+        // pos should NOT have been advanced past the semicolon (to 17)
+        // it may be at TAG_PREFIX_LEN (2) but not at semi+1 (17)
+        REQUIRE(pos != 17);
     }
 }

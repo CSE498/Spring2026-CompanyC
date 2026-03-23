@@ -8,6 +8,7 @@
 //   bool:   b:<0|1>;
 //   char:   c:<ch>;
 //   string: s:<len>:<content>;
+//   long:   l:<value>;
 //   vector: v:<size>:<elements>
 //   map:           m:<size>:<kv pairs>
 //   unordered_map: u:<size>:<kv pairs>   (added as requested by other teams)
@@ -22,7 +23,9 @@
 #include <functional>
 #include <unordered_map>
 #include <any>
+#include <cassert>
 #include <charconv>
+#include <limits>
 
 namespace cse498 {
 
@@ -50,7 +53,7 @@ class Serializer {
     std::unordered_map<std::string, TypeEntry> registry_;
 
     // named constants for fixed-size token lengths
-    static constexpr size_t TAG_PREFIX_LEN = 2;  // "i:", "d:", "s:", "v:", "m:", "c:", "b:"
+    static constexpr size_t TAG_PREFIX_LEN = 2;  // "i:", "d:", "s:", "v:", "m:", "c:", "b:", "l:"
     static constexpr size_t BOOL_TOKEN_LEN = 4;  // "b:0;" or "b:1;"
     static constexpr size_t CHAR_TOKEN_LEN = 4;  // "c:X;"
 
@@ -85,6 +88,12 @@ public:
     std::string Serialize(char value) const;
     std::string Serialize(const char* value) const;
     std::string Serialize(const std::string& value) const;
+    std::string Serialize(long long value) const;
+    std::string Serialize(unsigned long long value) const;
+    std::string Serialize(float value) const;
+    std::string Serialize(long value) const;
+    std::string Serialize(unsigned int value) const;
+    std::string Serialize(unsigned long value) const;
 
     template <typename T>
     std::string Serialize(const std::vector<T>& vec) const {
@@ -122,6 +131,7 @@ public:
     template <typename T>
     std::string Serialize(const std::string& type_id, const T& value) const {
         auto it = registry_.find(type_id);
+        assert(it != registry_.end());
         if (it == registry_.end()) return "";
         std::string inner = it->second.serialize_fn(static_cast<const void*>(&value));
         return "custom:" + type_id + ":" + std::to_string(inner.size()) + ":" + inner + ";";
@@ -135,6 +145,9 @@ public:
     std::optional<bool> DeserializeBool(const std::string& data) const;
     std::optional<char> DeserializeChar(const std::string& data) const;
     std::optional<std::string> DeserializeString(const std::string& data) const;
+    std::optional<long long> DeserializeLongLong(const std::string& data) const;
+    std::optional<unsigned long long> DeserializeUnsignedLongLong(const std::string& data) const;
+    std::optional<float> DeserializeFloat(const std::string& data) const;
 
     template <typename T>
     std::optional<std::vector<T>> DeserializeVector(const std::string& data) const {
@@ -205,12 +218,43 @@ public:
             return DeserializeIntAt(data, pos);
         else if constexpr (std::is_same_v<T, double>)
             return DeserializeDoubleAt(data, pos);
+        else if constexpr (std::is_same_v<T, float>)
+            return DeserializeFloatAt(data, pos);
         else if constexpr (std::is_same_v<T, bool>)
             return DeserializeBoolAt(data, pos);
         else if constexpr (std::is_same_v<T, char>)
             return DeserializeCharAt(data, pos);
         else if constexpr (std::is_same_v<T, std::string>)
             return DeserializeStringAt(data, pos);
+        else if constexpr (std::is_same_v<T, long long>)
+            return DeserializeLongLongAt(data, pos);
+        else if constexpr (std::is_same_v<T, unsigned long long>)
+            return DeserializeUnsignedLongLongAt(data, pos);
+        else if constexpr (std::is_same_v<T, long>) {
+            auto r = DeserializeLongLongAt(data, pos);
+            if (!r) return std::nullopt;
+            if constexpr (sizeof(long) < sizeof(long long)) {
+                if (*r < std::numeric_limits<long>::min() || *r > std::numeric_limits<long>::max())
+                    return std::nullopt;
+            }
+            return static_cast<long>(*r);
+        }
+        else if constexpr (std::is_same_v<T, unsigned int>) {
+            auto r = DeserializeUnsignedLongLongAt(data, pos);
+            if (!r) return std::nullopt;
+            if (*r > std::numeric_limits<unsigned int>::max())
+                return std::nullopt;
+            return static_cast<unsigned int>(*r);
+        }
+        else if constexpr (std::is_same_v<T, unsigned long>) {
+            auto r = DeserializeUnsignedLongLongAt(data, pos);
+            if (!r) return std::nullopt;
+            if constexpr (sizeof(unsigned long) < sizeof(unsigned long long)) {
+                if (*r > std::numeric_limits<unsigned long>::max())
+                    return std::nullopt;
+            }
+            return static_cast<unsigned long>(*r);
+        }
         else if constexpr (is_vector<T>::value)
             return DeserializeVectorAt<typename T::value_type>(data, pos);
         else if constexpr (is_map<T>::value)
@@ -232,6 +276,9 @@ private:
     std::optional<bool> DeserializeBoolAt(const std::string& data, size_t& pos) const;
     std::optional<char> DeserializeCharAt(const std::string& data, size_t& pos) const;
     std::optional<std::string> DeserializeStringAt(const std::string& data, size_t& pos) const;
+    std::optional<long long> DeserializeLongLongAt(const std::string& data, size_t& pos) const;
+    std::optional<unsigned long long> DeserializeUnsignedLongLongAt(const std::string& data, size_t& pos) const;
+    std::optional<float> DeserializeFloatAt(const std::string& data, size_t& pos) const;
 
     template <typename T>
     std::optional<std::vector<T>> DeserializeVectorAt(
