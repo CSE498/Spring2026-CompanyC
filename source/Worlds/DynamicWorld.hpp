@@ -70,6 +70,24 @@ protected:
     mTownhallId = mMainGrid.AddCellType("townhall", "Win condition.", 'H');
   }
 
+  // helper function to place clusters materials
+  void PlaceCluster(size_t type_id, int center_x, int center_y, int radius) {
+    for (int dy = -radius; dy <= radius; ++dy) {
+      for (int dx = -radius; dx <= radius; ++dx) {
+        int x = center_x + dx;
+        int y = center_y + dy;
+
+        if (!main_grid.IsValid(x, y)) continue;
+
+        if (dx * dx + dy * dy <= radius * radius) {
+          WorldPosition pos(x, y);
+          if (main_grid[pos] == grass_id) {
+            main_grid[pos] = type_id;
+          }
+        }
+      }
+    }
+  }
   // Reconfigure main_grid to generate the world with DynamicWorld parameters.
   // Future implementations should guarantee enough resources to make winning possible, as well
   // as implement cluster generation rather than random generation
@@ -78,28 +96,18 @@ protected:
 
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<int> dist(0, 99);
 
-    for (size_t y = 0; y < height; ++y) {
-      for (size_t x = 0; x < width; ++x) {
-        WorldPosition pos(x, y);
+    std::uniform_int_distribution<int> x_dist(2, static_cast<int>(width) - 3);
+    std::uniform_int_distribution<int> y_dist(2, static_cast<int>(height) - 3);
 
-        int roll = dist(gen);
+    PlaceCluster(tree_id, x_dist(gen), y_dist(gen), 3);
+    PlaceCluster(tree_id, x_dist(gen), y_dist(gen), 3);
 
-        if (roll < 8) {
-          mMainGrid[pos] = mTreeId;      // 8%
-        }
-        else if (roll < 14) {
-          mMainGrid[pos] = mStoneId;     // 6%
-        }
-        else if (roll < 20) {
-          mMainGrid[pos] = mWheatId;     // 6%
-        }
-        else {
-          mMainGrid[pos] = mGrassId;     // rest
-        }
-      }
-    }
+    PlaceCluster(stone_id, x_dist(gen), y_dist(gen), 3);
+    PlaceCluster(stone_id, x_dist(gen), y_dist(gen), 3);
+
+    PlaceCluster(wheat_id, x_dist(gen), y_dist(gen), 3);
+    PlaceCluster(wheat_id, x_dist(gen), y_dist(gen), 3);
   }
 
   // Temporary: any in-bounds tile is currently walkable.
