@@ -4,11 +4,11 @@
  * @brief A dynamic map that can match names to arbitrary types of data. Following Google style guide
  */
 
-# pragma once
-# include <unordered_map>
-# include <string>
-# include <any>
-# include <expected>
+#pragma once
+#include <unordered_map>
+#include <string>
+#include <any>
+#include <expected>
 
 namespace cse498 {
 
