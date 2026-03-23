@@ -44,6 +44,7 @@
 #include "../tools/Datum.hpp"
 #include "../tools/DataGrid.hpp"
 #include "WorldPosition.hpp"
+#include "Location.hpp"
 
 #include <string>
 #include <unordered_map>

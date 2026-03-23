@@ -100,9 +100,60 @@ void Database::InitCoreTypes() {
 
         auto x = s.DeserializeAt<double>(data, pos);
         auto y = s.DeserializeAt<double>(data, pos);
-        
+
         if (!x || !y) return std::nullopt;
         return WorldPosition(*x, *y);
+    });
+
+    RegisterType<Location>("Location", [](const Location& loc) -> std::string {
+        Serializer s;
+        std::string result;
+
+        if (loc.IsPosition()) {
+            result += s.Serialize(std::string("P"));
+            result += s.Serialize(loc.AsWorldPosition().X());
+            result += s.Serialize(loc.AsWorldPosition().Y());
+
+        } else if (loc.IsItemID()) {
+            result += s.Serialize(std::string("I"));
+            result += s.Serialize(static_cast<unsigned long>(loc.AsItemID()));
+
+        } else if (loc.IsAgentID()) {
+            result += s.Serialize(std::string("A"));
+            result += s.Serialize(static_cast<unsigned long>(loc.AsAgentID()));
+        }
+        
+        return result;
+
+    }, [](const std::string& data) -> std::optional<Location> {
+        Serializer s;
+        size_t pos = 0;
+
+        auto tag = s.DeserializeAt<std::string>(data, pos);
+        if (!tag) return std::nullopt;
+
+        if (*tag == "P") {
+            auto x = s.DeserializeAt<double>(data, pos);
+            auto y = s.DeserializeAt<double>(data, pos);
+
+            if (!x || !y) return std::nullopt;
+            return Location(WorldPosition(*x, *y));
+
+        } else if (*tag == "I") {
+            auto id = s.DeserializeAt<unsigned long>(data, pos);
+            if (!id) return std::nullopt;
+
+            return Location(ItemID{static_cast<size_t>(*id)});
+
+        } else if (*tag == "A") {
+            auto id = s.DeserializeAt<unsigned long>(data, pos);
+            if (!id) return std::nullopt;
+            
+            return Location(AgentID{static_cast<size_t>(*id)});
+
+        }
+
+        return std::nullopt;
     });
 }
 
