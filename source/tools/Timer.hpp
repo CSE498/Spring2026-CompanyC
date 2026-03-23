@@ -1,132 +1,76 @@
 #pragma once
-#include <cassert>
-#include <chrono>
-#include <cstddef>
-#include <string>
-#include <unordered_map>
+
+#include <cstddef>       // size_t
+#include <chrono>        // steady_clock, time_point, dur
+#include <string>        // string
+#include <unordered_map> // unordered_map
+#include <utility>       // pair
+#include <vector>        // vector
+
 
 namespace cse498 {
-class Timer {
-private:
-  using Clock = std::chrono::steady_clock;
-  struct TimerEntry {
-    bool running = false; // tracks if start() called w/o matching stop()
-    Clock::time_point start{};
 
-    // stats for completed runs
-    std::size_t count = 0;
-    double totalSeconds = 0.0;
-    double lastSeconds = 0.0;
-    double minSeconds = 0.0;
-    double maxSeconds = 0.0;
+class Timer {
+public:
+  // snapshot of 1 timer's stats
+  struct Stats {
+    std::size_t count = 0;     //num of completed measurements
+    double totalSeconds = 0.0; //sum of completed durs
+    double lastSeconds = 0.0;  //most recent completed dur
+    double minSeconds = 0.0;   //fastest completed dur
+    double maxSeconds = 0.0;   //slowest completed dur
   };
 
-  std::unordered_map<std::string, TimerEntry> mTimers; /// timers keyed by name
-
-public:
   Timer() = default;
   ~Timer() = default;
+  Timer(const Timer&) = delete;
+  Timer& operator=(const Timer&) = delete;
+  Timer(Timer&&) noexcept = default;
+  Timer& operator=(Timer&&) noexcept = default;
 
-  // peer review fix; define copy and move behavior
-  Timer(const Timer &) = delete;
-  Timer &operator=(const Timer &) = delete;
-  Timer(Timer &&) noexcept = default;
-  Timer &operator=(Timer &&) noexcept = default;
+  void Start(const std::string& name);
+  void Stop(const std::string& name);
+  void Reset(const std::string& name);
+  void ResetAll();
 
-  void Start(const std::string &name) {
-    // begin timing in named section; const& avoids copying name
-    auto &entry = mTimers[name];
-    assert(!entry.running &&
-           "Timer::Start called while timer is already running");
-    entry.running = true;
-    entry.start = Clock::now();
+  bool HasData(const std::string& name) const;
+  double Last(const std::string& name) const;
+  double Min(const std::string& name) const;
+  double Max(const std::string& name) const;
+  double Average(const std::string& name) const;
+  std::size_t Count(const std::string& name) const;
+
+  // optional helper API to make Timer easier to integrate later on... may change based on company discussion/preference.
+  Stats GetStats(const std::string& name) const;
+  std::vector<std::pair<std::string, Stats>> GetAllStats() const;
+
+  // time (lambda/functor/function) under a name and return its result.
+  // ex :auto value = timer.TimeCall("World::Update", [&] { return world.Update(); });
+  // assumes a value is returned (aka no void)
+  template <typename Func, typename... Args>
+  auto TimeCall(const std::string& name, Func&& fn, Args&&... args) {
+    Start(name);
+
+    // always call stop even on early exit/exemtppions
+    struct StopGuard {
+      Timer& timer;
+      const std::string& n;
+      ~StopGuard() { timer.Stop(n); }
+    } guard{*this, name};
+
+    return fn(std::forward<Args>(args)...);
   }
 
-  void Stop(const std::string &name) {
-    // stop timing and record duration
-    auto it = mTimers.find(name);
-    assert(it != mTimers.end() && "Timer::Stop called for unknown timer name");
-    auto &entry = it->second; // ref to timerentry for the name
-    assert(entry.running && "Timer::Stop called while timer is not running");
+private:
+  using Clock = std::chrono::steady_clock;
 
-    const auto end = Clock::now();
-    const std::chrono::duration<double> elapsed = end - entry.start;
-    const double seconds = elapsed.count();
+  struct Entry {
+    bool running = false;          // true between Start and Stop
+    Clock::time_point start{};     // start time for current run
+    Stats stats{};                // accumulated stats for completed runs
+  };
 
-    entry.running = false; // no longer running, then record stats. (most recent dur,avg)
-    entry.lastSeconds = seconds;
-    entry.totalSeconds += seconds;
-    ++entry.count; // changed to ++
-
-    if (entry.count == 1) {
-      // if this was first run
-      entry.minSeconds = seconds;
-      entry.maxSeconds = seconds;
-    }
-
-    else {
-      // if not first run, update min and max as needed
-      if (seconds < entry.minSeconds)
-        entry.minSeconds = seconds;
-      if (seconds > entry.maxSeconds)
-        entry.maxSeconds = seconds;
-    }
-  }
-
-  void Reset(const std::string &name) {
-    // clear stored result for timer
-    mTimers.erase(name);
-  }
-
-  void ResetAll() {
-    // clear ALL timers and stats
-    mTimers.clear();
-  }
-
-  bool HasData(const std::string &name) const {
-    // true if timer has 1 measurement
-    auto it = mTimers.find(name);
-    return (it != mTimers.end()) && (it->second.count > 0);
-  }
-
-  double Last(const std::string &name) const {
-    // most recent recorded dur; returns 0.0 if no data.
-    auto it = mTimers.find(name);
-    if (it == mTimers.end() || it->second.count == 0)
-      return 0.0;
-    return it->second.lastSeconds;
-  }
-
-  double Min(const std::string &name) const {
-    // fastest run in sec; returns 0 if no data
-    auto it = mTimers.find(name);
-    if (it == mTimers.end() || it->second.count == 0)
-      return 0.0;
-    return it->second.minSeconds;
-  }
-
-  double Max(const std::string &name) const {
-    // slowest run in sec; returns 0 if no data
-    auto it = mTimers.find(name);
-    if (it == mTimers.end() || it->second.count == 0)
-      return 0.0;
-    return it->second.maxSeconds;
-  }
-
-  double Average(const std::string &name) const {
-    // avg dur across all runs in sec; returns 0 if no data
-    auto it = mTimers.find(name);
-    if (it == mTimers.end() || it->second.count == 0)
-      return 0.0;
-    return it->second.totalSeconds / static_cast<double>(it->second.count);
-  }
-
-  std::size_t Count(const std::string &name) const {
-    // # of completed runs; returns 0 if no data
-    auto it = mTimers.find(name);
-    if (it == mTimers.end())
-      return 0;
-    return it->second.count;
-  }
+  std::unordered_map<std::string, Entry> mTimers;
 };
+
 } // namespace cse498
