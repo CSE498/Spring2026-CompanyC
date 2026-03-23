@@ -23,15 +23,44 @@ Database db;
 
 // Option 2: Persistent (data saved to a file on disk)
 Database db("game_data.db");
+
+// Option 3: Use a config object
+DatabaseConfig config;
+config.db_path = "game_data.db";
+config.auto_compress = true;
+config.compression_threshold = 200;
+config.verbose = false;
+Database db_with_config(config);
 ```
 
 That's it. Everything below works the same way regardless of which option you pick.
+
+`Database` is not thread-safe right now. If multiple threads use the same database object, add your own locking around it.
+
+---
+
+## What Works Out of the Box
+
+You can store these types without registering anything:
+
+- `int`, `double`, `bool`, `char`, `std::string`
+- `std::vector<T>`
+- `std::map<K, V>`
+- `std::unordered_map<K, V>`
+
+These shared project types are also registered for you automatically:
+
+- `DataGrid`
+- `WorldPosition`
+- `Location`
+
+If your own class is not on that list, register it with `RegisterType<T>()`.
 
 ---
 
 ## Storing Data
 
-Use `Store` to save any value under a string key. If the key already exists, it gets overwritten.
+Use `Store` to save any supported value under a string key. If the key already exists, it gets overwritten.
 
 ```cpp
 db.Store("player:health", 100);
@@ -48,7 +77,33 @@ db.Store("player:scores", scores);
 
 std::map<std::string, int> inventory = {{"sword", 1}, {"potion", 5}};
 db.Store("player:inventory", inventory);
+
+std::unordered_map<std::string, double> position = {{"x", 10.5}, {"y", 20.25}};
+db.Store("player:position_map", position);
 ```
+
+---
+
+## Built-In Shared Types
+
+Some shared framework types are already registered inside `Database`, so you can store them directly.
+
+```cpp
+WorldPosition pos(10.5, 20.25);
+db.Store("player:position", pos);
+
+Location loc(WorldPosition(5, 7));
+db.Store("item:location", loc);
+
+DataGrid grid(2, 2);
+grid.Insert(0, 0, "tree");
+grid.Insert(0, 1, true);
+grid.Insert(1, 0, 3.14);
+grid.Insert(1, 1, 42);
+db.Store("world:grid", grid);
+```
+
+You do not need to call `RegisterType` for those three types.
 
 ---
 
@@ -138,6 +193,8 @@ if (type.has_value()) {
 
 Possible values: `"int"`, `"double"`, `"bool"`, `"char"`, `"string"`, `"vector"`, `"map"`, `"unordered_map"`, or the name of a registered custom type.
 
+If `store_type_metadata` is turned off in the config, `GetType` may return an empty string.
+
 ---
 
 ## Storing Custom Game Objects
@@ -177,6 +234,14 @@ db.Store("agent:1", alice);
 auto loaded = db.Load<Agent>("agent:1");  // returns the Agent
 ```
 
+You can also check registration:
+
+```cpp
+if (db.IsTypeRegistered("Agent")) {
+    // safe to store/load Agent objects
+}
+```
+
 ---
 
 ## Transactions (All-or-Nothing Saves)
@@ -197,6 +262,8 @@ db.Rollback();  // Undo all three — nothing changed
 
 This is especially useful with the persistent database to prevent partially saved game states.
 
+Transactions are not nested. Start one transaction, then either `Commit()` or `Rollback()` before starting another.
+
 ---
 
 ## Saving and Loading from Files
@@ -212,6 +279,46 @@ db.LoadFromFile("quicksave.bin");
 ```
 
 Loaded entries merge with existing data. If a key already exists, the loaded value overwrites it.
+
+---
+
+## Changing Database Settings
+
+If you want more control, use `DatabaseConfig`.
+
+```cpp
+DatabaseConfig config;
+config.db_path = "game_data.db";   // empty string = in-memory only
+config.auto_compress = true;       // compress larger values automatically
+config.compression_threshold = 150;
+config.verbose = true;             // print debug messages to stderr
+config.store_type_metadata = true; // lets GetType() report stored types
+
+Database db(config);
+```
+
+Advanced SQLite fields also exist in `DatabaseConfig` (`wal_mode` and `auto_flush`), but most teams can ignore them.
+
+You can also change the config later:
+
+```cpp
+DatabaseConfig config = db.GetConfig();
+config.verbose = true;
+db.SetConfig(config);
+```
+
+---
+
+## Checking Storage Size
+
+If you want to know how many bytes one entry is using inside the database:
+
+```cpp
+auto size = db.GetStorageSize("player:inventory");
+if (size.has_value()) {
+    std::cout << "Stored bytes: " << *size << std::endl;
+}
+```
 
 ---
 
@@ -259,11 +366,17 @@ if (result.has_value()) {
 | Update a value | `db.Update("key", new_value);` |
 | Check if key exists | `db.Exists("key")` |
 | Delete a key | `db.Delete("key")` |
+| List all keys | `db.ListKeys()` |
 | Find keys by pattern | `db.FindKeys("player:*")` |
+| Get storage size | `db.GetStorageSize("key")` |
 | Check stored type | `db.GetType("key")` |
 | Register custom type | `db.RegisterType<T>(...)` |
+| Check if type is registered | `db.IsTypeRegistered("MyType")` |
 | Begin transaction | `db.BeginTransaction()` |
 | Commit transaction | `db.Commit()` |
 | Rollback transaction | `db.Rollback()` |
 | Save to file | `db.SaveToFile("save.bin")` |
 | Load from file | `db.LoadFromFile("save.bin")` |
+| Create with config | `Database db(config);` |
+| Read config | `db.GetConfig()` |
+| Update config | `db.SetConfig(config)` |
