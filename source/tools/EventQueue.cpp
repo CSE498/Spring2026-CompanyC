@@ -15,9 +15,6 @@ namespace cse498
     /**
      * Comparison operator
      * 
-     * 1. Lower priority values are processed first.
-     * 2. If priorities are equal, the event inserted earlier (smaller mTiebreaker) is processed first.
-     * 
      * @param a The first event
      * @param b The second event
      * @return Whether or not a should come after b in the heap
@@ -113,4 +110,15 @@ namespace cse498
     { 
         return mHeap.empty(); 
     };
+
+    /**
+     * Clear all events from the EventQueue.
+     * 
+     * This function clears the EventQueue by clearing the underlying vector and resetting the insertion index.
+     */
+    void EventQueue::Clear()
+    {
+        mHeap.clear();
+        mInsertionIndex = 0;
+    }
 }

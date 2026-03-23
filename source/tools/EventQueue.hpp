@@ -1,5 +1,5 @@
 /**
- * @file EventQueue.h
+ * @file EventQueue.hpp
  * @author Truong Phan
  * 
  * Class for an EventQueue
@@ -14,10 +14,11 @@
 namespace cse498
 {
     /*
-    * Struct for an Event
+    * Class for an Event
     */
-    struct Event
+    class Event
     {
+    private:
         // Event data
         std::string mData;
 
@@ -27,6 +28,7 @@ namespace cse498
         // Insertion index used for tiebreaker 
         std::size_t mTiebreaker = 0;
 
+    public:
         /**
         * Default Constructor
         */
@@ -38,6 +40,14 @@ namespace cse498
          * @param priority The priority of the event
          */
         Event(const std::string& data, int priority) : mData(data), mPriority(priority), mTiebreaker(0) {}
+    
+        // Getters
+        const std::string& GetData() const { return mData; }
+        int GetPriority() const { return mPriority; }
+        int GetTiebreaker() const { return mTiebreaker; }
+
+        // Allow EventQueue to access private members of Event
+        friend class EventQueue;
     };
 
     /*
@@ -52,7 +62,11 @@ namespace cse498
         // Insertion index
         std::size_t mInsertionIndex = 0;
 
-        // Comparator
+        /**
+         * Comparator
+         * 1. Lower priority values are processed first.
+         * 2. If priorities are equal, the event inserted earlier (smaller mTiebreaker) is processed first.
+         */ 
         struct Comparator
         {
             bool operator() (const Event& a, const Event& b) const;
@@ -81,5 +95,7 @@ namespace cse498
         std::size_t Size() const;
 
         bool Empty() const;
+
+        void Clear();
     };
 }
