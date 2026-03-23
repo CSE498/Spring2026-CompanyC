@@ -89,6 +89,21 @@ void Database::InitCoreTypes() {
         return grid;
 
     });
+
+    RegisterType<WorldPosition>("WorldPosition", [](const WorldPosition& pos) -> std::string {
+        Serializer s;
+        return s.Serialize(pos.X()) + s.Serialize(pos.Y());
+
+    }, [](const std::string& data) -> std::optional<WorldPosition> {
+        Serializer s;
+        size_t pos = 0;
+
+        auto x = s.DeserializeAt<double>(data, pos);
+        auto y = s.DeserializeAt<double>(data, pos);
+        
+        if (!x || !y) return std::nullopt;
+        return WorldPosition(*x, *y);
+    });
 }
 
 void Database::InitSqlite() {

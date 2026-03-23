@@ -43,6 +43,7 @@
 #include "../tools/SQLiteConnection.hpp"
 #include "../tools/Datum.hpp"
 #include "../tools/DataGrid.hpp"
+#include "WorldPosition.hpp"
 
 #include <string>
 #include <unordered_map>
