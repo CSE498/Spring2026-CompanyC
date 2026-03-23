@@ -2,6 +2,7 @@
 
 #include <random>
 #include "../core/WorldBase.hpp"
+#include "../core/Building.hpp"
 
 namespace cse498 {
 
@@ -23,6 +24,9 @@ protected:
 
   // Counter for amount of times UpdateWorld has been called
   size_t update_counter = 0;
+
+  // vector of all the buildings in the world
+  std::vector<Building> buildings;
 
   // CellType IDs
   size_t grass_id = 0;
@@ -133,9 +137,8 @@ protected:
   }
 
   // This will handle resource generation from buildings, as well as any other future autonomous world actions
-  void UpdateWorld() override {
-    update_counter++;
-  }
+  void UpdateWorld() override;
+
 };
 
 } // namespace cse498
