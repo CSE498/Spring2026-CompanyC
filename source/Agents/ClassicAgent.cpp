@@ -8,6 +8,7 @@
 #include "../tools/CompositeNodes.hpp"
 #include "../tools/LeafNodes.hpp"
 #include "../tools/BehaviorTree.hpp"
+#include "../core/WorldBase.hpp"
 
 namespace cse498 {
 
@@ -104,11 +105,54 @@ void ClassicAgent::Sense(const WorldGrid & grid) {
     // - if an adjacent tile contains a material/resource, set material_nearby = true
     // --------------------------------------------------
 
+    WorldPosition m_pos = this->GetLocation().AsWorldPosition();
     (void)grid; // suppress unused warning until real sensing is added
 
-    //tree.setMemory("enemy_nearby", enemy_nearby);
-    //tree.setMemory("material_nearby", material_nearby);
+    std::vector<size_t> visible_items = world.GetKnownItems(*this);
+    std::vector<size_t> visible_agents = world.GetKnownAgents(*this);
 
+    // Helper to check if two positions have exact same X and Y
+    auto PositionsMatch = [](const WorldPosition& a, const WorldPosition& b) {
+        return a.X() == b.X() && a.Y() == b.Y();
+    };
+
+    for (size_t item_id : visible_items) {
+        const auto& item = world.GetItem(item_id);
+
+        WorldPosition item_pos = item.GetLocation().AsWorldPosition();
+
+        if (PositionsMatch(item_pos, m_pos.Up())   ||
+            PositionsMatch(item_pos, m_pos.Down()) ||
+            PositionsMatch(item_pos, m_pos.Left()) ||
+            PositionsMatch(item_pos, m_pos.Right())){
+
+            material_nearby = true;
+            break;
+        }
+    }
+
+    for (size_t agent_id : visible_agents){
+
+        if(agent_id == this->GetID()){
+            continue;
+        }
+
+        const auto& agent = world.GetAgent(agent_id);
+
+        WorldPosition agent_pos = agent.GetLocation().AsWorldPosition();
+
+        if (PositionsMatch(agent_pos, m_pos.Up()) ||
+            PositionsMatch(agent_pos, m_pos.Down()) ||
+            PositionsMatch(agent_pos, m_pos.Left()) ||
+            PositionsMatch(agent_pos, m_pos.Right())){
+
+            enemy_nearby = true;
+            break;
+        }
+    }
+
+    tree.setMemory("enemy_nearby", BBValue(std::in_place_type<bool>,enemy_nearby));
+    tree.setMemory("material_nearby", BBValue(std::in_place_type<bool>,material_nearby));
 
 }
 
