@@ -23,21 +23,21 @@ protected:
   };
 
   // Counter for amount of times UpdateWorld has been called
-  size_t update_counter = 0;
+  size_t mUpdateCounter = 0;
 
   // vector of all the buildings in the world
-  std::vector<Building> buildings;
+  std::vector<Building> mBuildings;
 
   // CellType IDs
-  size_t grass_id = 0;
-  size_t tree_id = 0;
-  size_t stone_id = 0;
-  size_t wheat_id = 0;
-  size_t quarry_id = 0;
-  size_t lumberyard_id = 0;
-  size_t farm_id = 0;
-  size_t spawner_id = 0;
-  size_t townhall_id = 0;
+  size_t mGrassId = 0;
+  size_t mTreeId = 0;
+  size_t mStoneId = 0;
+  size_t mWheatId = 0;
+  size_t mQuarryId = 0;
+  size_t mLumberyardId = 0;
+  size_t mFarmId = 0;
+  size_t mSpawnerId = 0;
+  size_t mTownhallId = 0;
 
   /// Provide the agent with all possible DynamicWorld actions.
   void ConfigAgent(AgentBase & agent) override {
@@ -59,22 +59,22 @@ protected:
 
   // Helper to configure the main_grid
   void ConfigureCellTypes() {
-    grass_id = main_grid.AddCellType("grass", "Open buildable terrain.", '.');
-    tree_id  = main_grid.AddCellType("tree", "Wood resource.", 'T');
-    stone_id = main_grid.AddCellType("stone", "Stone resource.", 'S');
-    wheat_id = main_grid.AddCellType("wheat", "Wheat resource.", 'W');
-    quarry_id = main_grid.AddCellType("quarry", "Produces stone and steel.", 'Q');
-    lumberyard_id = main_grid.AddCellType("lumberyard", "Produces wood.", 'L');
-    farm_id = main_grid.AddCellType("farm", "Produces wheat.", 'F');
-    spawner_id = main_grid.AddCellType("spawner", "Spawns agents.", 'A');
-    townhall_id = main_grid.AddCellType("townhall", "Win condition.", 'H');
+    mGrassId = mMainGrid.AddCellType("grass", "Open buildable terrain.", '.');
+    mTreeId  = mMainGrid.AddCellType("tree", "Wood resource.", 'T');
+    mStoneId = mMainGrid.AddCellType("stone", "Stone resource.", 'S');
+    mWheatId = mMainGrid.AddCellType("wheat", "Wheat resource.", 'W');
+    mQuarryId = mMainGrid.AddCellType("quarry", "Produces stone and steel.", 'Q');
+    mLumberyardId = mMainGrid.AddCellType("lumberyard", "Produces wood.", 'L');
+    mFarmId = mMainGrid.AddCellType("farm", "Produces wheat.", 'F');
+    mSpawnerId = mMainGrid.AddCellType("spawner", "Spawns agents.", 'A');
+    mTownhallId = mMainGrid.AddCellType("townhall", "Win condition.", 'H');
   }
 
   // Reconfigure main_grid to generate the world with DynamicWorld parameters.
   // Future implementations should guarantee enough resources to make winning possible, as well
   // as implement cluster generation rather than random generation
   void GenerateWorld(size_t width, size_t height) {
-    main_grid.Resize(width, height, grass_id);
+    mMainGrid.Resize(width, height, mGrassId);
 
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -87,16 +87,16 @@ protected:
         int roll = dist(gen);
 
         if (roll < 8) {
-          main_grid[pos] = tree_id;      // 8%
+          mMainGrid[pos] = mTreeId;      // 8%
         }
         else if (roll < 14) {
-          main_grid[pos] = stone_id;     // 6%
+          mMainGrid[pos] = mStoneId;     // 6%
         }
         else if (roll < 20) {
-          main_grid[pos] = wheat_id;     // 6%
+          mMainGrid[pos] = mWheatId;     // 6%
         }
         else {
-          main_grid[pos] = grass_id;     // rest
+          mMainGrid[pos] = mGrassId;     // rest
         }
       }
     }
@@ -128,7 +128,7 @@ protected:
     }
 
     if (action_id >= MOVE_UP && action_id <= MOVE_DOWN_RIGHT) {
-      if (!main_grid.IsValid(next)) return false;
+      if (!mMainGrid.IsValid(next)) return false;
       agent.SetLocation(next);
       return true;
     }
