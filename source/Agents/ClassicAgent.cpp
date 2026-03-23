@@ -30,7 +30,7 @@ void ClassicAgent::BuildTree() {
     auto attack_action = std::make_shared<ActionNode>(
         "Attack",
         [](Blackboard & bb) -> Status {
-            bb["chosen_action"] = std::string("attack");
+            bb["chosen_action"].emplace<std::string>("attack");
             return Status::Success;
         }
     );
@@ -54,7 +54,7 @@ void ClassicAgent::BuildTree() {
     auto gather_action = std::make_shared<ActionNode>(
         "Gather",
         [](Blackboard & bb) -> Status {
-            bb["chosen_action"] = std::string("gather");
+            bb["chosen_action"].emplace<std::string>("gather");
             return Status::Success;
         }
     );
@@ -73,10 +73,10 @@ void ClassicAgent::BuildTree() {
             int r = rand() % 4;
 
             switch (r) {
-                case 0: bb["chosen_action"] = std::string("up"); break;
-                case 1: bb["chosen_action"] = std::string("down"); break;
-                case 2: bb["chosen_action"] = std::string("left"); break;
-                case 3: bb["chosen_action"] = std::string("right"); break;
+                case 0: bb["chosen_action"].emplace<std::string>("up"); break;
+                case 1: bb["chosen_action"].emplace<std::string>("down"); break;
+                case 2: bb["chosen_action"].emplace<std::string>("left"); break;
+                case 3: bb["chosen_action"].emplace<std::string>("right"); break;
             }
 
             return Status::Success;
