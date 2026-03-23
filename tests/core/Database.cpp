@@ -1529,3 +1529,155 @@ TEST_CASE("DataGrid: SQLite db Store and Load", "[database][datagrid][sqlite]") 
     REQUIRE(loaded->At(1, 0).AsBool() == true);
     REQUIRE(loaded->At(1, 1).AsString() == "cell11");
 }
+
+
+// WorldPosition Serialization
+
+TEST_CASE("WorldPosition: Store and Load basic position", "[database][worldposition]") {
+    Database db;
+
+    WorldPosition pos(3.5, 7.25);
+    auto store_result = db.Store("pos:basic", pos);
+    REQUIRE(store_result.has_value());
+
+    auto loaded = db.Load<WorldPosition>("pos:basic");
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->X() == 3.5);
+    REQUIRE(loaded->Y() == 7.25);
+}
+
+TEST_CASE("WorldPosition: Store and Load origin", "[database][worldposition]") {
+    Database db;
+
+    WorldPosition pos(0.0, 0.0);
+    (void)db.Store("pos:origin", pos);
+
+    auto loaded = db.Load<WorldPosition>("pos:origin");
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->X() == 0.0);
+    REQUIRE(loaded->Y() == 0.0);
+}
+
+TEST_CASE("WorldPosition: Store and Load negative coordinates", "[database][worldposition]") {
+    Database db;
+
+    WorldPosition pos(-10.5, -20.75);
+    (void)db.Store("pos:negative", pos);
+
+    auto loaded = db.Load<WorldPosition>("pos:negative");
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->X() == -10.5);
+    REQUIRE(loaded->Y() == -20.75);
+}
+
+TEST_CASE("WorldPosition: Store and Load large coordinates", "[database][worldposition]") {
+    Database db;
+
+    WorldPosition pos(999999.123, 888888.456);
+    (void)db.Store("pos:large", pos);
+
+    auto loaded = db.Load<WorldPosition>("pos:large");
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->X() == Approx(999999.123));
+    REQUIRE(loaded->Y() == Approx(888888.456));
+}
+
+TEST_CASE("WorldPosition: Update existing position", "[database][worldposition]") {
+    Database db;
+
+    WorldPosition pos1(1.0, 2.0);
+    (void)db.Store("pos:update", pos1);
+
+    WorldPosition pos2(10.0, 20.0);
+    auto update_result = db.Update("pos:update", pos2);
+    REQUIRE(update_result.has_value());
+
+    auto loaded = db.Load<WorldPosition>("pos:update");
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->X() == 10.0);
+    REQUIRE(loaded->Y() == 20.0);
+}
+
+TEST_CASE("WorldPosition: Type metadata is WorldPosition", "[database][worldposition]") {
+    Database db;
+
+    WorldPosition pos(1.0, 2.0);
+    (void)db.Store("pos:meta", pos);
+
+    auto type = db.GetType("pos:meta");
+    REQUIRE(type.has_value());
+    REQUIRE(*type == "WorldPosition");
+}
+
+TEST_CASE("WorldPosition: Type is registered by default", "[database][worldposition]") {
+    Database db;
+    REQUIRE(db.IsTypeRegistered("WorldPosition"));
+}
+
+TEST_CASE("WorldPosition: Multiple positions stored and loaded independently", "[database][worldposition]") {
+    Database db;
+
+    WorldPosition p1(1.0, 2.0);
+    WorldPosition p2(3.0, 4.0);
+    WorldPosition p3(5.0, 6.0);
+
+    (void)db.Store("pos:a", p1);
+    (void)db.Store("pos:b", p2);
+    (void)db.Store("pos:c", p3);
+
+    auto l1 = db.Load<WorldPosition>("pos:a");
+    auto l2 = db.Load<WorldPosition>("pos:b");
+    auto l3 = db.Load<WorldPosition>("pos:c");
+
+    REQUIRE(l1.has_value());
+    REQUIRE(l2.has_value());
+    REQUIRE(l3.has_value());
+
+    REQUIRE(*l1 == p1);
+    REQUIRE(*l2 == p2);
+    REQUIRE(*l3 == p3);
+}
+
+TEST_CASE("WorldPosition: SQLite-backed Store and Load", "[database][worldposition][sqlite]") {
+    TempDB tmp("test_worldpos_sqlite");
+    Database db(tmp.path);
+
+    WorldPosition pos(42.5, 99.75);
+    (void)db.Store("pos:sqlite", pos);
+
+    auto loaded = db.Load<WorldPosition>("pos:sqlite");
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->X() == 42.5);
+    REQUIRE(loaded->Y() == 99.75);
+}
+
+TEST_CASE("WorldPosition: SQLite persistence across instances", "[database][worldposition][sqlite]") {
+    TempDB tmp("test_worldpos_persist");
+
+    {
+        Database db(tmp.path);
+        (void)db.Store("pos:persist", WorldPosition(11.1, 22.2));
+    }
+
+    {
+        Database db(tmp.path);
+        auto loaded = db.Load<WorldPosition>("pos:persist");
+        REQUIRE(loaded.has_value());
+        REQUIRE(loaded->X() == Approx(11.1));
+        REQUIRE(loaded->Y() == Approx(22.2));
+    }
+}
+
+TEST_CASE("WorldPosition: FindKeys with position pattern", "[database][worldposition]") {
+    Database db;
+
+    (void)db.Store("pos:player:1", WorldPosition(1.0, 1.0));
+    (void)db.Store("pos:player:2", WorldPosition(2.0, 2.0));
+    (void)db.Store("pos:npc:1", WorldPosition(5.0, 5.0));
+
+    auto player_positions = db.FindKeys("pos:player:*");
+    REQUIRE(player_positions.size() == 2);
+
+    auto all_positions = db.FindKeys("pos:*");
+    REQUIRE(all_positions.size() == 3);
+}
