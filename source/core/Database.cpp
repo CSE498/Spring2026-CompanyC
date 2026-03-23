@@ -7,56 +7,163 @@
 #include "../tools/StringDiff.hpp"
 
 #include <iostream>
+#include <fstream>
+#include <stdexcept>
 
 namespace cse498 {
 
+    
+Database::Database(const DatabaseConfig& config) : mConfig(config) {
+    InitCoreTypes();
+    InitSqlite();
+}
+
+Database::Database(const std::string& db_path) {
+    mConfig.db_path = db_path;
+    InitCoreTypes();
+    InitSqlite();
+}
+
+void Database::InitCoreTypes() {
+    RegisterType<DataGrid>("DataGrid", [](const DataGrid& grid) -> std::string {
+        //serialize
+
+        Serializer s;
+        std::string result;
+        result += s.Serialize(static_cast<int>(grid.NumRows()));
+        result += s.Serialize(static_cast<int>(grid.NumCols()));
+            
+        for (size_t r = 0; r < grid.NumRows(); ++r) {
+            for (size_t c = 0; c < grid.NumCols(); ++c) {
+                Datum d = grid.At(static_cast<int>(r), static_cast<int>(c));
+                if (d.IsString()) {
+                    result += s.Serialize(std::string("S"));
+                    result += s.Serialize(d.AsString());
+
+                } else if (d.IsBool()) {
+                    result += s.Serialize(std::string("B"));
+                    result += s.Serialize(d.AsBool());
+
+                } else {
+                    result += s.Serialize(std::string("D"));
+                    result += s.Serialize(d.AsDouble());
+                }
+            }
+        }
+        
+        return result;
+    }, [](const std::string& data) -> std::optional<DataGrid> {
+        //deserialize
+
+        Serializer s;
+        size_t pos = 0;
+        auto rows = s.DeserializeAt<int>(data, pos);
+        auto cols = s.DeserializeAt<int>(data, pos);
+        if (!rows || !cols) return std::nullopt;
+
+        DataGrid grid(*rows, *cols);
+        for (int r = 0; r < *rows; ++r) {
+            for (int c = 0; c < *cols; ++c) {
+                auto tag = s.DeserializeAt<std::string>(data, pos);
+                if (!tag) return std::nullopt;
+
+                if (*tag == "S") {
+                    auto val = s.DeserializeAt<std::string>(data, pos);
+                    if (!val) return std::nullopt;
+                    grid.Insert(r, c, *val);
+
+                } else if (*tag == "B") {
+                    auto val = s.DeserializeAt<bool>(data, pos);
+                    if (!val) return std::nullopt;
+                    grid.Insert(r, c, *val);
+                    
+                } else if (*tag == "D") {
+                    auto val = s.DeserializeAt<double>(data, pos);
+                    if (!val) return std::nullopt;
+                    grid.Insert(r, c, *val);
+                } else {
+                    return std::nullopt;
+                }
+            }
+        }
+        return grid;
+
+    });
+}
+
+void Database::InitSqlite() {
+    if (mConfig.db_path.empty()) return;
+
+    mSqlite = std::make_unique<SQLiteConnection>(mConfig.db_path);
+    if (!mSqlite->IsOpen()) {
+        throw std::runtime_error("Failed to open database: " + mConfig.db_path);
+    }
+
+    if (mConfig.wal_mode) {
+        mSqlite->EnableWAL();
+    }
+
+    auto result = mSqlite->Execute(
+        "CREATE TABLE IF NOT EXISTS kv_store ("
+        "  key       TEXT PRIMARY KEY NOT NULL,"
+        "  value     BLOB NOT NULL,"
+        "  type_tag  TEXT NOT NULL DEFAULT '',"
+        "  created_at TEXT NOT NULL DEFAULT (datetime('now')),"
+        "  updated_at TEXT NOT NULL DEFAULT (datetime('now'))"
+        ");"
+    );
+    
+    if (!result) {
+        throw std::runtime_error("Failed to create kv_store table in: " + mConfig.db_path);
+    }
+
+    mUsingSqlite = true;
+}
+
 bool Database::Exists(const std::string& key) const {
-    return mStorage.count(key) > 0;
+    return EntryExists(key);
 }
 
 void Database::Clear() {
-    mStorage.clear();
+    if (mUsingSqlite) {
+        mSqlite->ClearTable(kTableName);
+
+    } else {
+        mMemoryStorage.clear();
+        mTypeMetadata.clear();
+    }
 }
 
 size_t Database::Size() const {
-    return mStorage.size();
+    return EntryCount();
 }
 
 bool Database::Delete(const std::string& key) {
-    if (!Exists(key)) return false;
-    mStorage.erase(key);
-    return true;
+    return DeleteEntry(key);
 }
 
 std::vector<std::string> Database::ListKeys() const {
-    std::vector<std::string> keys;
-    keys.reserve(mStorage.size());
-    
-    for (const auto& [key, _] : mStorage) {
-        keys.push_back(key);
-    }
-    
-    return keys;
+    return AllKeys();
 }
 
 std::vector<std::string> Database::FindKeys(const std::string& pattern) const {
-    std::vector<std::string> matches;
-    
     // No wildcard - exact match only
     if (pattern.find('*') == std::string::npos && pattern.find('?') == std::string::npos) {
-        if (Exists(pattern)) {
-            matches.push_back(pattern);
+        if (EntryExists(pattern)) {
+            return {pattern};
         }
-        return matches;
+        return {};
     }
-    
+
     // Wildcard matching - check each key
-    for (const auto& [key, _] : mStorage) {
+    auto keys = AllKeys();
+    std::vector<std::string> matches;
+
+    for (const auto& key : keys) {
         if (MatchesGlob(key, pattern)) {
             matches.push_back(key);
         }
     }
-    
     return matches;
 }
 
@@ -98,11 +205,11 @@ bool Database::MatchesGlob(const std::string& str, const std::string& pattern) c
 }
 
 std::expected<size_t, DatabaseError> Database::GetStorageSize(const std::string& key) const {
-    if (!Exists(key)) {
-        return std::unexpected(DatabaseError::KeyNotFound);
+    auto raw = ReadEntry(key);
+    if (!raw) {
+        return std::unexpected(raw.error());
     }
-    
-    return mStorage.at(key).size();
+    return raw->size();
 }
 
 void Database::Log(const std::string& message) const {
@@ -238,6 +345,265 @@ Database::DecodeStoredValue(const std::vector<uint8_t>& data) const {
     }
 
     return *updated_serialized;
+}
+
+
+std::expected<void, DatabaseError> Database::WriteEntry(const std::string& key, const std::vector<uint8_t>& value, const std::string& type_tag) {
+    if (mUsingSqlite) {
+        auto result = mSqlite->UpsertBlob(kTableName, key, value, type_tag);
+        if (!result) {
+            return std::unexpected(DatabaseError::IOError);
+        }
+
+        return {};
+    }
+
+    mMemoryStorage[key] = value;
+    if (!type_tag.empty()) {
+        mTypeMetadata[key] = type_tag;
+    }
+    return {};
+}
+
+std::expected<std::vector<uint8_t>, DatabaseError> Database::ReadEntry(const std::string& key) const {
+    if (mUsingSqlite) {
+        auto result = mSqlite->GetBlob(kTableName, key);
+        if (!result) {
+            if (result.error() == SQLiteError::NotFound) {
+                return std::unexpected(DatabaseError::KeyNotFound);
+            }
+            return std::unexpected(DatabaseError::IOError);
+        }
+        return *result;
+    }
+
+    auto it = mMemoryStorage.find(key);
+    if (it == mMemoryStorage.end()) {
+        return std::unexpected(DatabaseError::KeyNotFound);
+    }
+    return it->second;
+}
+
+bool Database::DeleteEntry(const std::string& key) {
+    if (mUsingSqlite) {
+        auto exists = mSqlite->RowExists(kTableName, key);
+        if (!exists.has_value() || !*exists) return false;
+
+        auto result = mSqlite->DeleteRow(kTableName, key);
+        return result.has_value();
+    }
+
+    mTypeMetadata.erase(key);
+    return mMemoryStorage.erase(key) > 0;
+}
+
+bool Database::EntryExists(const std::string& key) const {
+    if (mUsingSqlite) {
+        auto result = mSqlite->RowExists(kTableName, key);
+        return result.has_value() && *result;
+    }
+
+    return mMemoryStorage.count(key) > 0;
+}
+
+std::vector<std::string> Database::AllKeys() const {
+    if (mUsingSqlite) {
+        auto result = mSqlite->GetAllKeys(kTableName);
+        if (!result) return {};
+        return *result;
+    }
+
+    std::vector<std::string> keys;
+    keys.reserve(mMemoryStorage.size());
+
+    for (const auto& [key, _] : mMemoryStorage) {
+        keys.push_back(key);
+    }
+    return keys;
+}
+
+size_t Database::EntryCount() const {
+    if (mUsingSqlite) {
+        auto result = mSqlite->GetRowCount(kTableName);
+        if (!result) return 0;
+        
+        return *result;
+    }
+    return mMemoryStorage.size();
+}
+
+std::expected<std::string, DatabaseError> Database::GetType(const std::string& key) const {
+    if (!EntryExists(key)) {
+        return std::unexpected(DatabaseError::KeyNotFound);
+    }
+
+    if (mUsingSqlite) {
+        auto result = mSqlite->GetTypeTag(kTableName, key);
+        if (!result) {
+            return std::unexpected(DatabaseError::IOError);
+        }
+        return *result;
+    }
+
+    auto it = mTypeMetadata.find(key);
+    if (it != mTypeMetadata.end()) {
+        return it->second;
+    }
+
+    return std::string("");
+}
+
+std::string Database::DeriveTypeTag(const std::string& serialized) {
+    if (serialized.empty()) return "";
+
+    if (serialized.starts_with("custom:")) {
+        size_t second_colon = serialized.find(':', 7);
+        if (second_colon != std::string::npos) {
+            return serialized.substr(7, second_colon - 7);
+        }
+    }
+
+    switch (serialized[0]) {
+        case 'i': return "int";
+        case 'd': return "double";
+        case 'b': return "bool";
+        case 'c': return "char";
+        case 's': return "string";
+        case 'v': return "vector";
+        case 'm': return "map";
+        case 'u': return "unordered_map";
+        default: break;
+    }
+
+    return "";
+}
+
+std::expected<void, DatabaseError> Database::BeginTransaction() {
+    if (mInTransaction) {
+        return std::unexpected(DatabaseError::TransactionFailed);
+    }
+
+    if (mUsingSqlite) {
+        auto result = mSqlite->BeginTransaction();
+        if (!result) {
+            return std::unexpected(DatabaseError::TransactionFailed);
+        }
+
+    } else {
+        mSnapshotStorage = mMemoryStorage;
+        mSnapshotMetadata = mTypeMetadata;
+    }
+
+    mInTransaction = true;
+    return {};
+}
+
+std::expected<void, DatabaseError> Database::Commit() {
+    if (!mInTransaction) {
+        return std::unexpected(DatabaseError::TransactionFailed);
+    }
+
+    if (mUsingSqlite) {
+        auto result = mSqlite->Commit();
+        if (!result) {
+            return std::unexpected(DatabaseError::TransactionFailed);
+        }
+    } else {
+        mSnapshotStorage.clear();
+        mSnapshotMetadata.clear();
+    }
+
+    mInTransaction = false;
+    return {};
+}
+
+std::expected<void, DatabaseError> Database::Rollback() {
+    if (!mInTransaction) {
+        return std::unexpected(DatabaseError::TransactionFailed);
+    }
+
+    if (mUsingSqlite) {
+        auto result = mSqlite->Rollback();
+        if (!result) {
+            return std::unexpected(DatabaseError::TransactionFailed);
+        }
+    } else {
+        mMemoryStorage = std::move(mSnapshotStorage);
+        mTypeMetadata = std::move(mSnapshotMetadata);
+    }
+
+    mInTransaction = false;
+    return {};
+}
+
+std::expected<void, DatabaseError> Database::SaveToFile(const std::string& filepath) const {
+    std::ofstream out(filepath, std::ios::binary);
+    if (!out) {
+        return std::unexpected(DatabaseError::IOError);
+    }
+
+    auto keys = AllKeys();
+    uint64_t count = keys.size();
+    out.write(reinterpret_cast<const char*>(&count), sizeof(count));
+
+    for (const auto& key : keys) {
+        auto raw = ReadEntry(key);
+        if (!raw) {
+            return std::unexpected(raw.error());
+        }
+
+        uint64_t key_len = key.size();
+        out.write(reinterpret_cast<const char*>(&key_len), sizeof(key_len));
+        out.write(key.data(), static_cast<std::streamsize>(key_len));
+
+        uint64_t val_len = raw->size();
+        out.write(reinterpret_cast<const char*>(&val_len), sizeof(val_len));
+        out.write(reinterpret_cast<const char*>(raw->data()), static_cast<std::streamsize>(val_len));
+    }
+
+    if (!out) {
+        return std::unexpected(DatabaseError::IOError);
+    }
+
+    return {};
+}
+
+std::expected<void, DatabaseError> Database::LoadFromFile(const std::string& filepath) {
+    std::ifstream in(filepath, std::ios::binary);
+    if (!in) {
+        return std::unexpected(DatabaseError::IOError);
+    }
+
+    uint64_t count = 0;
+    in.read(reinterpret_cast<char*>(&count), sizeof(count));
+    if (!in) {
+        return std::unexpected(DatabaseError::InvalidData);
+    }
+
+    for (uint64_t i = 0; i < count; ++i) {
+        uint64_t key_len = 0;
+        in.read(reinterpret_cast<char*>(&key_len), sizeof(key_len));
+        if (!in) return std::unexpected(DatabaseError::InvalidData);
+
+        std::string key(key_len, '\0');
+        in.read(key.data(), static_cast<std::streamsize>(key_len));
+        if (!in) return std::unexpected(DatabaseError::InvalidData);
+
+        uint64_t val_len = 0;
+        in.read(reinterpret_cast<char*>(&val_len), sizeof(val_len));
+        if (!in) return std::unexpected(DatabaseError::InvalidData);
+
+        std::vector<uint8_t> value(val_len);
+        in.read(reinterpret_cast<char*>(value.data()), static_cast<std::streamsize>(val_len));
+        if (!in) return std::unexpected(DatabaseError::InvalidData);
+
+        auto result = WriteEntry(key, value, "");
+        if (!result) {
+            return std::unexpected(result.error());
+        }
+    }
+
+    return {};
 }
 
 } // namespace cse498

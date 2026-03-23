@@ -40,15 +40,33 @@
 
 #include "../tools/Serializer.hpp"
 #include "../tools/StringCompressor.hpp"
+#include "../tools/SQLiteConnection.hpp"
 #include "../tools/Datum.hpp"
+#include "../tools/DataGrid.hpp"
 
 #include <string>
 #include <unordered_map>
 #include <expected>
 #include <vector>
 #include <cstdint>
+#include <memory>
+#include <shared_mutex>
+#include <typeindex>
 
 namespace cse498 {
+
+namespace detail {
+/// Type trait: true for types the Serializer handles natively (primitives + containers)
+template <typename T> struct is_builtin_serializable : std::false_type {};
+template <> struct is_builtin_serializable<int> : std::true_type {};
+template <> struct is_builtin_serializable<double> : std::true_type {};
+template <> struct is_builtin_serializable<bool> : std::true_type {};
+template <> struct is_builtin_serializable<char> : std::true_type {};
+template <> struct is_builtin_serializable<std::string> : std::true_type {};
+template <typename T> struct is_builtin_serializable<std::vector<T>> : std::true_type {};
+template <typename K, typename V> struct is_builtin_serializable<std::map<K,V>> : std::true_type {};
+template <typename K, typename V> struct is_builtin_serializable<std::unordered_map<K,V>> : std::true_type {};
+} // namespace detail
 
 /// Error codes for Database operations
 enum class DatabaseError {
@@ -57,7 +75,10 @@ enum class DatabaseError {
     DeserializationFailed,
     CompressionFailed,
     DecompressionFailed,
-    InvalidData
+    InvalidData,
+    IOError,              
+    TransactionFailed,    
+    TypeMismatch          
 };
 
 /// Configuration for Database behavior
@@ -65,6 +86,11 @@ struct DatabaseConfig {
     size_t compression_threshold = 100;  // Min size (bytes) to trigger compression
     bool auto_compress = true;           // Enable automatic compression
     bool verbose = false;                // Enable debug logging to stderr
+
+    std::string db_path = "";            // Empty = in-memory only 
+    bool wal_mode = true;                // concurrent reads
+    bool auto_flush = true;              // commit after every write. slower but faster
+    bool store_type_metadata = true;     
 };
 
 /**
@@ -75,11 +101,14 @@ struct DatabaseConfig {
 class Database {
 public:
     /// Default constructor
-    Database() = default;
-    
+    Database() {InitCoreTypes();}
+
     /// Constructor with config
-    explicit Database(const DatabaseConfig& config) : mConfig(config) {}
-    
+    explicit Database(const DatabaseConfig& config);
+
+    /// Convenience constructor
+    explicit Database(const std::string& db_path);
+
     ~Database() = default;
 
     // Prevent copying (storage contains unique data)
@@ -128,6 +157,42 @@ public:
     /// Get current config
     [[nodiscard]] const DatabaseConfig& GetConfig() const { return mConfig; }
 
+    /// Register a custom type for serialization.
+    /// Other teams call this to enable Store/Load of their game objects.
+    template <typename T>
+    void RegisterType(const std::string& type_id, std::function<std::string(const T&)> serialize_fn, std::function<std::optional<T>(const std::string&)> deserialize_fn) {
+        mSerializer.RegisterType<T>(type_id, std::move(serialize_fn), std::move(deserialize_fn));
+        mTypeIdMap[std::type_index(typeid(T))] = type_id;
+    }
+
+    /// Check if a custom type is registered
+    [[nodiscard]] bool IsTypeRegistered(const std::string& type_id) const {
+        return mSerializer.IsTypeRegistered(type_id);
+    }
+
+    /// get const ref for serializer obj
+    [[nodiscard]] const Serializer& GetSerializer() const { return mSerializer; }
+
+    /// Get the type tag for a stored key (e.g., "int", "string", "vector", "MyAgent")
+    [[nodiscard]] std::expected<std::string, DatabaseError> GetType(const std::string& key) const;
+
+    /// Begin a transaction. All writes between Begin and Commit are atomic.
+    /// If the program crashes before Commit, all writes since Begin are rolled back.
+    std::expected<void, DatabaseError> BeginTransaction();
+
+    /// Commit all writes since BeginTransaction.
+    std::expected<void, DatabaseError> Commit();
+
+    /// Rollback all writes since BeginTransaction.
+    std::expected<void, DatabaseError> Rollback();
+
+    /// save in memory db to binary
+    /// Format: [entry_count:uint64]([key_len:uint64][key_bytes][value_len:uint64][value_bytes])*
+    std::expected<void, DatabaseError> SaveToFile(const std::string& filepath) const;
+
+    /// load from binary to in mem db
+    std::expected<void, DatabaseError> LoadFromFile(const std::string& filepath);
+
 private:
     /// Storage format indicator
     enum class StorageFormat : uint8_t {
@@ -137,9 +202,22 @@ private:
         DiffCompressed = 3
     };
 
-    std::unordered_map<std::string, std::vector<uint8_t>> mStorage;  // Key → compressed bytes
+    static constexpr const char* kTableName = "kv_store";
+
+    std::unordered_map<std::string, std::vector<uint8_t>> mMemoryStorage;
+    std::unordered_map<std::string, std::string> mTypeMetadata;  // in-memory type tag storage
+    std::unique_ptr<SQLiteConnection> mSqlite;
+    bool mUsingSqlite = false;
+    bool mInTransaction = false;
+
+    // In-memory transaction snapshots (captured at BeginTransaction, restored on Rollback)
+    std::unordered_map<std::string, std::vector<uint8_t>> mSnapshotStorage;
+    std::unordered_map<std::string, std::string> mSnapshotMetadata;
+
     Serializer mSerializer;
     DatabaseConfig mConfig;
+    mutable std::shared_mutex mMutex;
+    std::unordered_map<std::type_index, std::string> mTypeIdMap;  // typeid(T) -> registered type_id
 
     void Log(const std::string& message) const;
     [[nodiscard]] std::expected<std::vector<uint8_t>, DatabaseError> EncodeSnapshot(const std::string& serialized) const;
@@ -148,6 +226,19 @@ private:
     
     /// Glob-style pattern matching (supports * and ? wildcards)
     bool MatchesGlob(const std::string& str, const std::string& pattern) const;
+
+    std::expected<void, DatabaseError> WriteEntry(const std::string& key, const std::vector<uint8_t>& value, const std::string& type_tag);
+    [[nodiscard]] std::expected<std::vector<uint8_t>, DatabaseError> ReadEntry(const std::string& key) const;
+    bool DeleteEntry(const std::string& key);
+    
+    [[nodiscard]] bool EntryExists(const std::string& key) const;
+    [[nodiscard]] std::vector<std::string> AllKeys() const;
+    [[nodiscard]] size_t EntryCount() const;
+
+    static std::string DeriveTypeTag(const std::string& serialized);
+
+    void InitSqlite();
+    void InitCoreTypes();
 };
 
 // ============================================================================
@@ -158,18 +249,34 @@ template <typename T>
 std::expected<void, DatabaseError> Database::Store(const std::string& key, const T& obj) {
     Log("[Store] Serializing key: " + key);
 
-    // Serialize the object
-    std::string serialized = mSerializer.Serialize(obj);
+
+    std::string serialized;
+    if constexpr (detail::is_builtin_serializable<T>::value) {
+        serialized = mSerializer.Serialize(obj);
+    } else {
+        auto type_it = mTypeIdMap.find(std::type_index(typeid(T)));
+        if (type_it == mTypeIdMap.end()) {
+            return std::unexpected(DatabaseError::SerializationFailed);
+        }
+        serialized = mSerializer.Serialize(type_it->second, obj);
+    }
+
+    std::string type_tag;
+    if (mConfig.store_type_metadata) {
+        type_tag = DeriveTypeTag(serialized);
+    }
 
     auto final_data = EncodeSnapshot(serialized);
     if (!final_data) {
         return std::unexpected(final_data.error());
     }
 
-    // Store in memory
-    mStorage[key] = std::move(*final_data);
-    Log("[Store] Stored successfully");
+    auto result = WriteEntry(key, *final_data, type_tag);
+    if (!result) {
+        return std::unexpected(result.error());
+    }
 
+    Log("[Store] Stored successfully");
     return {};
 }
 
@@ -177,21 +284,29 @@ template <typename T>
 std::expected<T, DatabaseError> Database::Load(const std::string& key) const {
     Log("[Load] Loading key: " + key);
 
-    // Check existence
-    if (!Exists(key)) {
-        return std::unexpected(DatabaseError::KeyNotFound);
+    auto raw = ReadEntry(key);
+    if (!raw) {
+        return std::unexpected(raw.error());
     }
 
-    auto serialized = DecodeStoredValue(mStorage.at(key));
+    auto serialized = DecodeStoredValue(*raw);
     if (!serialized) {
         return std::unexpected(serialized.error());
     }
 
-    // Deserialize
     Log("[Load] Deserializing...");
-    size_t pos = 0;
-    auto obj = mSerializer.DeserializeAt<T>(*serialized, pos);
-    
+    std::optional<T> obj;
+    if constexpr (detail::is_builtin_serializable<T>::value) {
+        size_t pos = 0;
+        obj = mSerializer.DeserializeAt<T>(*serialized, pos);
+        
+    } else {
+        auto type_it = mTypeIdMap.find(std::type_index(typeid(T)));
+        if (type_it != mTypeIdMap.end()) {
+            obj = mSerializer.Deserialize<T>(type_it->second, *serialized);
+        }
+    }
+
     if (!obj.has_value()) {
         return std::unexpected(DatabaseError::DeserializationFailed);
     }
@@ -202,20 +317,38 @@ std::expected<T, DatabaseError> Database::Load(const std::string& key) const {
 
 template <typename T>
 std::expected<void, DatabaseError> Database::Update(const std::string& key, const T& obj) {
-    // Check existence
-    if (!Exists(key)) {
+    if (!EntryExists(key)) {
         return std::unexpected(DatabaseError::KeyNotFound);
     }
 
     Log("[Update] Serializing updated value for key: " + key);
-    const std::string updated_serialized = mSerializer.Serialize(obj);
+    std::string updated_serialized;
+    if constexpr (detail::is_builtin_serializable<T>::value) {
+        updated_serialized = mSerializer.Serialize(obj);
+    } else {
+        auto type_it = mTypeIdMap.find(std::type_index(typeid(T)));
+        if (type_it == mTypeIdMap.end()) {
+            return std::unexpected(DatabaseError::SerializationFailed);
+        }
+        updated_serialized = mSerializer.Serialize(type_it->second, obj);
+    }
+
+    std::string type_tag;
+    if (mConfig.store_type_metadata) {
+        type_tag = DeriveTypeTag(updated_serialized);
+    }
 
     auto full_snapshot = EncodeSnapshot(updated_serialized);
     if (!full_snapshot) {
         return std::unexpected(full_snapshot.error());
     }
 
-    auto current_serialized = DecodeStoredValue(mStorage.at(key));
+    auto current_raw = ReadEntry(key);
+    if (!current_raw) {
+        return std::unexpected(current_raw.error());
+    }
+
+    auto current_serialized = DecodeStoredValue(*current_raw);
     if (!current_serialized) {
         return std::unexpected(current_serialized.error());
     }
@@ -223,11 +356,15 @@ std::expected<void, DatabaseError> Database::Update(const std::string& key, cons
     auto diff_value = EncodeDiffValue(*current_serialized, updated_serialized);
     if (diff_value && diff_value->size() < full_snapshot->size()) {
         Log("[Update] Storing diff-backed update");
-        mStorage[key] = std::move(*diff_value);
-        
+        auto result = WriteEntry(key, *diff_value, type_tag);
+
+        if (!result) return std::unexpected(result.error());
+
     } else {
         Log("[Update] Storing full snapshot update");
-        mStorage[key] = std::move(*full_snapshot);
+        auto result = WriteEntry(key, *full_snapshot, type_tag);
+
+        if (!result) return std::unexpected(result.error());
     }
 
     return {};

@@ -101,6 +101,9 @@ namespace cse498 {
         [[nodiscard]] Datum At(int r, int c) const;
         template <typename T> std::expected<std::pair<int, int>, std::string> Find(T element);
 
+        [[nodiscard]] size_t NumRows() const { return mDim.first; }
+        [[nodiscard]] size_t NumCols() const { return mDim.second; }
+
         Iterator begin() {return Iterator(this, 0, 0); }
         Iterator end() {return Iterator(this, mEnd.first, mEnd.second); }
     };
