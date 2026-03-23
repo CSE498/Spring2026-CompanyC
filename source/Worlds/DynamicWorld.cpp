@@ -2,15 +2,15 @@
 
 void cse498::DynamicWorld::UpdateWorld(){
 
-    update_counter++;
+    mUpdateCounter++;
 
-    for(auto building : buildings){
+    for(auto building : mBuildings){
         // each building can start producing the resources after it's built,
         // and produces them at a rate determined by the building type.
         for(auto resource : building.GetResources()){
-            size_t ticks_since_built = update_counter - building.GetBuiltTime();
+            size_t ticks_since_built = mUpdateCounter - building.GetBuiltTime();
             if(ticks_since_built % resource.second == 0){
-                world_global_counts[resource.first] += 1;
+                mWorldGlobalCounts[resource.first] += 1;
             }
         }
     }
