@@ -1,7 +1,6 @@
-#define CATCH_CONFIG_MAIN
 #include "catch2/catch.hpp"
 
-#include "../OutputManager.hpp"
+#include "../../source/tools/OutputManager.hpp"
 #include "TestHelpers.hpp"
 
 #include <fstream>
