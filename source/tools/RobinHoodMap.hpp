@@ -162,6 +162,25 @@ class RobinHoodMap {
     return InsertEntry_(std::move(e));
   }
 
+// Constructs the mapped value from forwarded arguments and inserts it if the
+// key is not already present. Returns {pointer_to_value, inserted}.
+// May trigger growth/rehash, which can invalidate existing pointers/references.
+template <class... Args>
+std::pair<T*, bool> Emplace(Key key, Args&&... args) {
+  MaybeGrow_();
+  Entry e{std::move(key), T(std::forward<Args>(args)...)};  
+  return InsertEntry_(std::move(e));
+}
+
+
+std::pair<T*, bool> InsertOrAssign(const Key& key, T value) {
+  if (T* p = Find(key)) {
+    *p = std::move(value);
+    return {p, false};
+  }
+  return Insert(key, std::move(value));
+}
+
  private:
   struct Entry {
     Key key;
