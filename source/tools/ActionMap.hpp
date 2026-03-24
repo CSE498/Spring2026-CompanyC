@@ -5,12 +5,13 @@
 #pragma once
 
 #include <any>
-#include <assert.h>
+#include <cassert>
 #include <functional>
 #include <optional>
 #include <string>
 #include <typeindex>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 /**
@@ -53,14 +54,6 @@ public:
   ActionMap &operator=(const ActionMap &) = delete;
 
   /**
-   * @brief Registers a zero-argument function with a given name
-   * @param name The string identifier for the function
-   * @param func The function to register
-   * @return true if successfully added, false if name already exists
-   */
-  bool AddFunction(const std::string &name, std::function<void()> func);
-
-  /**
    * @brief Registers a function that takes arguments
    * @tparam Args The argument types for the function
    * @param name The string identifier for the function
@@ -73,14 +66,6 @@ public:
   /**
    * @brief Registers a function with a given name, replacing if it already
    * exists
-   * @param name The string identifier for the function
-   * @param func The function to register
-   */
-  void ReplaceFunction(const std::string &name, std::function<void()> func);
-
-  /**
-   * @brief Registers a function with a given name, replacing if it already
-   * exists
    * @tparam Args The argument types for the function
    * @param name The string identifier for the function
    * @param func The function to register
@@ -88,13 +73,6 @@ public:
   template <typename... Args>
   void ReplaceFunction(const std::string &name,
                        std::function<void(Args...)> func);
-
-  /**
-   * @brief Looks up and executes the zero-argument function with the given name
-   * @param name The string identifier of the function to trigger
-   * @return Optional error message if function not found or type mismatch
-   */
-  std::optional<std::string> Trigger(const std::string &name);
 
   /**
    * @brief Looks up and executes a function, forwarding the provided arguments
@@ -141,8 +119,11 @@ public:
 template <typename... Args>
 bool ActionMap::AddFunction(const std::string &name,
                             std::function<void(Args...)> func) {
-
   assert(!name.empty());
+
+  if (name.empty()) {
+    return false;
+  }
 
   if (HasFunction(name)) {
     return false;
@@ -159,8 +140,8 @@ bool ActionMap::AddFunction(const std::string &name,
 template <typename... Args>
 void ActionMap::ReplaceFunction(const std::string &name,
                                 std::function<void(Args...)> func) {
-
   assert(!name.empty());
+
   function_map.erase(name);
   function_map.emplace(
       name,
@@ -168,35 +149,28 @@ void ActionMap::ReplaceFunction(const std::string &name,
                     std::type_index(typeid(std::function<void(Args...)>))));
 }
 
-// Ngl I chatted this one, will need to rewrite it to better understand passing
-// the return of the function to where it needs to go.
 template <typename... Args>
 std::optional<std::string> ActionMap::Trigger(const std::string &name,
                                               Args &&...args) {
-  // Find the function
   auto it = function_map.find(name);
   if (it == function_map.end()) {
     return "Function '" + name + "' not found in ActionMap";
   }
 
-  // Verify type matches
-  std::type_index expected_type =
-      std::type_index(typeid(std::function<void(Args...)>));
+  std::type_index expected_type(typeid(std::function<void(Args...)>));
   if (it->second.type_info != expected_type) {
     return "Type mismatch for function '" + name +
            "': incorrect argument types";
   }
 
-  // Extract and call the function
-  try {
-    auto &func =
-        std::any_cast<std::function<void(Args...)> &>(it->second.function);
-    func(std::forward<Args>(args)...);
-    return std::nullopt; // Success
-  } catch (const std::bad_any_cast &) {
+  auto *func_ptr =
+      std::any_cast<std::function<void(Args...)>>(&(it->second.function));
+  if (func_ptr == nullptr) {
     return "Internal error: failed to cast function '" + name + "'";
-  } catch (const std::exception &e) {
-    return "Exception thrown by function '" + name + "': " + e.what();
   }
+
+  (*func_ptr)(std::forward<Args>(args)...);
+  return std::nullopt;
 }
+
 } // namespace cse498
