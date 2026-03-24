@@ -3,6 +3,7 @@
 #include <random>
 #include "../core/WorldBase.hpp"
 #include "../core/Building.hpp"
+#include "../Agents/PacingAgent.hpp"
 
 namespace cse498 {
 
@@ -27,6 +28,9 @@ protected:
 
   // vector of all the buildings in the world
   std::vector<Building> mBuildings;
+
+  // spawner positions and their build times (for 60-tick spawn interval)
+  std::vector<std::pair<WorldPosition, size_t>> mSpawners;
 
   // CellType IDs
   size_t mGrassId = 0;
@@ -112,37 +116,7 @@ protected:
 
   // Temporary: any in-bounds tile is currently walkable.
   // Later, building occupancy / blocked-tile rules can be added here.
-  int DoAction(AgentBase & agent, size_t action_id) override {
-    WorldPosition cur = agent.GetLocation().AsWorldPosition();
-    WorldPosition next = cur;
-
-    switch (action_id) {
-      case REMAIN_STILL: break;
-      case MOVE_UP:         next = cur.Up(); break;
-      case MOVE_DOWN:       next = cur.Down(); break;
-      case MOVE_LEFT:       next = cur.Left(); break;
-      case MOVE_RIGHT:      next = cur.Right(); break;
-      case MOVE_UP_LEFT:    next = cur.Up().Left(); break;
-      case MOVE_UP_RIGHT:   next = cur.Up().Right(); break;
-      case MOVE_DOWN_LEFT:  next = cur.Down().Left(); break;
-      case MOVE_DOWN_RIGHT: next = cur.Down().Right(); break;
-      case COLLECT: break;
-      case BUILD_LUMBERYARD: break;
-      case BUILD_QUARRY: break;
-      case BUILD_SPAWNER: break;
-      case BUILD_FARM: break;
-      case BUILD_TOWNHALL: break;
-      default: break;
-    }
-
-    if (action_id >= MOVE_UP && action_id <= MOVE_DOWN_RIGHT) {
-      if (!mMainGrid.IsValid(next)) return false;
-      agent.SetLocation(next);
-      return true;
-    }
-
-    return false;
-  }
+  int DoAction(AgentBase & agent, size_t action_id) override;
 
   // This will handle resource generation from buildings, as well as any other future autonomous world actions
   void UpdateWorld() override;
