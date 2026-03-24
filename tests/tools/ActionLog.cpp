@@ -23,13 +23,14 @@ TEST_CASE("Test adding agents into the ActionLog", "[core]")
   guard1.SetHorizontal();
   guard1.SetLocation(cse498::WorldPosition{7,7});
 
+  auto& pacer2 = world.AddAgent<cse498::PacingAgent>("Pacer 2");
+  pacer1.SetLocation(cse498::WorldPosition{4,1});
+
   SECTION("Test recording single actions")
   {
-    // Since ActionLog uses shared_ptr, we need to create them
-    // Note: This assumes agents are stored as unique_ptr in world
-    // We need to get raw pointers and create non-owning shared_ptrs
     auto pacer1Ptr = std::shared_ptr<cse498::AgentBase>(&pacer1, [](cse498::AgentBase*){});
     auto guard1Ptr = std::shared_ptr<cse498::AgentBase>(&guard1, [](cse498::AgentBase*){});
+    auto pacer2Ptr = std::shared_ptr<cse498::AgentBase>(&pacer2, [](cse498::AgentBase*){});
     
     // Move pacer1 up
     cse498::WorldPosition cur_position = pacer1.GetLocation().AsWorldPosition();
@@ -37,6 +38,9 @@ TEST_CASE("Test adding agents into the ActionLog", "[core]")
     actionLog.recordAction(pacer1Ptr, "MOVE_UP");
     std::this_thread::sleep_for(std::chrono::microseconds(10)); // 10 µs delay
     actionLog.actionEnd(pacer1Ptr);
+
+    // Call actionEnd on an agent not in the map
+    actionLog.actionEnd(pacer2Ptr);
     
     // Move guard1 left
     cur_position = guard1.GetLocation().AsWorldPosition();

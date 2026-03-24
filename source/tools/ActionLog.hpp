@@ -1,6 +1,6 @@
 /**
  * @file ActionLog.hpp
- * @author Collin Massmann
+ * @author Group 23
  *
  * @brief Tracks all the actions dones by agents within a world
  */
@@ -18,9 +18,9 @@ namespace cse498
 
   // Data structure holding all the information about the action
   struct ActionEntry {
-  std::chrono::high_resolution_clock::time_point timeOfAction;
-  std::string actionType;
-  std::chrono::microseconds duration;
+    std::chrono::steady_clock::time_point timeOfAction;
+    std::string actionType;
+    std::chrono::microseconds duration;
   };
 
   class ActionLog {
@@ -28,12 +28,9 @@ namespace cse498
     // Unordered map holding all the actions done by all the agents using their ID's as a key
     std::unordered_map<size_t, std::vector<ActionEntry>> agentActions;
     
-    // Clock used for timing actions
-    std::chrono::high_resolution_clock::time_point simStartTime;
-    
   public:
     /// Constructor
-    ActionLog() : simStartTime(std::chrono::high_resolution_clock::now()) {}
+    ActionLog()  {std::chrono::steady_clock::now();}
     
     /**
      * @brief Records the given action for the given agent
@@ -41,12 +38,10 @@ namespace cse498
      * @param agent the agent the action belongs to
      * @param action the action the agent is performing
      */
-    void recordAction(std::shared_ptr<AgentBase> agent, const std::string& action) {
-      if (!agent) return;
-      
+    void recordAction(const std::shared_ptr<AgentBase>& agent, const std::string& action) {
       size_t id = agent->GetID();
 
-      auto now = std::chrono::high_resolution_clock::now();
+      std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
       ActionEntry entry{now, action, std::chrono::microseconds::zero()};
       agentActions[id].push_back(entry);
     }
@@ -66,9 +61,7 @@ namespace cse498
      * @param agent the agent whose actions is requested
      * @return The vector of all the agents actions
      */
-    std::vector<ActionEntry> getActionsByAgent(std::shared_ptr<AgentBase> agent) const {
-      if (!agent) return {};
-
+    std::vector<ActionEntry> getActionsByAgent(const std::shared_ptr<AgentBase>& agent) const {
       size_t id = agent->GetID();
       auto it = agentActions.find(id);
       
@@ -83,16 +76,14 @@ namespace cse498
      * 
      * @param agent the agent whos action is ending
      */
-    void actionEnd(std::shared_ptr<AgentBase> agent){
-      if (!agent) return;
-
+    void actionEnd(const std::shared_ptr<AgentBase>& agent){
       size_t id = agent->GetID();
       auto it = agentActions.find(id);
 
       if (it != agentActions.end() && !it->second.empty()) {
           auto& last = it->second.back();
           last.duration = std::chrono::duration_cast<std::chrono::microseconds>(
-              std::chrono::high_resolution_clock::now() - last.timeOfAction);
+              std::chrono::steady_clock::now() - last.timeOfAction);
       }
     }
     
