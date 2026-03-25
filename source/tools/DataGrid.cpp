@@ -23,14 +23,21 @@ namespace cse498 {
 
     /**
      * Append a full row to the bottom of the grid.
-     * The row's length doesn't have to match mDim.second — it extends the grid
-     * if needed (mirrors the original behavior).
-     * Also advances mEnd past the newly appended row.
+     * If the grid has no columns yet (0x0), the row establishes the column width.
+     * Otherwise the row must match NumCols(); a mismatch throws std::out_of_range.
      */
     void DataGrid::Append(const std::vector<Datum>& row) {
+        if (mDim.second == 0 && mDim.first == 0) {
+            mDim.second = row.size();
+
+        } else if (row.size() != mDim.second) {
+            throw std::out_of_range(std::format(
+                "Append row width ({}) does not match grid column count ({})",
+                row.size(), mDim.second));
+        }
+        
         mData.push_back(row);
         mDim.first++;
-        // mEnd now points to the start of a new (non-existent) row below
         mEnd = {mDim.first, 0};
     }
 

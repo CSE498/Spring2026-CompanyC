@@ -1509,6 +1509,27 @@ TEST_CASE("DataGrid: DataGrid type is registered by default", "[database][datagr
     REQUIRE(db.IsTypeRegistered("DataGrid"));
 }
 
+TEST_CASE("DataGrid: Store and Load grid built with Append", "[database][datagrid]") {
+    Database db;
+
+    DataGrid grid(0, 3);
+    grid.Append({Datum(1.0), Datum(std::string("two")), Datum(true)});
+    grid.Append({Datum(4.0), Datum(std::string("five")), Datum(false)});
+
+    (void)db.Store("grid:appended", grid);
+
+    auto loaded = db.Load<DataGrid>("grid:appended");
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->NumRows() == 2);
+    REQUIRE(loaded->NumCols() == 3);
+    REQUIRE(loaded->At(0, 0).AsDouble() == 1.0);
+    REQUIRE(loaded->At(0, 1).AsString() == "two");
+    REQUIRE(loaded->At(0, 2).AsBool() == true);
+    REQUIRE(loaded->At(1, 0).AsDouble() == 4.0);
+    REQUIRE(loaded->At(1, 1).AsString() == "five");
+    REQUIRE(loaded->At(1, 2).AsBool() == false);
+}
+
 TEST_CASE("DataGrid: SQLite db Store and Load", "[database][datagrid][sqlite]") {
     TempDB tmp("test_datagrid_sqlite");
     Database db(tmp.path);
