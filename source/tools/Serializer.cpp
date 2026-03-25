@@ -7,7 +7,7 @@
 #include <limits>
 #include <locale>
 #include <cstdlib>
-#include <xlocale.h>
+
 
 namespace cse498 {
 
@@ -148,7 +148,7 @@ std::optional<double> Serializer::DeserializeDoubleAt(const std::string& data,
     // strtod_l with C locale is locale-independent (no comma decimal separator)
     const char* start = data.data() + pos;
     char* end = nullptr;
-    double val = strtod_l(start, &end, LC_C_LOCALE);
+    double val = strtod(start, &end);
     if (end == start || end != data.data() + semi)
         return std::nullopt;
     pos = semi + 1;
