@@ -28,6 +28,21 @@ public:
   using DynamicWorld::MOVE_DOWN_LEFT;
   using DynamicWorld::MOVE_DOWN_RIGHT;
   using DynamicWorld::COLLECT;
+  using DynamicWorld::BUILD_LUMBERYARD;
+  using DynamicWorld::BUILD_QUARRY;
+  using DynamicWorld::BUILD_SPAWNER;
+  using DynamicWorld::BUILD_FARM;
+  using DynamicWorld::BUILD_TOWNHALL;
+
+  // Expose building ids so tests can verify the correct structure was placed
+  size_t LumberyardId() const { return mLumberyardId; }
+  size_t FarmId() const { return mFarmId; }
+  size_t SpawnerId() const { return mSpawnerId; }
+  size_t TownhallId() const { return mTownhallId; }
+
+  void SetResource(const std::string & name, size_t value) {
+    mWorldGlobalCounts[name] = value;
+  }
 
   // Direct grid write for test setup (bypasses random generation).
   void SetCell(size_t x, size_t y, size_t type_id) {
@@ -248,4 +263,149 @@ TEST_CASE("DynamicWorld collect - multiple collections accumulate", "[DynamicWor
   }
 
   REQUIRE(world.GetResource("wood") == 3);
+}
+// -----------------------------------------------------------------------
+// BuildX tests
+// -----------------------------------------------------------------------
+
+TEST_CASE("DynamicWorld build lumberyard - succeeds", "[DynamicWorld][build]") {
+  cse498::TestDynamicWorld world;
+  auto & agent = world.SpawnStubAt(50, 50);
+
+  // Start on a valid buildable tile
+  world.SetCell(50, 50, world.GrassId());
+
+  // Give the exact resources needed for this building
+  world.SetResource("wood", 20);
+  world.SetResource("steel", 20);
+
+  // Build should succeed, place the structure and deduct resources
+  int result = world.DoAction(agent, world.BUILD_LUMBERYARD);
+
+  REQUIRE(result != 0);
+  REQUIRE(world.GetCell(50, 50) == world.LumberyardId());
+  REQUIRE(world.GetResource("wood") == 0);
+  REQUIRE(world.GetResource("steel") == 0);
+}
+
+TEST_CASE("DynamicWorld build lumberyard - fails without enough resources", "[DynamicWorld][build]") {
+  cse498::TestDynamicWorld world;
+  auto & agent = world.SpawnStubAt(50, 50);
+  world.SetCell(50, 50, world.GrassId());
+
+  // Leave wood one short so the build fails
+  world.SetResource("wood", 19);
+  world.SetResource("steel", 20);
+
+  // Build should fail and leave the tile/resources unchanged
+  int result = world.DoAction(agent, world.BUILD_LUMBERYARD);
+
+  REQUIRE(result == 0);
+  REQUIRE(world.GetCell(50, 50) == world.GrassId());
+  REQUIRE(world.GetResource("wood") == 19);
+  REQUIRE(world.GetResource("steel") == 20);
+}
+
+TEST_CASE("DynamicWorld build quarry - succeeds", "[DynamicWorld][build]") {
+  cse498::TestDynamicWorld world;
+  auto & agent = world.SpawnStubAt(50, 50);
+  world.SetCell(50, 50, world.GrassId());
+
+  world.SetResource("stone", 20);
+  world.SetResource("wood", 20);
+
+  int result = world.DoAction(agent, world.BUILD_QUARRY);
+
+  REQUIRE(result != 0);
+  REQUIRE(world.GetCell(50, 50) == world.QuarryId());
+  REQUIRE(world.GetResource("stone") == 0);
+  REQUIRE(world.GetResource("wood") == 0);
+}
+
+TEST_CASE("DynamicWorld build quarry - fails on non-grass tile", "[DynamicWorld][build]") {
+  cse498::TestDynamicWorld world;
+  auto & agent = world.SpawnStubAt(50, 50);
+  world.SetCell(50, 50, world.TreeId());
+
+  world.SetResource("stone", 20);
+  world.SetResource("wood", 20);
+
+  int result = world.DoAction(agent, world.BUILD_QUARRY);
+
+  REQUIRE(result == 0);
+  REQUIRE(world.GetCell(50, 50) == world.TreeId());
+  REQUIRE(world.GetResource("stone") == 20);
+  REQUIRE(world.GetResource("wood") == 20);
+}
+
+TEST_CASE("DynamicWorld build spawner - succeeds", "[DynamicWorld][build]") {
+  cse498::TestDynamicWorld world;
+  auto & agent = world.SpawnStubAt(50, 50);
+  world.SetCell(50, 50, world.GrassId());
+
+  world.SetResource("stone", 30);
+  world.SetResource("wheat", 30);
+
+  int result = world.DoAction(agent, world.BUILD_SPAWNER);
+
+  REQUIRE(result != 0);
+  REQUIRE(world.GetCell(50, 50) == world.SpawnerId());
+  REQUIRE(world.GetResource("stone") == 0);
+  REQUIRE(world.GetResource("wheat") == 0);
+}
+
+TEST_CASE("DynamicWorld build farm - succeeds", "[DynamicWorld][build]") {
+  cse498::TestDynamicWorld world;
+  auto & agent = world.SpawnStubAt(50, 50);
+  world.SetCell(50, 50, world.GrassId());
+
+  world.SetResource("wheat", 20);
+  world.SetResource("wood", 20);
+
+  int result = world.DoAction(agent, world.BUILD_FARM);
+
+  REQUIRE(result != 0);
+  REQUIRE(world.GetCell(50, 50) == world.FarmId());
+  REQUIRE(world.GetResource("wheat") == 0);
+  REQUIRE(world.GetResource("wood") == 0);
+}
+
+TEST_CASE("DynamicWorld build townhall - succeeds", "[DynamicWorld][build]") {
+  cse498::TestDynamicWorld world;
+  auto & agent = world.SpawnStubAt(50, 50);
+  world.SetCell(50, 50, world.GrassId());
+
+  world.SetResource("wood", 500);
+  world.SetResource("stone", 500);
+  world.SetResource("steel", 500);
+  world.SetResource("wheat", 500);
+
+  int result = world.DoAction(agent, world.BUILD_TOWNHALL);
+
+  REQUIRE(result != 0);
+  REQUIRE(world.GetCell(50, 50) == world.TownhallId());
+  REQUIRE(world.GetResource("wood") == 0);
+  REQUIRE(world.GetResource("stone") == 0);
+  REQUIRE(world.GetResource("steel") == 0);
+  REQUIRE(world.GetResource("wheat") == 0);
+}
+
+TEST_CASE("DynamicWorld build townhall - fails without enough resources", "[DynamicWorld][build]") {
+  cse498::TestDynamicWorld world;
+  auto & agent = world.SpawnStubAt(50, 50);
+  world.SetCell(50, 50, world.GrassId());
+
+  world.SetResource("wood", 500);
+  world.SetResource("stone", 500);
+  world.SetResource("steel", 499);
+  world.SetResource("wheat", 500);
+
+  int result = world.DoAction(agent, world.BUILD_TOWNHALL);
+
+  REQUIRE(result == 0);
+  REQUIRE(world.GetCell(50, 50) == world.GrassId());
+  REQUIRE(world.GetResource("wood") == 500);
+  REQUIRE(world.GetResource("stone") == 500);
+  REQUIRE(world.GetResource("steel") == 499);
+  REQUIRE(world.GetResource("wheat") == 500);
 }
