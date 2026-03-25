@@ -19,7 +19,7 @@ namespace cse498
   // Data structure holding all the information about the action
   struct ActionEntry {
     std::chrono::steady_clock::time_point timeOfAction;
-    std::string actionType;
+    size_t actionType;
     std::chrono::microseconds duration;
   };
 
@@ -38,8 +38,8 @@ namespace cse498
      * @param agent the agent the action belongs to
      * @param action the action the agent is performing
      */
-    void recordAction(const std::shared_ptr<AgentBase>& agent, const std::string& action) {
-      size_t id = agent->GetID();
+    void recordAction(const AgentBase& agent, const size_t& action) {
+      size_t id = agent.GetID();
 
       std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
       ActionEntry entry{now, action, std::chrono::microseconds::zero()};
@@ -61,8 +61,8 @@ namespace cse498
      * @param agent the agent whose actions is requested
      * @return The vector of all the agents actions
      */
-    std::vector<ActionEntry> getActionsByAgent(const std::shared_ptr<AgentBase>& agent) const {
-      size_t id = agent->GetID();
+    std::vector<ActionEntry> getActionsByAgent(const AgentBase& agent) const {
+      size_t id = agent.GetID();
       auto it = agentActions.find(id);
       
       if (it != agentActions.end()) {
@@ -76,8 +76,8 @@ namespace cse498
      * 
      * @param agent the agent whos action is ending
      */
-    void actionEnd(const std::shared_ptr<AgentBase>& agent){
-      size_t id = agent->GetID();
+    void actionEnd(const AgentBase& agent){
+      size_t id = agent.GetID();
       auto it = agentActions.find(id);
 
       if (it != agentActions.end() && !it->second.empty()) {

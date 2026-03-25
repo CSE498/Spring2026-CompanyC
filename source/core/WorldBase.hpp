@@ -14,6 +14,7 @@
 #include "AgentBase.hpp"
 #include "ItemBase.hpp"
 #include "WorldGrid.hpp"
+#include "../tools/ActionLog.hpp"
 #include "../tools/Timer.hpp"
 
 namespace cse498 {
@@ -44,6 +45,9 @@ namespace cse498 {
     /// @note Access via GetTimer() so all modules use a consistent entry point.
     Timer mTimer;
 
+    /// Action log to keep track of all the actions done by agents in this world
+    ActionLog mActionLog;
+
   public:
     WorldBase() = default;
     virtual ~WorldBase() = default;
@@ -62,6 +66,9 @@ namespace cse498 {
 
     /// Access the shared Timer for this world (const overload)
     const Timer & GetTimer() const { return mTimer; }
+
+    /// Access the ActionLog
+    ActionLog & GetActionLog() { return mActionLog; }
 
     /// Return a reference to an Item with a given ID.
     [[nodiscard]] ItemBase & GetItem(size_t id) {
@@ -131,6 +138,10 @@ namespace cse498 {
       for (const auto & agent_ptr : agent_set) {
         size_t action_id = agent_ptr->SelectAction(main_grid);
         int result = DoAction(*agent_ptr, action_id);
+        if (result){
+          mActionLog.recordAction(*agent_ptr, action_id);
+          mActionLog.actionEnd(*agent_ptr);
+        }
         agent_ptr->SetActionResult(result);
       }
     }
