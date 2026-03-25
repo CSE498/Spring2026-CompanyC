@@ -1925,3 +1925,118 @@ TEST_CASE("Location: SQLite persistence across instances", "[database][location]
         REQUIRE(loaded->AsItemID() == 333);
     }
 }
+
+// ============================================================================
+// Extended Numeric Type Tests (is_builtin_serializable + DeriveTypeTag fixes)
+// ============================================================================
+
+TEST_CASE("Database - Store/Load long long round-trip", "[database][numeric]") {
+    Database db;
+
+    long long val = 9'000'000'000LL; // beyond INT_MAX
+    auto store_result = db.Store("num:ll", val);
+    REQUIRE(store_result.has_value());
+
+    auto loaded = db.Load<long long>("num:ll");
+    REQUIRE(loaded.has_value());
+    REQUIRE(*loaded == val);
+}
+
+TEST_CASE("Database - Store/Load unsigned long long round-trip", "[database][numeric]") {
+    Database db;
+
+    unsigned long long val = 18'000'000'000'000'000'000ULL;
+    auto store_result = db.Store("num:ull", val);
+    REQUIRE(store_result.has_value());
+
+    auto loaded = db.Load<unsigned long long>("num:ull");
+    REQUIRE(loaded.has_value());
+    REQUIRE(*loaded == val);
+}
+
+TEST_CASE("Database - Store/Load float round-trip", "[database][numeric]") {
+    Database db;
+
+    float val = 3.14f;
+    auto store_result = db.Store("num:float", val);
+    REQUIRE(store_result.has_value());
+
+    auto loaded = db.Load<float>("num:float");
+    REQUIRE(loaded.has_value());
+    REQUIRE(*loaded == Approx(val));
+}
+
+TEST_CASE("Database - Store/Load unsigned int round-trip", "[database][numeric]") {
+    Database db;
+
+    unsigned int val = 4'000'000'000u;
+    auto store_result = db.Store("num:uint", val);
+    REQUIRE(store_result.has_value());
+
+    auto loaded = db.Load<unsigned int>("num:uint");
+    REQUIRE(loaded.has_value());
+    REQUIRE(*loaded == val);
+}
+
+TEST_CASE("Database - Store/Load long round-trip", "[database][numeric]") {
+    Database db;
+
+    long val = -123456789L;
+    auto store_result = db.Store("num:long", val);
+    REQUIRE(store_result.has_value());
+
+    auto loaded = db.Load<long>("num:long");
+    REQUIRE(loaded.has_value());
+    REQUIRE(*loaded == val);
+}
+
+TEST_CASE("Database - Store/Load unsigned long round-trip", "[database][numeric]") {
+    Database db;
+
+    unsigned long val = 3'000'000'000UL;
+    auto store_result = db.Store("num:ulong", val);
+    REQUIRE(store_result.has_value());
+
+    auto loaded = db.Load<unsigned long>("num:ulong");
+    REQUIRE(loaded.has_value());
+    REQUIRE(*loaded == val);
+}
+
+TEST_CASE("Database - GetType returns 'long long' for 64-bit integers", "[database][numeric]") {
+    Database db;
+
+    db.Store("num:ll_tag", 42LL);
+    auto type = db.GetType("num:ll_tag");
+    REQUIRE(type.has_value());
+    REQUIRE(*type == "long long");
+}
+
+TEST_CASE("Database - Update works with extended numeric types", "[database][numeric]") {
+    Database db;
+
+    long long initial = 100LL;
+    db.Store("num:update_ll", initial);
+
+    long long updated = 9'999'999'999LL;
+    auto result = db.Update("num:update_ll", updated);
+    REQUIRE(result.has_value());
+
+    auto loaded = db.Load<long long>("num:update_ll");
+    REQUIRE(loaded.has_value());
+    REQUIRE(*loaded == updated);
+}
+
+TEST_CASE("Database - Extended numeric types with vectors", "[database][numeric]") {
+    Database db;
+
+    std::vector<long long> vals = {1LL, -2LL, 3'000'000'000LL};
+    auto store_result = db.Store("num:vec_ll", vals);
+    REQUIRE(store_result.has_value());
+
+    auto loaded = db.Load<std::vector<long long>>("num:vec_ll");
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->size() == 3);
+    REQUIRE((*loaded)[0] == 1LL);
+    REQUIRE((*loaded)[1] == -2LL);
+    REQUIRE((*loaded)[2] == 3'000'000'000LL);
+}

@@ -145,7 +145,7 @@ std::optional<double> Serializer::DeserializeDoubleAt(const std::string& data,
     size_t semi = data.find(';', pos);
     if (semi == std::string::npos) return std::nullopt;
 
-    // strtod_l with C locale is locale-independent (no comma decimal separator)
+    // strtod is safe here because Serialize(double) always writes '.' separator
     const char* start = data.data() + pos;
     char* end = nullptr;
     double val = strtod(start, &end);
