@@ -3,14 +3,39 @@
 #include <memory>
 #include <string>
 #include <variant>
-#include <cstdlib>
+#include <optional>
+#include <vector>
+#include <algorithm>
 
 #include "../tools/CompositeNodes.hpp"
 #include "../tools/LeafNodes.hpp"
 #include "../tools/BehaviorTree.hpp"
 #include "../core/WorldBase.hpp"
+#include "../tools/PathGenerator.hpp"
 
 namespace cse498 {
+
+namespace {
+
+bool IsInBounds(const WorldGrid& grid, const WorldPosition& p) {
+    return p.CellX() < grid.GetWidth() &&
+           p.CellY() < grid.GetHeight();
+}
+
+std::string StepToDirection(const Point& a, const Point& b) {
+    const int dx = static_cast<int>(b.x - a.x);
+    const int dy = static_cast<int>(b.y - a.y);
+
+    if (dx == 0 && dy == -1) return "up";
+    if (dx == 0 && dy == 1)  return "down";
+    if (dx == -1 && dy == 0) return "left";
+    if (dx == 1 && dy == 0)  return "right";
+
+    return "";
+}
+
+} // namespace
+
 
 void ClassicAgent::BuildTree() {
     auto root = std::make_shared<Selector>("Root");
@@ -23,7 +48,7 @@ void ClassicAgent::BuildTree() {
     auto enemy_nearby = std::make_shared<ConditionNode>(
         "EnemyNearby",
         [](const Blackboard & bb) -> bool {
-            auto it = bb.find("enemy_nearby"); // figure out how to detect enemy/ how many squares to look
+            auto it = bb.find("enemy_nearby");
             return it != bb.end() && std::get<bool>(it->second);
         }
     );
@@ -47,7 +72,7 @@ void ClassicAgent::BuildTree() {
     auto material_nearby = std::make_shared<ConditionNode>(
         "MaterialNearby",
         [](const Blackboard & bb) -> bool {
-            auto it = bb.find("material_nearby"); // figure out how to gather/ how many squares to look
+            auto it = bb.find("material_nearby");
             return it != bb.end() && std::get<bool>(it->second);
         }
     );
@@ -65,95 +90,171 @@ void ClassicAgent::BuildTree() {
 
     // --------------------------------------------------
     // Branch 3: Otherwise -> explore
-    // For now explore just moves right.
-    // Replace this later with smarter exploration logic.
+    // Explore now expects Sense() to have already placed
+    // a valid movement string into "chosen_action".
     // --------------------------------------------------
     auto explore_action = std::make_shared<ActionNode>(
         "Explore",
         [](Blackboard & bb) -> Status {
-            int r = rand() % 4;
+            auto it = bb.find("chosen_action");
+            if (it == bb.end()) return Status::Failure;
 
-            switch (r) {
-                case 0: bb["chosen_action"].emplace<std::string>("up"); break;
-                case 1: bb["chosen_action"].emplace<std::string>("down"); break;
-                case 2: bb["chosen_action"].emplace<std::string>("left"); break;
-                case 3: bb["chosen_action"].emplace<std::string>("right"); break;
+            if (!std::holds_alternative<std::string>(it->second)) {
+                return Status::Failure;
             }
 
-            return Status::Success;
+            const std::string& action = std::get<std::string>(it->second);
+
+            if (action == "up" ||
+                action == "down" ||
+                action == "left" ||
+                action == "right") {
+                return Status::Success;
+            }
+
+            return Status::Failure;
         }
     );
 
-    //root->addChild(attack_branch);
-    //root->addChild(gather_branch);
+    // root->addChild(attack_branch);
+    // root->addChild(gather_branch);
     root->addChild(explore_action);
 
     tree.setRoot(root);
 }
 
 
-void ClassicAgent::Sense(const WorldGrid & grid) {
+void ClassicAgent::Sense( WorldGrid& grid) {
     bool enemy_nearby = false;
     bool material_nearby = false;
 
-    // --------------------------------------------------
-    // Placeholder sensing logic
-    // Replace this with your actual grid inspection.
-    //
-    // For example:
-    // - if an adjacent tile contains an enemy, set enemy_nearby = true
-    // - if an adjacent tile contains a material/resource, set material_nearby = true
-    // --------------------------------------------------
-
     WorldPosition m_pos = this->GetLocation().AsWorldPosition();
-    (void)grid; // suppress unused warning until real sensing is added
+    auto& shared = grid.GetSharedKnowledge();
+
+    int current_turn = -1;
+
+    // Reset local 3x3 visibility/resource/enemy flags before refilling.
+    for (int dy = -1; dy <= 1; ++dy) {
+        for (int dx = -1; dx <= 1; ++dx) {
+            WorldPosition p(m_pos.CellX() + dx, m_pos.CellY() + dy);
+
+            if (!IsInBounds(grid, p)) {
+                continue;
+            }
+
+            TileKnowledge& tile = shared.GetTile(p);
+            tile.currently_visible = false;
+            tile.has_enemy = false;
+            tile.has_resource = false;
+        }
+    }
+
+    // Mark 3x3 area as seen/discovered.
+    for (int dy = -1; dy <= 1; ++dy) {
+        for (int dx = -1; dx <= 1; ++dx) {
+            WorldPosition p(m_pos.CellX() + dx, m_pos.CellY() + dy);
+
+            if (!IsInBounds(grid, p)) {
+                continue;
+            }
+
+            TileKnowledge& tile = shared.GetTile(p);
+            tile.discovered = true;
+            tile.currently_visible = true;
+            tile.walkable_known = true;
+            tile.last_seen_turn = current_turn;
+
+            size_t cell_id = grid[p];
+            std::string cell_type = grid.GetCellTypeName(cell_id);
+
+            tile.is_walkable = (cell_type != "wall" && cell_type != "blocked");
+        }
+    }
 
     std::vector<size_t> visible_items = world.GetKnownItems(*this);
     std::vector<size_t> visible_agents = world.GetKnownAgents(*this);
 
-    // Helper to check if two positions have exact same X and Y
     auto PositionsMatch = [](const WorldPosition& a, const WorldPosition& b) {
         return a.X() == b.X() && a.Y() == b.Y();
     };
 
+    // Update shared knowledge for visible resources.
     for (size_t item_id : visible_items) {
         const auto& item = world.GetItem(item_id);
-
         WorldPosition item_pos = item.GetLocation().AsWorldPosition();
+
+        int dx = item_pos.CellX() - m_pos.CellX();
+        int dy = item_pos.CellY() - m_pos.CellY();
+
+        if (dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1 && IsInBounds(grid, item_pos)) {
+            TileKnowledge& tile = shared.GetTile(item_pos);
+            tile.discovered = true;
+            tile.currently_visible = true;
+            tile.has_resource = true;
+            tile.last_seen_turn = current_turn;
+        }
 
         if (PositionsMatch(item_pos, m_pos.Up())   ||
             PositionsMatch(item_pos, m_pos.Down()) ||
             PositionsMatch(item_pos, m_pos.Left()) ||
-            PositionsMatch(item_pos, m_pos.Right())){
-
+            PositionsMatch(item_pos, m_pos.Right())) {
             material_nearby = true;
-            break;
         }
     }
 
-    for (size_t agent_id : visible_agents){
-
-        if(agent_id == this->GetID()){
+    // Update shared knowledge for visible agents.
+    for (size_t agent_id : visible_agents) {
+        if (agent_id == this->GetID()) {
             continue;
         }
 
         const auto& agent = world.GetAgent(agent_id);
-
         WorldPosition agent_pos = agent.GetLocation().AsWorldPosition();
 
-        if (PositionsMatch(agent_pos, m_pos.Up()) ||
+        int dx = agent_pos.CellX() - m_pos.CellX();
+        int dy = agent_pos.CellY() - m_pos.CellY();
+
+        if (dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1 && IsInBounds(grid, agent_pos)) {
+            TileKnowledge& tile = shared.GetTile(agent_pos);
+            tile.discovered = true;
+            tile.currently_visible = true;
+            tile.has_enemy = true;
+            tile.last_seen_turn = current_turn;
+        }
+
+        if (PositionsMatch(agent_pos, m_pos.Up())   ||
             PositionsMatch(agent_pos, m_pos.Down()) ||
             PositionsMatch(agent_pos, m_pos.Left()) ||
-            PositionsMatch(agent_pos, m_pos.Right())){
-
+            PositionsMatch(agent_pos, m_pos.Right())) {
             enemy_nearby = true;
-            break;
         }
     }
 
-    tree.setMemory("enemy_nearby", BBValue(std::in_place_type<bool>,enemy_nearby));
-    tree.setMemory("material_nearby", BBValue(std::in_place_type<bool>,material_nearby));
+    tree.setMemory("enemy_nearby", BBValue(std::in_place_type<bool>, enemy_nearby));
+    tree.setMemory("material_nearby", BBValue(std::in_place_type<bool>, material_nearby));
 
+    // --------------------------------------------------
+    // Compute explore move from shared knowledge.
+    // --------------------------------------------------
+    PathGenerator generator;
+
+    StateGridPosition start(m_pos.CellX(), m_pos.CellY());
+    WorldPath path = generator.GenerateExplorePath(start, shared, std::nullopt);
+
+    std::string explore_move;
+
+    if (path.size() >= 2) {
+        const Point& a = path[0];
+        const Point& b = path[1];
+        explore_move = StepToDirection(a, b);
+    }
+
+    if (!explore_move.empty()) {
+        tree.setMemory(
+            "chosen_action",
+            BBValue(std::in_place_type<std::string>, explore_move)
+        );
+    }
 }
 
 

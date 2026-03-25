@@ -14,6 +14,7 @@
 
 #include "WorldPath.hpp"
 #include "StateGridPosition.hpp"
+#include "SharedKnowledge.hpp"
 
 
 #include <functional>
@@ -102,6 +103,7 @@ public:
 
     WorldPath GenerateExplorePath(
         StateGridPosition start,
+        const SharedKnowledge& knowledge,
         std::optional<int> max_length
     ) const;
 

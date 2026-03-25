@@ -13,7 +13,7 @@ protected:
     BehaviorTree tree;
 
     void BuildTree();
-    void Sense(const WorldGrid & grid);
+    void Sense(WorldGrid & grid);
     size_t GetAction() const;
 
 public:
@@ -31,7 +31,7 @@ public:
             && HasAction("right");
     }
 
-    size_t SelectAction(const WorldGrid & grid) override {
+    size_t SelectAction(WorldGrid & grid) override {
         Sense(grid);
         tree.update();
         return GetAction();

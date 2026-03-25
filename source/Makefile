@@ -13,12 +13,12 @@ CXX = c++
 HEADERS := $(shell find Agents core Interfaces tools Worlds -name '*.hpp')
 
 # List of all available executables
-EXECUTABLES = simple
+EXECUTABLES = agent
 
-default: simple
-debug: debug-simple
-opt: opt-simple
-grumpy: grumpy-simple
+default: agent
+debug: debug-agent
+opt: opt-agentj
+grumpy: grumpy-agent
 
 .PHONY: default clean debug-% opt-% quick-% $(EXECUTABLES)
 
@@ -48,3 +48,54 @@ FILES_generated = *.o $(EXECUTABLES)
 clean:
 	rm -rf $(FILES_backup) $(FILES_generated)
 
+FLAGS_version = -std=c++23
+FLAGS_warn    = -Wall -Wextra -Wcast-align -Wnon-virtual-dtor -Woverloaded-virtual -pedantic
+FLAGS_all     = $(FLAGS_version) $(FLAGS_warn)
+
+FLAGS_debug   = $(FLAGS_all) -g
+FLAGS_opt     = $(FLAGS_all) -O3 -DNDEBUG
+FLAGS_quick   = $(FLAGS_all) -DNDEBUG
+FLAGS_grumpy  = $(FLAGS_all) -Wconversion -Weffc++
+
+CXX = c++
+
+# Find all headers and source files
+HEADERS := $(shell find Agents core Interfaces tools Worlds web -name '*.hpp')
+SOURCES := $(filter-out tools/OutputManagerDemo.cpp, \
+           $(shell find Agents core Interfaces tools Worlds web -name '*.cpp'))
+
+# List of all available executables
+EXECUTABLES = agent
+
+default: agent
+debug: debug-agent
+opt: opt-agent
+grumpy: grumpy-agent
+
+.PHONY: default clean debug-% opt-% quick-% grumpy-% $(EXECUTABLES)
+
+# Default build
+$(EXECUTABLES): %: %_main.cpp $(SOURCES) $(HEADERS)
+	$(CXX) $(FLAGS_all) $@_main.cpp $(SOURCES) -I. -o $@
+
+# Debug build
+debug-%:
+	$(CXX) $(FLAGS_debug) $*_main.cpp $(SOURCES) -I. -o $*
+
+# Optimized build
+opt-%:
+	$(CXX) $(FLAGS_opt) $*_main.cpp $(SOURCES) -I. -o $*
+
+# Quick build
+quick-%:
+	$(CXX) $(FLAGS_quick) $*_main.cpp $(SOURCES) -I. -o $*
+
+# Grumpy build
+grumpy-%:
+	$(CXX) $(FLAGS_grumpy) $*_main.cpp $(SOURCES) -I. -o $*
+
+FILES_backup    = *~ *.dSYM
+FILES_generated = *.o $(EXECUTABLES)
+
+clean:
+	rm -rf $(FILES_backup) $(FILES_generated)

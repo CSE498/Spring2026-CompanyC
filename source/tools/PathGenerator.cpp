@@ -32,7 +32,7 @@ WorldPath PathGenerator::GeneratePath(const PathRequest& req) const
             return GenerateAvoidPath(req.start, req.goal, req.avoid);
 
         case PathType::Explore:
-            return GenerateExplorePath(req.start, req.max_length);
+            return WorldPath{};
 
         default:
             return WorldPath{};
@@ -130,13 +130,96 @@ WorldPath PathGenerator::GenerateAvoidPath(
 
 WorldPath PathGenerator::GenerateExplorePath(
     StateGridPosition start,
+    const SharedKnowledge& knowledge,
     std::optional<int> max_length
 ) const
 {
-    // Most Likely Use Shared Location List and Weighted Graph to decide directiont to explore
-    (void)start;
-    (void)max_length;
-    return WorldPath{};
+    auto ToWorldPos = [](const StateGridPosition& p) {
+        return WorldPosition(p.GetX(), p.GetY());
+    };
+
+    auto IsKnownWalkable = [&](const StateGridPosition& p) -> bool {
+        auto it = knowledge.tiles.find(ToWorldPos(p));
+        if (it == knowledge.tiles.end()) return false;
+
+        const TileKnowledge& tile = it->second;
+        return tile.walkable_known && tile.is_walkable;
+    };
+
+    auto IsDiscovered = [&](const StateGridPosition& p) -> bool {
+        auto it = knowledge.tiles.find(ToWorldPos(p));
+        return it != knowledge.tiles.end() && it->second.discovered;
+    };
+
+    auto IsFrontier = [&](const StateGridPosition& p) -> bool {
+        if (!IsKnownWalkable(p)) return false;
+
+        for (const auto& neighbor : p.Neighbors()) {
+            if (!IsDiscovered(neighbor)) {
+                return true;
+            }
+        }
+
+        return false;
+    };
+
+    WorldPath path;
+
+    if (!IsKnownWalkable(start)) {
+        return path;
+    }
+
+    std::queue<StateGridPosition> q;
+    std::unordered_map<
+        StateGridPosition,
+        StateGridPosition,
+        StateGridPositionHash
+    > parent;
+
+    q.push(start);
+    parent[start] = start;
+
+    std::optional<StateGridPosition> target;
+
+    while (!q.empty()) {
+        StateGridPosition current = q.front();
+        q.pop();
+
+        if (IsFrontier(current)) {
+            target = current;
+            break;
+        }
+
+        for (const auto& next : current.Neighbors()) {
+            if (!IsKnownWalkable(next)) continue;
+            if (parent.find(next) != parent.end()) continue;
+
+            parent[next] = current;
+            q.push(next);
+        }
+    }
+
+    if (!target.has_value()) {
+        return path;
+    }
+
+    std::vector<Point> points;
+    StateGridPosition p = *target;
+
+    while (!(p == parent[p])) {
+        points.push_back(ToDoublePoint(p));
+        p = parent[p];
+    }
+
+    points.push_back(ToDoublePoint(start));
+    std::reverse(points.begin(), points.end());
+
+    if (max_length.has_value() &&
+        points.size() > static_cast<size_t>(*max_length)) {
+        points.resize(*max_length);
+    }
+
+    return WorldPath(points);
 }
 
 }
