@@ -27,6 +27,12 @@ namespace cse498 {
 /**
  * @class WebImage
  * @brief Manage an HTML <img> element from C++ code.
+ * @author Sadwal Patel
+ * 
+ * Copyright (c) 2026 Sadwal Patel
+ * SPDX-License-Identifier: MIT
+ * 
+ * citations - ChatGPT LLM (OpenAI) was used to help generate parts of this file. The code was then reviewed and heavily edited by the author to ensure correctness and suitability for the project.
  *
  * This class is Group 24's image wrapper for the web interface module.
  * It provides a simple C++ API for common image-related tasks such as:

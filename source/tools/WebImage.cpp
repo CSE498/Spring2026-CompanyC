@@ -1,7 +1,14 @@
 /**
  * @file WebImage.cpp
+ * @author Sadwal Patel
  * @brief Implementation of the WebImage wrapper, including the Emscripten
  *        JavaScript bridge and native no-op stubs used for local testing.
+ * 
+ * 
+ * Copyright (c) 2026 Sadwal Patel
+ * SPDX-License-Identifier: MIT
+ * 
+ * citations - ChatGPT LLM (OpenAI) was used to help generate parts of this file. The code was then reviewed and heavily edited by the author to ensure correctness and suitability for the project.
  */
 
 #include "WebImage.h"
