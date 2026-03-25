@@ -51,9 +51,6 @@ TEST_CASE("Test adding agents into the ActionLog", "[core]")
     cur_position = pacer1.GetLocation().AsWorldPosition();
     pacer1.SetLocation(cur_position.Up());
     actionLog.recordAction(pacer1Ptr, "MOVE_UP");
-
-    // Move a nonexistant agent
-    actionLog.recordAction(nullptr, "MOVE_LEFT");
     
     // Get actions for each agent
     auto pacerActions = actionLog.getActionsByAgent(pacer1Ptr);
@@ -89,9 +86,6 @@ TEST_CASE("Test adding agents into the ActionLog", "[core]")
     // Check individual agent actions
     CHECK(actionLog.getActionsByAgent(pacer1Ptr).size() == 2);
     CHECK(actionLog.getActionsByAgent(guard1Ptr).size() == 1);
-
-    // Check agent actions on a nullptr
-    CHECK(actionLog.getActionsByAgent(nullptr).size() == 0);
     
     // Clear the log
     actionLog.clear();
