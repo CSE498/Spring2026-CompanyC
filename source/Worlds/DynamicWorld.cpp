@@ -120,6 +120,8 @@ int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
   if (action_id >= MOVE_UP && action_id <= MOVE_DOWN_RIGHT) {
     if (!mMainGrid.IsValid(next))
       return false;
+    if (!mMainGrid.IsTraversable(mMainGrid[next]))
+      return false;
     agent.SetLocation(next);
     return true;
   }

@@ -67,11 +67,11 @@ protected:
     mTreeId  = mMainGrid.AddCellType("tree", "Wood resource.", 'T');
     mStoneId = mMainGrid.AddCellType("stone", "Stone resource.", 'S');
     mWheatId = mMainGrid.AddCellType("wheat", "Wheat resource.", 'W');
-    mQuarryId = mMainGrid.AddCellType("quarry", "Produces stone and steel.", 'Q');
-    mLumberyardId = mMainGrid.AddCellType("lumberyard", "Produces wood.", 'L');
-    mFarmId = mMainGrid.AddCellType("farm", "Produces wheat.", 'F');
-    mSpawnerId = mMainGrid.AddCellType("spawner", "Spawns agents.", 'A');
-    mTownhallId = mMainGrid.AddCellType("townhall", "Win condition.", 'H');
+    mQuarryId = mMainGrid.AddCellType("quarry", "Produces stone and steel.", 'Q', false);
+    mLumberyardId = mMainGrid.AddCellType("lumberyard", "Produces wood.", 'L', false);
+    mFarmId = mMainGrid.AddCellType("farm", "Produces wheat.", 'F', false);
+    mSpawnerId = mMainGrid.AddCellType("spawner", "Spawns agents.", 'A', false);
+    mTownhallId = mMainGrid.AddCellType("townhall", "Win condition.", 'H', false);
   }
 
   // helper function to place clusters materials
