@@ -24,6 +24,13 @@ int main()
   logger.enableTarget(OutputTarget::Console, true);
   logger.enableTarget(OutputTarget::Buffer, true);
 
+  // Example: duplicate important lines to a custom sink (here: stderr) via a lambda.
+  logger.addOutputHandler([](const std::string & line) {
+    if (line.find("[NORMAL]") != std::string::npos) {
+      std::cerr << "[mirror] " << line << '\n';
+    }
+  });
+
   if (!logger.openLogFile("run.log")) {
     std::cout << "Warning: could not open run.log for writing; "
               << "continuing with console + buffer only.\n";
