@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <string>
 #include <unordered_map>
-#include <utility>
 #include <vector>
 
 namespace cse498 {
@@ -29,13 +28,11 @@ namespace cse498 {
  * @class WebImage
  * @brief Manage an HTML <img> element from C++ code.
  * @author Sadwal Patel
- *
+ * 
  * Copyright (c) 2026 Sadwal Patel
  * SPDX-License-Identifier: MIT
- *
- * citations - ChatGPT LLM (OpenAI) was used to help generate parts of this file.
- * The code was then reviewed and heavily edited by the author to ensure
- * correctness and suitability for the project.
+ * 
+ * citations - ChatGPT LLM (OpenAI) was used to help generate parts of this file. The code was then reviewed and heavily edited by the author to ensure correctness and suitability for the project.
  *
  * This class is Group 24's image wrapper for the web interface module.
  * It provides a simple C++ API for common image-related tasks such as:
@@ -49,12 +46,6 @@ namespace cse498 {
  * through a small JavaScript bridge. When compiled natively, it keeps the
  * same state in memory with no-op bridge calls so that it can still be
  * tested with normal C++ unit tests.
- *
- * Advanced C++ topics represented here include:
- *   - value semantics through a move-only resource-owning type
- *   - constexpr constants for stable defaults and bounds
- *   - a small template helper for deferred DOM callbacks
- *   - lambdas used to bridge cached state changes into DOM synchronization
  *
  * The class is move-only because it conceptually owns one DOM element.
  */
@@ -257,41 +248,18 @@ class WebImage final {
   /// Clamp an opacity value into the range [0, 1].
   static double Clamp01_(double value) noexcept;
 
-  /**
-   * Run a callback only when a DOM-backed handle currently exists.
-   *
-   * This small template is intentionally kept inline in the header so the
-   * compiler can optimize simple lambda-based bridge calls with no extra
-   * indirection.
-   */
-  template <typename Callback>
-  void WithCreatedHandle_(Callback&& callback) {
-    if (!created_) {
-      return;
-    }
-    std::forward<Callback>(callback)(handle_);
-  }
-
-  static constexpr double kAutoSizePx = 0.0;
-  static constexpr double kDefaultLeftPx = 0.0;
-  static constexpr double kDefaultTopPx = 0.0;
-  static constexpr double kDefaultOpacity = 1.0;
-  static constexpr int kDefaultZIndex = 0;
-  static constexpr double kMinOpacity = 0.0;
-  static constexpr double kMaxOpacity = 1.0;
-
   std::int32_t handle_ = 0;
   bool created_ = false;
 
   std::string src_;
   std::string alt_text_;
-  double left_px_ = kDefaultLeftPx;
-  double top_px_ = kDefaultTopPx;
-  double width_px_ = kAutoSizePx;   ///< 0 means auto width
-  double height_px_ = kAutoSizePx;  ///< 0 means auto height
+  double left_px_ = 0.0;
+  double top_px_ = 0.0;
+  double width_px_ = 0.0;   ///< 0 means auto width
+  double height_px_ = 0.0;  ///< 0 means auto height
   bool visible_ = true;
-  double opacity_ = kDefaultOpacity;
-  int z_index_ = kDefaultZIndex;
+  double opacity_ = 1.0;
+  int z_index_ = 0;
 
   std::string parent_id_;
   std::string element_id_;

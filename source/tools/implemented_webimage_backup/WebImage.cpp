@@ -3,20 +3,18 @@
  * @author Sadwal Patel
  * @brief Implementation of the WebImage wrapper, including the Emscripten
  *        JavaScript bridge and native no-op stubs used for local testing.
- *
+ * 
+ * 
  * Copyright (c) 2026 Sadwal Patel
  * SPDX-License-Identifier: MIT
- *
- * citations - ChatGPT LLM (OpenAI) was used to help generate parts of this file.
- * The code was then reviewed and heavily edited by the author to ensure
- * correctness and suitability for the project.
+ * 
+ * citations - ChatGPT LLM (OpenAI) was used to help generate parts of this file. The code was then reviewed and heavily edited by the author to ensure correctness and suitability for the project.
  */
 
 #include "WebImage.h"
 
 #include <algorithm>
 #include <cassert>
-#include <functional>
 #include <utility>
 
 #ifdef __EMSCRIPTEN__
@@ -24,20 +22,6 @@
 #endif
 
 namespace cse498 {
-
-// -----------------------------------------------------------------------------
-// Out-of-class constexpr definitions
-// -----------------------------------------------------------------------------
-// Some older MinGW/GCC toolchains still require definitions for class-scoped
-// constexpr members when they are odr-used.
-constexpr double WebImage::kDefaultLeftPx;
-constexpr double WebImage::kDefaultTopPx;
-constexpr double WebImage::kAutoSizePx;
-constexpr double WebImage::kMinOpacity;
-constexpr double WebImage::kMaxOpacity;
-constexpr double WebImage::kDefaultOpacity;
-constexpr int WebImage::kDefaultZIndex;
-  
 
 // -----------------------------------------------------------------------------
 // Helper bridge functions
@@ -274,28 +258,9 @@ void WebImageClearStyleBridge(int, const char*) {}
 
 #endif
 
-namespace {
-
-template <typename ValueT, typename SyncFn, typename EqualFn = std::equal_to<ValueT>>
-bool AssignIfChanged(ValueT& slot, ValueT next, SyncFn&& sync_fn,
-                     EqualFn equal_fn = EqualFn{}) {
-  if (equal_fn(slot, next)) {
-    return false;
-  }
-
-  slot = std::move(next);
-  std::forward<SyncFn>(sync_fn)();
-  return true;
-}
-
-}  // namespace
-
 bool ContainsString(const std::vector<std::string>& values,
                     const std::string& target) {
-  return std::any_of(values.begin(), values.end(),
-                     [&target](const std::string& value) {
-                       return value == target;
-                     });
+  return std::find(values.begin(), values.end(), target) != values.end();
 }
 
 // -----------------------------------------------------------------------------
@@ -322,30 +287,33 @@ WebImage& WebImage::operator=(WebImage&& other) noexcept {
 }
 
 void WebImage::MoveFrom_(WebImage&& other) noexcept {
-  handle_ = std::exchange(other.handle_, 0);
-  created_ = std::exchange(other.created_, false);
+  handle_ = other.handle_;
+  created_ = other.created_;
 
   src_ = std::move(other.src_);
   alt_text_ = std::move(other.alt_text_);
-  left_px_ = std::exchange(other.left_px_, kDefaultLeftPx);
-  top_px_ = std::exchange(other.top_px_, kDefaultTopPx);
-  width_px_ = std::exchange(other.width_px_, kAutoSizePx);
-  height_px_ = std::exchange(other.height_px_, kAutoSizePx);
-  visible_ = std::exchange(other.visible_, true);
-  opacity_ = std::exchange(other.opacity_, kDefaultOpacity);
-  z_index_ = std::exchange(other.z_index_, kDefaultZIndex);
+  left_px_ = other.left_px_;
+  top_px_ = other.top_px_;
+  width_px_ = other.width_px_;
+  height_px_ = other.height_px_;
+  visible_ = other.visible_;
+  opacity_ = other.opacity_;
+  z_index_ = other.z_index_;
 
   parent_id_ = std::move(other.parent_id_);
   element_id_ = std::move(other.element_id_);
   classes_ = std::move(other.classes_);
   styles_ = std::move(other.styles_);
+
+  other.handle_ = 0;
+  other.created_ = false;
 }
 
 double WebImage::Clamp01_(double value) noexcept {
 #if defined(__cpp_lib_clamp) && (__cpp_lib_clamp >= 201603L)
-  return std::clamp(value, kMinOpacity, kMaxOpacity);
+  return std::clamp(value, 0.0, 1.0);
 #else
-  return std::max(kMinOpacity, std::min(kMaxOpacity, value));
+  return std::max(0.0, std::min(1.0, value));
 #endif
 }
 
@@ -365,7 +333,11 @@ void WebImage::EnsureCreated() {
 }
 
 void WebImage::RemoveFromDom() {
-  WithCreatedHandle_([](std::int32_t handle) { WebImageDetachBridge(handle); });
+  if (!created_) {
+    return;
+  }
+
+  WebImageDetachBridge(handle_);
 }
 
 void WebImage::Destroy() {
@@ -383,22 +355,20 @@ bool WebImage::IsCreated() const noexcept { return created_; }
 std::int32_t WebImage::GetHandle() const noexcept { return handle_; }
 
 void WebImage::SetSource(std::string src) {
-  AssignIfChanged(src_, std::move(src), [this]() { SyncSource_(); });
+  src_ = std::move(src);
+  SyncSource_();
 }
 
 const std::string& WebImage::GetSource() const noexcept { return src_; }
 
 void WebImage::SetAltText(std::string alt_text) {
-  AssignIfChanged(alt_text_, std::move(alt_text), [this]() { SyncAlt_(); });
+  alt_text_ = std::move(alt_text);
+  SyncAlt_();
 }
 
 const std::string& WebImage::GetAltText() const noexcept { return alt_text_; }
 
 void WebImage::SetPositionPx(double left_px, double top_px) {
-  if (left_px_ == left_px && top_px_ == top_px) {
-    return;
-  }
-
   left_px_ = left_px;
   top_px_ = top_px;
   SyncGeometry_();
@@ -412,14 +382,8 @@ void WebImage::SetSizePx(double width_px, double height_px) {
   assert(width_px >= 0.0);
   assert(height_px >= 0.0);
 
-  const double sanitized_width = std::max(kAutoSizePx, width_px);
-  const double sanitized_height = std::max(kAutoSizePx, height_px);
-  if (width_px_ == sanitized_width && height_px_ == sanitized_height) {
-    return;
-  }
-
-  width_px_ = sanitized_width;
-  height_px_ = sanitized_height;
+  width_px_ = std::max(0.0, width_px);
+  height_px_ = std::max(0.0, height_px);
   SyncGeometry_();
 }
 
@@ -428,26 +392,29 @@ double WebImage::GetWidthPx() const noexcept { return width_px_; }
 double WebImage::GetHeightPx() const noexcept { return height_px_; }
 
 void WebImage::SetVisible(bool visible) {
-  AssignIfChanged(visible_, visible, [this]() { SyncVisibility_(); });
+  visible_ = visible;
+  SyncVisibility_();
 }
 
 bool WebImage::IsVisible() const noexcept { return visible_; }
 
 void WebImage::SetOpacity(double opacity_0_to_1) {
-  const double clamped_opacity = Clamp01_(opacity_0_to_1);
-  AssignIfChanged(opacity_, clamped_opacity, [this]() { SyncOpacity_(); });
+  opacity_ = Clamp01_(opacity_0_to_1);
+  SyncOpacity_();
 }
 
 double WebImage::GetOpacity() const noexcept { return opacity_; }
 
 void WebImage::SetZIndex(int z_index) {
-  AssignIfChanged(z_index_, z_index, [this]() { SyncZIndex_(); });
+  z_index_ = z_index;
+  SyncZIndex_();
 }
 
 int WebImage::GetZIndex() const noexcept { return z_index_; }
 
 void WebImage::SetParentElementId(std::string parent_id) {
-  AssignIfChanged(parent_id_, std::move(parent_id), [this]() { SyncParent_(); });
+  parent_id_ = std::move(parent_id);
+  SyncParent_();
 }
 
 const std::string& WebImage::GetParentElementId() const noexcept {
@@ -455,20 +422,25 @@ const std::string& WebImage::GetParentElementId() const noexcept {
 }
 
 void WebImage::SetElementId(std::string element_id) {
-  AssignIfChanged(element_id_, std::move(element_id), [this]() { SyncId_(); });
+  element_id_ = std::move(element_id);
+  SyncId_();
 }
 
 const std::string& WebImage::GetElementId() const noexcept { return element_id_; }
 
 void WebImage::AddCssClass(const std::string& css_class) {
-  if (css_class.empty() || ContainsString(classes_, css_class)) {
+  if (css_class.empty()) {
+    return;
+  }
+
+  if (ContainsString(classes_, css_class)) {
     return;
   }
 
   classes_.push_back(css_class);
-  WithCreatedHandle_([&css_class](std::int32_t handle) {
-    WebImageAddCssClassBridge(handle, css_class.c_str());
-  });
+  if (created_) {
+    WebImageAddCssClassBridge(handle_, css_class.c_str());
+  }
 }
 
 void WebImage::RemoveCssClass(const std::string& css_class) {
@@ -476,19 +448,16 @@ void WebImage::RemoveCssClass(const std::string& css_class) {
     return;
   }
 
-  const auto class_it =
-      std::find_if(classes_.begin(), classes_.end(),
-                   [&css_class](const std::string& existing_class) {
-                     return existing_class == css_class;
-                   });
-  if (class_it == classes_.end()) {
+  std::vector<std::string>::iterator it =
+      std::find(classes_.begin(), classes_.end(), css_class);
+  if (it == classes_.end()) {
     return;
   }
 
-  WithCreatedHandle_([&css_class](std::int32_t handle) {
-    WebImageRemoveCssClassBridge(handle, css_class.c_str());
-  });
-  classes_.erase(class_it);
+  if (created_) {
+    WebImageRemoveCssClassBridge(handle_, css_class.c_str());
+  }
+  classes_.erase(it);
 }
 
 bool WebImage::HasCssClass(const std::string& css_class) const {
@@ -500,15 +469,10 @@ void WebImage::SetStyle(const std::string& property, const std::string& value) {
     return;
   }
 
-  const auto style_it = styles_.find(property);
-  if (style_it != styles_.end() && style_it->second == value) {
-    return;
-  }
-
   styles_[property] = value;
-  WithCreatedHandle_([&property, &value](std::int32_t handle) {
-    WebImageSetStyleBridge(handle, property.c_str(), value.c_str());
-  });
+  if (created_) {
+    WebImageSetStyleBridge(handle_, property.c_str(), value.c_str());
+  }
 }
 
 void WebImage::ClearStyle(const std::string& property) {
@@ -516,14 +480,10 @@ void WebImage::ClearStyle(const std::string& property) {
     return;
   }
 
-  const auto erased_count = styles_.erase(property);
-  if (erased_count == 0) {
-    return;
+  styles_.erase(property);
+  if (created_) {
+    WebImageClearStyleBridge(handle_, property.c_str());
   }
-
-  WithCreatedHandle_([&property](std::int32_t handle) {
-    WebImageClearStyleBridge(handle, property.c_str());
-  });
 }
 
 void WebImage::SyncAllToDom_() {
@@ -542,74 +502,93 @@ void WebImage::SyncAllToDom_() {
 }
 
 void WebImage::SyncSource_() {
-  WithCreatedHandle_([this](std::int32_t handle) {
-    WebImageSetSourceBridge(handle, src_.c_str());
-  });
+  if (!created_) {
+    return;
+  }
+
+  WebImageSetSourceBridge(handle_, src_.c_str());
 }
 
 void WebImage::SyncAlt_() {
-  WithCreatedHandle_([this](std::int32_t handle) {
-    WebImageSetAltBridge(handle, alt_text_.c_str());
-  });
+  if (!created_) {
+    return;
+  }
+
+  WebImageSetAltBridge(handle_, alt_text_.c_str());
 }
 
 void WebImage::SyncGeometry_() {
-  WithCreatedHandle_([this](std::int32_t handle) {
-    WebImageSetPositionBridge(handle, left_px_, top_px_);
-    WebImageSetSizeBridge(handle, width_px_, height_px_);
-  });
+  if (!created_) {
+    return;
+  }
+
+  WebImageSetPositionBridge(handle_, left_px_, top_px_);
+  WebImageSetSizeBridge(handle_, width_px_, height_px_);
 }
 
 void WebImage::SyncVisibility_() {
-  WithCreatedHandle_([this](std::int32_t handle) {
-    WebImageSetVisibleBridge(handle, visible_ ? 1 : 0);
-  });
+  if (!created_) {
+    return;
+  }
+
+  WebImageSetVisibleBridge(handle_, visible_ ? 1 : 0);
 }
 
 void WebImage::SyncOpacity_() {
-  WithCreatedHandle_([this](std::int32_t handle) {
-    WebImageSetOpacityBridge(handle, opacity_);
-  });
+  if (!created_) {
+    return;
+  }
+
+  WebImageSetOpacityBridge(handle_, opacity_);
 }
 
 void WebImage::SyncZIndex_() {
-  WithCreatedHandle_([this](std::int32_t handle) {
-    WebImageSetZIndexBridge(handle, z_index_);
-  });
+  if (!created_) {
+    return;
+  }
+
+  WebImageSetZIndexBridge(handle_, z_index_);
 }
 
 void WebImage::SyncParent_() {
+  if (!created_) {
+    return;
+  }
+
   const char* parent_id_ptr = parent_id_.empty() ? nullptr : parent_id_.c_str();
-  WithCreatedHandle_([parent_id_ptr](std::int32_t handle) {
-    WebImageAttachBridge(handle, parent_id_ptr);
-  });
+  WebImageAttachBridge(handle_, parent_id_ptr);
 }
 
 void WebImage::SyncId_() {
-  WithCreatedHandle_([this](std::int32_t handle) {
-    WebImageSetIdBridge(handle, element_id_.c_str());
-  });
+  if (!created_) {
+    return;
+  }
+
+  WebImageSetIdBridge(handle_, element_id_.c_str());
 }
 
 void WebImage::SyncClasses_() {
-  WithCreatedHandle_([this](std::int32_t handle) {
-    std::for_each(classes_.begin(), classes_.end(),
-                  [handle](const std::string& css_class) {
-                    if (!css_class.empty()) {
-                      WebImageAddCssClassBridge(handle, css_class.c_str());
-                    }
-                  });
-  });
+  if (!created_) {
+    return;
+  }
+
+  for (const auto& css_class : classes_) {
+    if (!css_class.empty()) {
+      WebImageAddCssClassBridge(handle_, css_class.c_str());
+    }
+  }
 }
 
 void WebImage::SyncStyles_() {
-  WithCreatedHandle_([this](std::int32_t handle) {
-    std::for_each(styles_.begin(), styles_.end(),
-                  [handle](const std::pair<const std::string, std::string>& entry) {
-                    WebImageSetStyleBridge(handle, entry.first.c_str(),
-                                           entry.second.c_str());
-                  });
-  });
+  if (!created_) {
+    return;
+  }
+
+  for (const auto& entry : styles_) {
+    const std::string& property = entry.first;
+    const std::string& value = entry.second;
+    WebImageSetStyleBridge(handle_, property.c_str(), value.c_str());
+  }
 }
 
 }  // namespace cse498
