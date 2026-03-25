@@ -1,457 +1,292 @@
 /**
- * @file TendencyAgent.h
- * @author ezazl
+* @file TendencyAgent.h
+ * @auther Ahmed Ezaz Labib
+ * Tendency-based agent that collects resources and constructs buildings.
  *
- * A simple tendency-based agent built in the spirit of PacingAgent.
+ * Design:
+ *   - This agent operates entirely within the action space defined in
+ *     DynamicWorld.cpp. It does not invent behaviors; it selects from the
+ *     available actions provided by the world (movement, collect, build).
  *
- * This class is intentionally kept small and modular.
- * The goal is to preserve the readability of PacingAgent while introducing
- * a richer internal decision skeleton:
+ *   - Tendencies act as weights that bias decision-making:
+ *       • Resource affinities → which resources the agent prefers to gather
+ *       • Building desires    → which structures the agent prioritizes
+ *       • Top-level tendencies → how strongly it explores, collects, builds, etc.
+ *     Higher values = stronger preference when scoring actions.
  *
- *   tendencies -> stable motivational pulls
- *   state      -> current internal condition
- *   mode       -> current behavioral mindset
- *   memory     -> recent experience
+ *   - Each turn, the agent evaluates all possible actions available to it
+ *     (as defined by DynamicWorld) and assigns a score based on:
+ *       • Current surroundings (nearby resources, buildings, agents)
+ *       • Its tendencies (affinities, desires, behavior weights)
+ *       • Simple memory (recent successes/failures)
+ *     The highest-scoring action is selected.
  *
- * The agent still exposes one main decision function:
+ *   - Goal selection is implicit, not fixed:
+ *       The agent does not commit to long-term plans. Instead, it re-evaluates
+ *       priorities every turn by comparing:
+ *         • build opportunities (if affordable)
+ *         • resource gathering opportunities
+ *       The strongest weighted option becomes the current behavior.
  *
- *   SelectAction(...)
+ *   - Memory is intentionally minimal:
+ *       • Resource counts (for affordability checks)
+ *       • Last-action success/failure (for persistence)
+ *       • Per-direction failure counts (for avoidance)
+ *     No long-term planning or pathfinding state is stored.
  *
- * But instead of following one fixed rule, that action is meant to emerge
- * from the interaction of these internal pieces.
+ * Supported actions (must match DynamicWorld.cpp):
+ *   Movement : up, down, left, right, up_left, up_right, down_left, down_right
+ *   Resource : collect
+ *   Build    : build_lumberyard, build_quarry, build_farm,
+ *              build_spawner, build_townhall
  */
 
 #pragma once
 
-#include <string>
 #include <limits>
-
+#include <string>
 #include "../core/AgentBase.hpp"
+
 
 namespace cse498 {
 
 class TendencyAgent : public AgentBase {
-protected:
-  /**
-   * The agent's current behavioral mindset.
-   *
-   * Mode is not itself the final action, but it acts as the agent's current
-   * "state of mind" and strongly affects which actions will be valued.
-   *
-   * Example:
-   *   Explore -> movement and novelty matter more
-   *   Pursue  -> actions toward a target matter more
-   *   Flee    -> safety matters more
-   *   Recover -> self-preservation matters more
-   *
-   * In a fuller implementation, mode would typically be updated from the
-   * interaction of tendencies, state, and recent memory.
-   */
-  enum class Mode {
-    Explore,
-    Pursue,
-    Flee,
-    Recover,
-    Idle
-  };
-
-  /// The agent's currently active behavioral mode.
-  Mode current_mode = Mode::Explore;
-
-  /**
-   * Represents the agent's current internal condition.
-   *
-   * These values are temporary and situational rather than permanent.
-   * They may rise or fall as the agent acts and reacts to the world.
-   *
-   * Conceptually:
-   *   tendencies = what kind of agent this is
-   *   state      = what condition the agent is currently in
-   *
-   * Example:
-   *   fear rising may push the agent toward Flee
-   *   low health may push the agent toward Recover
-   */
-  struct State {
-    double health = 100.0;        ///< Current physical condition
-    double energy = 100.0;        ///< Current stamina / readiness to act
-
-    double fear = 0.0;            ///< Pressure toward safer behavior
-    double confidence = 50.0;     ///< Belief in likely success
-    double curiosity = 50.0;      ///< Current pull toward exploration
-    double aggression = 0.0;      ///< Current pull toward confrontation
-
-    bool under_threat = false;    ///< Fast signal that danger is currently relevant
-    bool low_health = false;      ///< Convenience flag derived from health
-    bool recently_blocked = false;///< Recent failure signal (e.g. failed move)
-  };
-
-  /// The agent's current internal state.
-  State state;
-
-  /**
-   * Represents the agent's stable motivational biases.
-   *
-   * These are the longer-term pulls that shape how the agent tends to behave.
-   * They are closer to "personality" than to momentary condition.
-   *
-   * Example:
-   *   explore high -> agent is naturally more exploratory
-   *   safety high  -> agent is naturally more cautious
-   *   goal high    -> agent holds onto objectives more strongly
-   *
-   * In a fuller implementation, these values would influence both which mode
-   * becomes active and how candidate actions are scored.
-   */
-  struct Tendencies {
-    double explore = 1.0;         ///< Pull toward novelty, movement, discovery
-    double safety = 1.0;          ///< Pull toward caution and self-preservation
-    double goal = 1.0;            ///< Pull toward pursuing objectives
-    double aggression = 0.5;      ///< Pull toward confrontation
-    double recovery = 0.5;        ///< Pull toward resting / healing
-    double persistence = 0.5;     ///< Pull toward repeating successful actions
-    double avoidance = 0.5;       ///< Pull away from recently failed actions
-  };
-
-  /// The agent's stable tendency weights.
-  Tendencies tendencies;
-
-  /**
-   * Stores recent events so the agent does not behave as if every turn is
-   * completely independent.
-   *
-   * This is short-term memory only.
-   * It is meant to provide continuity across turns:
-   *
-   *   what just happened?
-   *   what was last tried?
-   *   was danger seen recently?
-   *   was an opportunity seen recently?
-   *
-   * In a fuller implementation, memory would influence state and mode.
-   */
-  struct ShortTermMemory {
-    int last_action_result = 1;       ///< Result of previous action
-    std::string last_action_name = "";///< Name of previous action
-    int failed_moves_in_row = 0;      ///< Useful for detecting being stuck
-
-    bool saw_enemy_recently = false;  ///< Recent threat signal
-    bool saw_item_recently = false;   ///< Recent opportunity signal
-
-    int turns_since_enemy = 9999;     ///< Age since last enemy sighting
-    int turns_since_item = 9999;      ///< Age since last item sighting
-    int turns_since_damage = 9999;    ///< Age since last damage event
-  };
-
-  /// The agent's recent memory.
-  ShortTermMemory short_memory;
-
-  /**
-   * Very lightweight movement memory.
-   *
-   * This is not full map memory. It simply tracks whether movement in each
-   * direction has tended to succeed or fail recently.
-   *
-   * This gives the agent a simple form of continuity and adaptation without
-   * introducing a large planning system.
-   */
-  struct DirectionMemory {
-    int up_failures = 0;
-    int down_failures = 0;
-    int left_failures = 0;
-    int right_failures = 0;
-
-    int up_successes = 0;
-    int down_successes = 0;
-    int left_successes = 0;
-    int right_successes = 0;
-  };
-
-  /// Simple directional success/failure memory.
-  DirectionMemory direction_memory;
-
-  /**
-   * Stores a persistent objective across turns.
-   *
-   * Without goal memory, the agent may change its mind every turn.
-   * With goal memory, it can stay oriented toward something for a while.
-   *
-   * This is intentionally very small for now:
-   *   has_goal      -> whether a goal exists
-   *   goal_type     -> what kind of goal it is
-   *   goal_location -> where that goal is believed to be
-   *   goal_age      -> how stale that goal is
-   */
-  struct GoalMemory {
-    bool has_goal = false;
-    std::string goal_type = "";   ///< e.g. "item", "enemy", "exit", "patrol"
-    Location goal_location;       ///< Where the goal is believed to be, included in Entity.hpp
-    int goal_age = 0;             ///< How long the current goal has existed
-  };
-
-  /// Persistent goal tracking.
-  GoalMemory goal_memory;
-
 public:
   /**
-   * Construct a tendency-based agent.
+   * Tendencies
    *
-   * Like PacingAgent, construction is intentionally simple:
-   * identity, name, and world membership come from AgentBase / Entity.
+   * This struct defines the agent’s personality through weighted tendencies.
+   * Behavior is not determined by a single value — it emerges from the
+   * combination of:
+   *   1. Top-level tendencies (what the agent generally wants to do)
+   *   2. Resource affinities (what resources it prefers)
+   *   3. Building desires (what structures it prioritizes)
+   *
+   * All values are non-negative. Larger values = stronger behavioral pull.
+   *
+   * Example archetypes (combinations):
+   *
+   * Woodsman:
+   *   High collect + high wood_affinity + high lumberyard_desire
+   *   → Prioritizes trees, gathers wood frequently, and builds lumberyards early.
+   *
+   * Miner:
+   *   High collect + high stone_affinity + high quarry_desire
+   *   → Focuses on stone gathering and quarry development.
+   *
+   * Farmer:
+   *   High collect + high wheat_affinity + high farm_desire
+   *   → Focuses on wheat and farm production.
+   *
+   * Builder:
+   *   High build + moderate collect + high building desires
+   *   → Converts resources into structures quickly once affordable.
+   *
+   * Fighter:
+   *   High combat + moderate explore + lower survival
+   *   → Aggressively engages enemies and accepts risk.
+   *
+   * Scout:
+   *   High explore + low build + low persistence
+   *   → Constantly moves and explores rather than committing to routines.
+   *
+   * Social Agent:
+   *   High social + moderate survival
+   *   → Stays near other agents and moves in groups.
+   *
+   * Survivor:
+   *   High survival + high avoidance + low combat
+   *   → Avoids danger and unnecessary conflict.
+   *
+   * In short:
+   *   - Tendencies control behavior
+   *   - Affinities control target preference
+   *   - Desires control building priorities
+   *
+   * Example configuration:
+   *
+   * auto& woodsman = world.AddAgent<cse498::TendencyAgent>("woodsman");
+   * woodsman
+   *   .SetWoodAffinity(3.0)
+   *   .SetStoneAffinity(0.5)
+   *   .SetWheatAffinity(0.5)
+   *   .SetLumberyardDesire(2.0)
+   *   .SetQuarryDesire(0.3)
+   *   .SetFarmDesire(0.3)
+   *   .SetBuild(1.2)
+   *   .SetCollect(1.5)
+   *   .SetExplore(0.8);
    */
-  TendencyAgent(size_t id, const std::string & name, const WorldBase & world)
-    : AgentBase(id, name, world) { }
 
+  struct Tendencies {
+    // Top-level behaviour weights
+    double explore     = 1.0;  // desire to roam and discover new areas
+    double collect     = 1.5;  // desire to gather nearby resources
+    double build       = 1.0;  // desire to construct buildings when possible
+    double persistence = 0.4;  // tendency to repeat recently successful actions
+    double avoidance   = 0.8;  // tendency to avoid recently failed directions/actions
+    double social      = 0.5;  // preference for being near other agents
+    double combat      = 0.5;  // willingness to engage or chase enemies
+    double survival    = 0.8;  // preference for safety and self-preservation
+
+    // Resource affinities (scale the collect drive per resource type)
+    double wood_affinity  = 1.0;  // preference for wood (trees)
+    double stone_affinity = 1.0;  // preference for stone
+    double wheat_affinity = 1.0;  // preference for wheat
+
+    // Building desires (scale the build drive per building type)
+    double lumberyard_desire = 0.5;  // desire to build lumberyards
+    double quarry_desire     = 0.5;  // desire to build quarries
+    double farm_desire       = 0.5;  // desire to build farms
+    double spawner_desire    = 0.3;  // desire to build spawners
+    double townhall_desire   = 1.0;  // desire to build a townhall (high priority)
+  };
+
+
+  Tendencies tendencies;
+
+  // Chainable Setter methods for configuring agent tendencies; each call updates a parameter and returns *this to allow fluent configuration (e.g., agent.SetCollect(1.5).SetBuild(1.2))
+  TendencyAgent& SetExplore(double v)          { tendencies.explore = v;           return *this; }
+  TendencyAgent& SetCollect(double v)          { tendencies.collect = v;           return *this; }
+  TendencyAgent& SetBuild(double v)            { tendencies.build = v;             return *this; }
+  TendencyAgent& SetPersistence(double v)      { tendencies.persistence = v;       return *this; }
+  TendencyAgent& SetAvoidance(double v)        { tendencies.avoidance = v;         return *this; }
+  TendencyAgent& SetWoodAffinity(double v)     { tendencies.wood_affinity = v;     return *this; }
+  TendencyAgent& SetStoneAffinity(double v)    { tendencies.stone_affinity = v;    return *this; }
+  TendencyAgent& SetWheatAffinity(double v)    { tendencies.wheat_affinity = v;    return *this; }
+  TendencyAgent& SetLumberyardDesire(double v) { tendencies.lumberyard_desire = v; return *this; }
+  TendencyAgent& SetQuarryDesire(double v)     { tendencies.quarry_desire = v;     return *this; }
+  TendencyAgent& SetFarmDesire(double v)       { tendencies.farm_desire = v;       return *this; }
+  TendencyAgent& SetSpawnerDesire(double v)    { tendencies.spawner_desire = v;    return *this; }
+  TendencyAgent& SetTownhallDesire(double v)   { tendencies.townhall_desire = v;   return *this; }
+  TendencyAgent& SetSocial(double v)           { tendencies.social = v;            return *this; }
+  TendencyAgent& SetCombat(double v)           { tendencies.combat = v;            return *this; }
+  TendencyAgent& SetSurvival(double v)         { tendencies.survival = v;          return *this; }
+
+
+
+  // Enumerates the agent’s current high-level objective, selected each turn based on tendencies and world state (no long-term commitment)
+  enum class Goal {
+    None,              // no strong objective; default fallback
+
+    // Resource collection goals (driven by collect tendency + resource affinities)
+    CollectWood,
+    CollectStone,
+    CollectWheat,
+
+    // Building goals (only considered if the agent can afford the structure)
+    BuildLumberyard,
+    BuildQuarry,
+    BuildFarm,
+    BuildSpawner,
+    BuildTownhall
+  };
+
+  /** Constructor */
+  TendencyAgent(size_t id, const std::string& name, WorldBase& world)
+    : AgentBase(id, name, world) {}
+
+  /** Destructor */
   ~TendencyAgent() = default;
 
-  // ----------------------------------------------------------------------
-  // Simple tendency configuration
-  // ----------------------------------------------------------------------
-  //
-  // These setters allow the agent's stable motivational biases to be tuned
-  // without changing the structure of the class.
-  //
-  // Example:
-  //   high explore weight -> more exploratory agent
-  //   high safety weight  -> more cautious agent
-  //
+  //Verifies required actions exist in DynamicWorld before the agent can run
+  bool Initialize() override;
 
-  TendencyAgent & SetExploreWeight(double in) { tendencies.explore = in; return *this; }
-  TendencyAgent & SetSafetyWeight(double in) { tendencies.safety = in; return *this; }
-  TendencyAgent & SetGoalWeight(double in) { tendencies.goal = in; return *this; }
-  TendencyAgent & SetAggressionWeight(double in) { tendencies.aggression = in; return *this; }
-  TendencyAgent & SetRecoveryWeight(double in) { tendencies.recovery = in; return *this; }
-  TendencyAgent & SetPersistenceWeight(double in) { tendencies.persistence = in; return *this; }
-  TendencyAgent & SetAvoidanceWeight(double in) { tendencies.avoidance = in; return *this; }
+  //Selects the best action each turn by scoring all available actions from the world
+  size_t SelectAction(const WorldGrid& grid) override;
 
-  /**
-   * This agent currently expects the four basic movement actions.
-   *
-   * For now, it is still a movement-oriented agent, so it needs:
-   *   up, down, left, right
-   *
-   * Later, this could be expanded to include richer action sets.
-   */
-  bool Initialize() override {
-    return HasAction("up") && HasAction("down")
-        && HasAction("left") && HasAction("right");
-  }
-
-  /**
-   * Choose the best available movement action.
-   *
-   * Like PacingAgent, this is still the main public decision function.
-   * The difference is that instead of directly choosing one fixed direction,
-   * this function is intended to:
-   *
-   *   1. update memory
-   *   2. update internal state
-   *   3. update current mode
-   *   4. score available actions
-   *   5. return the best one
-   *
-   * For now, the deeper helper functions are left as hooks for later
-   * implementation so the class structure stays clear.
-   */
-  size_t SelectAction(const WorldGrid & grid) override
-  {
-    UpdateMemory();
-    UpdateDirectionMemory();
-    UpdateState(grid);
-    UpdateMode();
-
-    size_t best_action = 0;
-    double best_score = -std::numeric_limits<double>::infinity();
-
-    for (const std::string action_name : {"up", "down", "left", "right"}) {
-      if (!HasAction(action_name)) continue;
-
-      const double score = ScoreAction(action_name, grid);
-
-      if (score > best_score) {
-        best_score = score;
-        best_action = GetActionID(action_name);
-      }
-    }
-
-    RememberChosenAction(best_action);
-    return best_action;
-  }
-
-  /**
-   * Receive world notifications.
-   *
-   * For now, this is the simplest bridge from the world into the agent's
-   * memory/state system.
-   *
-   * Example:
-   *   damage     -> recent harm
-   *   enemy      -> recent threat
-   *   item_alert -> recent opportunity
-   *
-   * This can later be expanded into a Percept based system or better event handling.
-   */
-  void Notify(const std::string & /*message*/,
-              const std::string & msg_type = "none") override
-  {
-    if (msg_type == "damage") {
-      short_memory.turns_since_damage = 0;
-      state.under_threat = true;
-    }
-    else if (msg_type == "enemy") {
-      short_memory.saw_enemy_recently = true;
-      short_memory.turns_since_enemy = 0;
-    }
-    else if (msg_type == "item_alert") {
-      short_memory.saw_item_recently = true;
-      short_memory.turns_since_item = 0;
-    }
-  }
+  //Receives feedback/events from the world (e.g., failures, resources) to update internal memory
+  void Notify(const std::string& message,
+              const std::string& msg_type = "none") override;
 
 protected:
-  /**
-   * Update short-term memory from the most recent turn.
-   *
-   * Intended responsibilities:
-   *   - age memory counters
-   *   - record latest action result
-   *   - detect repeated failure
-   *   - refresh recent-event flags
-   *
-   * This is one of the main bridges between "what just happened" and
-   * future behavior.
-   */
-  virtual void UpdateMemory();
+  //Minimal memory used for decision-making (no long-term planning or history)
+  struct Memory {
+    //Current resource counts (used for build affordability checks)
+    size_t wood  = 0;
+    size_t stone = 0;
+    size_t wheat = 0;
+    size_t steel = 0; // typically produced by quarries and received via Notify
 
-  /**
-   * Update directional success/failure memory.
-   *
-   * Intended responsibilities:
-   *   - remember whether movement in a direction has recently succeeded
-   *     or failed
-   *   - help prevent the agent from blindly repeating bad movement
-   *
-   * This is intentionally lightweight and local.
-   */
-  virtual void UpdateDirectionMemory();
+    //Last action outcome (used for persistence and short-term feedback)
+    std::string last_action = "";
+    bool        last_succeeded = true;
 
-  /**
-   * Update the current internal state from memory and world context.
-   *
-   * Intended responsibilities:
-   *   - compute or refresh low_health / under_threat style flags
-   *   - let recent danger affect fear
-   *   - let repeated failure affect confidence
-   *   - let current circumstances shift internal pressure
-   *
-   * State is the agent's current condition, not its final decision.
-   */
-  virtual void UpdateState(const WorldGrid & grid);
+    //Directional failure counts (used to avoid repeatedly bad moves)
+    int fail_up    = 0;
+    int fail_down  = 0;
+    int fail_left  = 0;
+    int fail_right = 0;
+  } mem;
 
-  /**
-   * Choose the current mode from tendencies, state, and memory.
-   *
-   * Intended responsibilities:
-   *   - decide whether the agent should currently behave as exploring,
-   *     pursuing, fleeing, recovering, etc.
-   *   - provide a coherent current mindset before scoring actions
-   *
-   * This is where the internal pieces begin to turn into behavior.
-   */
-  virtual void UpdateMode();
+  //Current short-term objective, re-evaluated every turn from tendencies + world state
+  Goal current_goal = Goal::None;
 
-  /**
-   * Score one candidate action.
-   *
-   * Intended responsibilities:
-   *   - combine the relevant tendency scores
-   *   - allow current mode to shape the value of the action
-   *   - return a single score that can be compared against other actions
-   *
-   * This is the core evaluation hook for the agent.
-   */
-  virtual double ScoreAction(const std::string & action_name,
-                             const WorldGrid & grid) const;
+  //Core pipeline for decision-making: selects a goal and scores actions each turn
+  void   ChooseGoal();
 
-  /**
-   * Exploration-related part of action scoring.
-   *
-   * Intended idea:
-   *   value movement, novelty, or discovery-related behavior
-   */
-  virtual double ScoreExplore(const std::string & action_name,
-                              const WorldGrid & grid) const;
+  //Computes a total score for an action based on tendencies, goal, and world state
+  double ScoreAction(const std::string& action, const WorldGrid& grid) const;
 
-  /**
-   * Safety-related part of action scoring.
-   *
-   * Intended idea:
-   *   penalize risky or repeatedly bad actions and prefer safer movement
-   */
-  virtual double ScoreSafety(const std::string & action_name,
-                             const WorldGrid & grid) const;
+  //Movement baseline: rewards general exploration when no strong target is present
+  double ScoreExplore    (const std::string& action, const WorldGrid& grid) const;
 
-  /**
-   * Goal-related part of action scoring.
-   *
-   * Intended idea:
-   *   value actions that move toward or maintain an objective
-   */
-  virtual double ScoreGoal(const std::string & action_name,
-                           const WorldGrid & grid) const;
+  //Rewards actions that move toward or collect the current goal resource
+  double ScoreCollect    (const std::string& action, const WorldGrid& grid) const;
 
-  /**
-   * Aggression-related part of action scoring.
-   *
-   * Intended idea:
-   *   support more confrontational behavior when appropriate
-   */
-  virtual double ScoreAggression(const std::string & action_name,
-                                 const WorldGrid & grid) const;
+  //Scores build actions, only allowing the current goal building when affordable and valid
+  double ScoreBuild      (const std::string& action, const WorldGrid& grid) const;
 
-  /**
-   * Recovery-related part of action scoring.
-   *
-   * Intended idea:
-   *   support self-preserving behavior when energy/health are low
-   */
-  virtual double ScoreRecovery(const std::string & action_name,
-                               const WorldGrid & grid) const;
+  //Slightly rewards repeating the last successful action (short-term consistency)
+  double ScorePersistence(const std::string& action) const;
 
-  /**
-   * Persistence-related part of action scoring.
-   *
-   * Intended idea:
-   *   slightly favor repeating actions that have recently worked
-   */
-  virtual double ScorePersistence(const std::string & action_name,
-                                  const WorldGrid & grid) const;
+  //Penalizes actions/directions that have recently failed (avoids bad moves)
+  double ScoreAvoidance  (const std::string& action) const;
 
-  /**
-   * Avoidance-related part of action scoring.
-   *
-   * Intended idea:
-   *   discourage repeating actions that have recently failed
-   */
-  virtual double ScoreAvoidance(const std::string & action_name,
-                                const WorldGrid & grid) const;
+  //Rewards engaging or moving toward enemies based on combat tendency
+  double ScoreCombat     (const std::string& action, const WorldGrid& grid) const;
 
-  /**
-   * Remember which action was chosen this turn.
-   *
-   * Intended responsibilities:
-   *   - translate action ID back into an action name
-   *   - store that name for next-turn persistence / avoidance logic
-   */
-  virtual void RememberChosenAction(size_t action_id);
+  //Rewards staying safe and avoiding dangerous positions based on survival tendency
+  double ScoreSurvival   (const std::string& action, const WorldGrid& grid) const;
 
-  /**
-   * Return the recent failure count for a given movement direction.
-   *
-   * Intended use:
-   *   helper for safety / avoidance scoring
-   */
-  virtual int GetDirectionFailures(const std::string & action_name) const;
+  //Rewards moving toward or staying near other agents based on social tendency
+  double ScoreSocial     (const std::string& action, const WorldGrid& grid) const;
+
+  //Checks if the agent has enough resources in memory to build the given structure
+  bool CanAfford(Goal g) const;
+
+  //Maps the current build goal to its corresponding action string (e.g., "build_quarry")
+  std::string GoalBuildAction() const;
+
+  //Maps the current collect goal to its corresponding resource cell type (e.g., "tree")
+  std::string GoalResourceCell() const;
+
+
+  //Checks if a given cell matches the current goal resource type
+  bool IsGoalCell (size_t cell_id, const WorldGrid& grid) const;
+
+  //Returns true if the agent is currently standing on the goal resource
+  bool OnGoalResource (const WorldGrid& grid) const;
+
+  //Returns true if taking the action would move onto the goal resource
+  bool StepsOntoGoal (const std::string& action, const WorldGrid& grid) const;
+
+  //Returns true if the agent is standing on a grass tile (required for building)
+  bool OnGrass (const WorldGrid& grid) const;
+
+  //Returns true if the action is a movement action
+  bool IsMoveAction(const std::string& action) const;
+
+  //Checks whether a movement action leads to a valid grid position
+  bool IsMoveValid (const std::string& action, const WorldGrid& grid) const;
+
+  //Computes the next world position resulting from a movement action
+  WorldPosition NextPos (const std::string& action) const;
+
+  //Returns how many times a movement direction has failed (used for avoidance scoring)
+  int FailCount(const std::string& action) const;
+
+
 };
 
-} 
+} // namespace cse498
