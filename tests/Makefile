@@ -17,6 +17,10 @@ BIN       := $(BUILD_DIR)/run_tests
 
 CATCH_INC := ../third-party/Catch/single_include
 
+# SQLite - (Group 9)
+SQLITE_DIR := ../third-party/sqlite
+SQLITE_OBJ := $(BUILD_DIR)/third-party/sqlite3.o
+
 CXXFLAGS ?= -O2 -g
 WARNFLAGS ?= -Wall -Wextra -Wpedantic
 CPPFLAGS += -I$(SRC_DIR) -I$(CATCH_INC)
@@ -47,8 +51,13 @@ test: $(BIN)
 	$(BIN)
 
 # Link test runner
-$(BIN): $(OBJ_FILES) | $(BUILD_DIR)
+$(BIN): $(OBJ_FILES) $(SQLITE_OBJ) | $(BUILD_DIR)
 	$(CXX) -std=c++23 $(CXXFLAGS) $(WARNFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
+# Compile SQLite amalgamation (C, not C++)
+$(SQLITE_OBJ): $(SQLITE_DIR)/sqlite3.c | $(BUILD_DIR)
+	@mkdir -p $(dir $@)
+	cc -O2 -DSQLITE_THREADSAFE=1 -c $< -o $@
 
 # Compile source/ -> build/tests/source/...
 $(BUILD_DIR)/source/%.o: $(SRC_DIR)/% | $(BUILD_DIR)
