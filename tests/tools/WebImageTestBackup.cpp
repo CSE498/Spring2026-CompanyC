@@ -1,8 +1,9 @@
 #include <cassert>
 #include <iostream>
+#include <utility>
 
-#include "../../../source/tools/WebImage/WebImage.h"
-#include "tools/WebImage/WebImage.h"
+#include "tools/WebImage.h"
+
 
 
 
@@ -87,7 +88,7 @@ static void TestClassesAndStyles() {
   img.ClearStyle("");
 }
 
-static void TestLifecycleMove() {
+static void TestLifecycleMoveCtor() {
   WebImage a("a.png", "a");
   assert(!a.IsCreated());
   a.EnsureCreated();
@@ -104,18 +105,6 @@ static void TestLifecycleMove() {
   assert(!b.IsCreated());
 }
 
-int main() {
-  TestDefaults();
-  TestSetters();
-  TestOpacityClamp();
-  TestClassesAndStyles();
-  TestLifecycleMove();
-
-  std::cout << "WebImage tests passed.\n";
-  return 0;
-}
-
-
 static void TestRemoveFromDomAndDestroyRecreate() {
   WebImage img("assets/test.png", "demo");
   img.SetParentElementId("root");
@@ -123,16 +112,17 @@ static void TestRemoveFromDomAndDestroyRecreate() {
 
   img.EnsureCreated();
   assert(img.IsCreated());
-  //const uintptr_t h1 = img.GetHandle();
+
+  // Use auto to match GetHandle() type exactly (avoids -Wsign-compare).
   const auto h1 = img.GetHandle();
   assert(h1 != 0);
 
-  // Remove from DOM should not "un-create" the object.
+  // RemoveFromDom should not "un-create" the object; handle should remain valid.
   img.RemoveFromDom();
   assert(img.IsCreated());
   assert(img.GetHandle() == h1);
 
-  // Destroy should reset the object back to "not created".
+  // Destroy should reset state.
   img.Destroy();
   assert(!img.IsCreated());
   assert(img.GetHandle() == 0);
@@ -140,24 +130,72 @@ static void TestRemoveFromDomAndDestroyRecreate() {
   // Should be able to recreate cleanly.
   img.EnsureCreated();
   assert(img.IsCreated());
-  const uintptr_t h2 = img.GetHandle();
+  const auto h2 = img.GetHandle();
   assert(h2 != 0);
-  assert(h2 != h1);  // expected if your native stub increments handles
 }
 
 static void TestMoveAssign() {
   WebImage a("a.png", "a");
   a.EnsureCreated();
-  const uintptr_t h = a.GetHandle();
+  assert(a.IsCreated());
+  const auto h = a.GetHandle();
   assert(h != 0);
 
   WebImage b("b.png", "b");
+  // Give b some state so move-assign exercises "overwrite" behavior too.
+  b.SetPositionPx(10, 20);
+  b.SetOpacity(0.5);
+  b.EnsureCreated();
+  assert(b.IsCreated());
+
   b = std::move(a);
 
   assert(b.IsCreated());
   assert(b.GetHandle() == h);
 
-  // moved-from object should be safe to use/destroy
+  // Moved-from object must be safe and reset.
   assert(!a.IsCreated());
   assert(a.GetHandle() == 0);
+
+  b.Destroy();
+  assert(!b.IsCreated());
 }
+
+
+
+static void TestSizeAutoEdgeCases() {
+  cse498::WebImage img;
+
+  img.SetSizePx(320.0, 240.0);
+  assert(img.GetWidthPx() == 320.0);
+  assert(img.GetHeightPx() == 240.0);
+
+  // 0 means "auto"
+  img.SetSizePx(0.0, 0.0);
+  assert(img.GetWidthPx() == 0.0);
+  assert(img.GetHeightPx() == 0.0);
+
+  img.SetSizePx(0.0, 123.0);
+  assert(img.GetWidthPx() == 0.0);
+  assert(img.GetHeightPx() == 123.0);
+
+  img.SetSizePx(456.0, 0.0);
+  assert(img.GetWidthPx() == 456.0);
+  assert(img.GetHeightPx() == 0.0);
+}
+
+int main() {
+  TestDefaults();
+  TestSetters();
+  TestSizeAutoEdgeCases();
+  TestOpacityClamp();
+  TestClassesAndStyles();
+  TestLifecycleMoveCtor();
+  TestRemoveFromDomAndDestroyRecreate();
+  TestMoveAssign();
+
+
+  std::cout << "WebImage tests passed.\n";
+  return 0;
+}
+

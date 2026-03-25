@@ -3,20 +3,7 @@
 #include <utility>
 
 #include "tools/WebImage.h"
-
-
-
-
-/**
- * This file is part of the Spring 2026, CSE 498, section 2, course project.
- * @brief testing for WebImage 
- * citations - ChatGPT LLM (OpenAI) was used to help generate parts of this file. The code was then reviewed and heavily edited by the author to ensure correctness and suitability for the project.
- * @author Sadwal Patel
- * Copyright (c) 2026 Sadwal Patel
- * SPDX-License-Identifier: MIT
- **/
-
-
+#include "tools/WebAssetKeys.hpp"
 
 using cse498::WebImage;
 
@@ -38,8 +25,8 @@ static void TestDefaults() {
 
 static void TestSetters() {
   WebImage img;
-  img.SetSource("assets/cat.png");
-  img.SetAltText("a cat");
+  img.SetSource(cse498::web_assets::AssetPath(cse498::web_assets::kPlayer));
+  img.SetAltText("a player icon");
   img.SetPositionPx(12.5, 99.0);
   img.SetSizePx(320.0, 240.0);
   img.SetVisible(false);
@@ -48,8 +35,8 @@ static void TestSetters() {
   img.SetParentElementId("root");
   img.SetElementId("hero-image");
 
-  assert(img.GetSource() == "assets/cat.png");
-  assert(img.GetAltText() == "a cat");
+  assert(img.GetSource() == "assets/player.png");
+  assert(img.GetAltText() == "a player icon");
   assert(img.GetLeftPx() == 12.5);
   assert(img.GetTopPx() == 99.0);
   assert(img.GetWidthPx() == 320.0);
@@ -74,7 +61,7 @@ static void TestClassesAndStyles() {
   assert(!img.HasCssClass("rounded"));
   img.AddCssClass("rounded");
   assert(img.HasCssClass("rounded"));
-  img.AddCssClass("rounded");  // duplicate should not create weirdness
+  img.AddCssClass("rounded");
   assert(img.HasCssClass("rounded"));
   img.RemoveCssClass("rounded");
   assert(!img.HasCssClass("rounded"));
@@ -82,8 +69,6 @@ static void TestClassesAndStyles() {
   img.SetStyle("border", "1px solid red");
   img.SetStyle("pointerEvents", "none");
   img.ClearStyle("border");
-  // No direct getter for styles (intentional); this is still valuable coverage:
-  // it ensures calls don't crash and handles empty keys safely.
   img.SetStyle("", "ignored");
   img.ClearStyle("");
 }
@@ -113,21 +98,17 @@ static void TestRemoveFromDomAndDestroyRecreate() {
   img.EnsureCreated();
   assert(img.IsCreated());
 
-  // Use auto to match GetHandle() type exactly (avoids -Wsign-compare).
   const auto h1 = img.GetHandle();
   assert(h1 != 0);
 
-  // RemoveFromDom should not "un-create" the object; handle should remain valid.
   img.RemoveFromDom();
   assert(img.IsCreated());
   assert(img.GetHandle() == h1);
 
-  // Destroy should reset state.
   img.Destroy();
   assert(!img.IsCreated());
   assert(img.GetHandle() == 0);
 
-  // Should be able to recreate cleanly.
   img.EnsureCreated();
   assert(img.IsCreated());
   const auto h2 = img.GetHandle();
@@ -142,7 +123,6 @@ static void TestMoveAssign() {
   assert(h != 0);
 
   WebImage b("b.png", "b");
-  // Give b some state so move-assign exercises "overwrite" behavior too.
   b.SetPositionPx(10, 20);
   b.SetOpacity(0.5);
   b.EnsureCreated();
@@ -152,8 +132,6 @@ static void TestMoveAssign() {
 
   assert(b.IsCreated());
   assert(b.GetHandle() == h);
-
-  // Moved-from object must be safe and reset.
   assert(!a.IsCreated());
   assert(a.GetHandle() == 0);
 
@@ -161,16 +139,14 @@ static void TestMoveAssign() {
   assert(!b.IsCreated());
 }
 
-
-
 static void TestSizeAutoEdgeCases() {
-  cse498::WebImage img;
+  WebImage img;
 
   img.SetSizePx(320.0, 240.0);
   assert(img.GetWidthPx() == 320.0);
   assert(img.GetHeightPx() == 240.0);
 
-  // 0 means "auto"
+  // 0 means auto.
   img.SetSizePx(0.0, 0.0);
   assert(img.GetWidthPx() == 0.0);
   assert(img.GetHeightPx() == 0.0);
@@ -184,6 +160,13 @@ static void TestSizeAutoEdgeCases() {
   assert(img.GetHeightPx() == 0.0);
 }
 
+static void TestAssetHelper() {
+  using namespace cse498::web_assets;
+  assert(AssetPath(kPlayer) == "assets/player.png");
+  assert(AssetPath(kTownHall) == "assets/townhall.png");
+  assert(AssetPath(kFragileWall) == "assets/fragile_wall.png");
+}
+
 int main() {
   TestDefaults();
   TestSetters();
@@ -193,9 +176,8 @@ int main() {
   TestLifecycleMoveCtor();
   TestRemoveFromDomAndDestroyRecreate();
   TestMoveAssign();
-
+  TestAssetHelper();
 
   std::cout << "WebImage tests passed.\n";
   return 0;
 }
-
