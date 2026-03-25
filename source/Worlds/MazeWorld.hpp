@@ -29,10 +29,10 @@ namespace cse498 {
 
   public:
     MazeWorld() {
-      floor_id = main_grid.AddCellType("floor", "Floor that agents can walk on.", ' ');
-      wall_id  = main_grid.AddCellType("wall",  "Impenetrable wall.",             '#');
+      floor_id = mMainGrid.AddCellType("floor", "Floor that agents can walk on.", ' ');
+      wall_id  = mMainGrid.AddCellType("wall",  "Impenetrable wall.",             '#');
 
-      main_grid.Load(std::vector<std::string>{"#######################",
+      mMainGrid.Load(std::vector<std::string>{"#######################",
                                               "# #            ##     #",
                                               "# #  #  ######    ### #",
                                               "# #  #  #     #  #  # #",
@@ -60,8 +60,8 @@ namespace cse498 {
       }
 
       // Don't let the agent move off the world or into a wall.
-      if (!main_grid.IsValid(new_position)) { return false; }
-      if (main_grid[new_position] == wall_id) { return false; }
+      if (!mMainGrid.IsValid(new_position)) { return false; }
+      if (mMainGrid[new_position] == wall_id) { return false; }
 
       // Set the agent to its new postion.
       agent.SetLocation(new_position);

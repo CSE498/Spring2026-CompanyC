@@ -2,6 +2,8 @@
 
 #include <random>
 #include "../core/WorldBase.hpp"
+#include "../core/Building.hpp"
+#include "../Agents/PacingAgent.hpp"
 
 namespace cse498 {
 
@@ -22,18 +24,24 @@ protected:
   };
 
   // Counter for amount of times UpdateWorld has been called
-  size_t update_counter = 0;
+  size_t mUpdateCounter = 0;
+
+  // vector of all the buildings in the world
+  std::vector<Building> mBuildings;
+
+  // spawner positions and their build times (for 60-tick spawn interval)
+  std::vector<std::pair<WorldPosition, size_t>> mSpawners;
 
   // CellType IDs
-  size_t grass_id = 0;
-  size_t tree_id = 0;
-  size_t stone_id = 0;
-  size_t wheat_id = 0;
-  size_t quarry_id = 0;
-  size_t lumberyard_id = 0;
-  size_t farm_id = 0;
-  size_t spawner_id = 0;
-  size_t townhall_id = 0;
+  size_t mGrassId = 0;
+  size_t mTreeId = 0;
+  size_t mStoneId = 0;
+  size_t mWheatId = 0;
+  size_t mQuarryId = 0;
+  size_t mLumberyardId = 0;
+  size_t mFarmId = 0;
+  size_t mSpawnerId = 0;
+  size_t mTownhallId = 0;
 
   /// Provide the agent with all possible DynamicWorld actions.
   void ConfigAgent(AgentBase & agent) override {
@@ -55,87 +63,64 @@ protected:
 
   // Helper to configure the main_grid
   void ConfigureCellTypes() {
-    grass_id = main_grid.AddCellType("grass", "Open buildable terrain.", '.');
-    tree_id  = main_grid.AddCellType("tree", "Wood resource.", 'T');
-    stone_id = main_grid.AddCellType("stone", "Stone resource.", 'S');
-    wheat_id = main_grid.AddCellType("wheat", "Wheat resource.", 'W');
-    quarry_id = main_grid.AddCellType("quarry", "Produces stone and steel.", 'Q');
-    lumberyard_id = main_grid.AddCellType("lumberyard", "Produces wood.", 'L');
-    farm_id = main_grid.AddCellType("farm", "Produces wheat.", 'F');
-    spawner_id = main_grid.AddCellType("spawner", "Spawns agents.", 'A');
-    townhall_id = main_grid.AddCellType("townhall", "Win condition.", 'H');
+    mGrassId = mMainGrid.AddCellType("grass", "Open buildable terrain.", '.');
+    mTreeId  = mMainGrid.AddCellType("tree", "Wood resource.", 'T');
+    mStoneId = mMainGrid.AddCellType("stone", "Stone resource.", 'S');
+    mWheatId = mMainGrid.AddCellType("wheat", "Wheat resource.", 'W');
+    mQuarryId = mMainGrid.AddCellType("quarry", "Produces stone and steel.", 'Q', false);
+    mLumberyardId = mMainGrid.AddCellType("lumberyard", "Produces wood.", 'L', false);
+    mFarmId = mMainGrid.AddCellType("farm", "Produces wheat.", 'F', false);
+    mSpawnerId = mMainGrid.AddCellType("spawner", "Spawns agents.", 'A', false);
+    mTownhallId = mMainGrid.AddCellType("townhall", "Win condition.", 'H', false);
   }
 
-  // Reconfigure main_grid to generate the world with DynamicWorld parameters.
-  // Future implementations should guarantee enough resources to make winning possible, as well
-  // as implement cluster generation rather than random generation
-  void GenerateWorld(size_t width, size_t height) {
-    main_grid.Resize(width, height, grass_id);
+  // helper function to place clusters materials
+  void PlaceCluster(size_t type_id, int center_x, int center_y, int radius) {
+    for (int dy = -radius; dy <= radius; ++dy) {
+      for (int dx = -radius; dx <= radius; ++dx) {
+        int x = center_x + dx;
+        int y = center_y + dy;
 
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<int> dist(0, 99);
+        if (!mMainGrid.IsValid(x, y)) continue;
 
-    for (size_t y = 0; y < height; ++y) {
-      for (size_t x = 0; x < width; ++x) {
-        WorldPosition pos(x, y);
-
-        int roll = dist(gen);
-
-        if (roll < 8) {
-          main_grid[pos] = tree_id;      // 8%
-        }
-        else if (roll < 14) {
-          main_grid[pos] = stone_id;     // 6%
-        }
-        else if (roll < 20) {
-          main_grid[pos] = wheat_id;     // 6%
-        }
-        else {
-          main_grid[pos] = grass_id;     // rest
+        if (dx * dx + dy * dy <= radius * radius) {
+          WorldPosition pos(x, y);
+          if (mMainGrid[pos] == mGrassId) {
+            mMainGrid[pos] = type_id;
+          }
         }
       }
     }
   }
+  // Reconfigure main_grid to generate the world with DynamicWorld parameters.
+  // Future implementations should guarantee enough resources to make winning possible, as well
+  // as implement cluster generation rather than random generation
+  void GenerateWorld(size_t width, size_t height) {
+    mMainGrid.Resize(width, height, mGrassId);
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    std::uniform_int_distribution<int> x_dist(2, static_cast<int>(width) - 3);
+    std::uniform_int_distribution<int> y_dist(2, static_cast<int>(height) - 3);
+
+    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 3);
+    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 3);
+
+    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 3);
+    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 3);
+
+    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 3);
+    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 3);
+  }
 
   // Temporary: any in-bounds tile is currently walkable.
   // Later, building occupancy / blocked-tile rules can be added here.
-  int DoAction(AgentBase & agent, size_t action_id) override {
-    WorldPosition cur = agent.GetLocation().AsWorldPosition();
-    WorldPosition next = cur;
-
-    switch (action_id) {
-      case REMAIN_STILL: break;
-      case MOVE_UP:         next = cur.Up(); break;
-      case MOVE_DOWN:       next = cur.Down(); break;
-      case MOVE_LEFT:       next = cur.Left(); break;
-      case MOVE_RIGHT:      next = cur.Right(); break;
-      case MOVE_UP_LEFT:    next = cur.Up().Left(); break;
-      case MOVE_UP_RIGHT:   next = cur.Up().Right(); break;
-      case MOVE_DOWN_LEFT:  next = cur.Down().Left(); break;
-      case MOVE_DOWN_RIGHT: next = cur.Down().Right(); break;
-      case COLLECT: break;
-      case BUILD_LUMBERYARD: break;
-      case BUILD_QUARRY: break;
-      case BUILD_SPAWNER: break;
-      case BUILD_FARM: break;
-      case BUILD_TOWNHALL: break;
-      default: break;
-    }
-
-    if (action_id >= MOVE_UP && action_id <= MOVE_DOWN_RIGHT) {
-      if (!main_grid.IsValid(next)) return false;
-      agent.SetLocation(next);
-      return true;
-    }
-
-    return false;
-  }
+  int DoAction(AgentBase & agent, size_t action_id) override;
 
   // This will handle resource generation from buildings, as well as any other future autonomous world actions
-  void UpdateWorld() override {
-    update_counter++;
-  }
+  void UpdateWorld() override;
+
 };
 
 } // namespace cse498
