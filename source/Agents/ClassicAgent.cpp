@@ -230,8 +230,8 @@ void ClassicAgent::Sense( WorldGrid& grid) {
         }
     }
 
-    tree.setMemory("enemy_nearby", BBValue(std::in_place_type<bool>, enemy_nearby));
-    tree.setMemory("material_nearby", BBValue(std::in_place_type<bool>, material_nearby));
+    tree.setMemory("enemy_nearby", enemy_nearby);
+    tree.setMemory("material_nearby", material_nearby);
 
     // --------------------------------------------------
     // Compute explore move from shared knowledge.

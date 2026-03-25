@@ -26,6 +26,11 @@ enum class Status {
 using BBValue = std::variant<int, double, std::string, bool>;
 using Blackboard = std::unordered_map<std::string, BBValue>;
 
+template<typename T>
+inline void updateBB(Blackboard& bb, const std::string& key, T value){
+    bb[key] = BBValue(std::in_place_type<T>, value);
+}
+
 /**
  * @brief Abstract base class for all nodes in the Behavior Tree.
  * Any custom action or condition must inherit from this and implement tick().
@@ -63,7 +68,14 @@ public:
 
     Status update();
 
-    void setMemory(const std::string& key, BBValue value);
+    void setMemory(const std::string& key, BBValue value) {
+        blackboard[key] = value;
+    }
+
+    template<typename T>
+    void setMemory(const std::string& key, T value){
+        blackboard[key] = BBValue(std::in_place_type<T>, value);
+    };
 
     const Blackboard& getBlackboard() const { return blackboard ;}
 };
