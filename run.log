@@ -1,0 +1,3 @@
+[2026-03-24 06:32:08] [NORMAL] [OutputDemo] Normal level message.
+[2026-03-24 06:32:08] [VERBOSE] [OutputDemo] (agent=12 tick=42) Verbose level message with agent and tick.
+[2026-03-24 06:32:08] [DEBUG] [OutputDemo] (agent=7 tick=530) Debug level message.
