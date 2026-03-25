@@ -1,4 +1,4 @@
-#include "TendencyAgent.h"
+#include "TendencyAgent.hpp"
 
 /**
  * TendencyAgent pipeline overview:
