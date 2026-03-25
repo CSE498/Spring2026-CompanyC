@@ -17,32 +17,51 @@ using namespace cse498;
 int main()
 {
   MazeWorld world;
-  world.AddAgent<PacingAgent>("Pacer 1").SetLocation(WorldPosition{3,1});
-  world.AddAgent<PacingAgent>("Pacer 2").SetLocation(WorldPosition{6,1});
-  world.AddAgent<PacingAgent>("Guard 1").SetHorizontal().SetLocation(WorldPosition{7,7});
-  world.AddAgent<PacingAgent>("Guard 2").SetHorizontal().ToggleDirection().SetLocation(WorldPosition{8,8});
-  world.AddAgent<TrashInterface>("Interface").SetSymbol('@').SetLocation(WorldPosition{1,1});
+  auto& pacer1 = world.AddAgent<cse498::PacingAgent>("Pacer 1");
+  pacer1.SetLocation(cse498::WorldPosition{3,1});  
+
+  // Available actions for the agents
+  size_t up = 1;
+  size_t down = 2;
+  size_t left = 3;
+  size_t right = 4;
+
+  // ActionLog
+  // ActionLog is already created within the world through the WorldBase.hpp file 
+  // Have and agents action recorded within the log
+  cse498::WorldPosition cur_position = pacer1.GetLocation().AsWorldPosition();
+  pacer1.SetLocation(cur_position.Up());
+  world.GetActionLog().actionEnd(pacer1);
+
+  // Obtain the actions of one agent
+  auto pacerActions = world.GetActionLog().getActionsByAgent(pacer1);
+
+  // Obtain the actions of all the agents
+  world.GetActionLog().getActions();
+
+  // Clear the ActionLog
+  world.GetActionLog().clear();
 
   // ActionLog
 
-  // ActionLog
 
   // Datalog
 
   // Datalog
 
+
   // OutputManager
 
   // OutputManager
+
 
   // ReplayDriver
 
   // ReplayDriver
 
-  // Timer
 
   // Timer
 
-  world.Run();
+  // Timer
   
 }
