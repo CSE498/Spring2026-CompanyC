@@ -618,6 +618,9 @@ std::expected<void, DatabaseError> Database::SaveToFile(const std::string& filep
             return std::unexpected(raw.error());
         }
 
+        auto type_tag = GetType(key);
+        std::string tag = type_tag.has_value() ? *type_tag : "";
+
         uint64_t key_len = key.size();
         out.write(reinterpret_cast<const char*>(&key_len), sizeof(key_len));
         out.write(key.data(), static_cast<std::streamsize>(key_len));
@@ -625,6 +628,10 @@ std::expected<void, DatabaseError> Database::SaveToFile(const std::string& filep
         uint64_t val_len = raw->size();
         out.write(reinterpret_cast<const char*>(&val_len), sizeof(val_len));
         out.write(reinterpret_cast<const char*>(raw->data()), static_cast<std::streamsize>(val_len));
+
+        uint64_t tag_len = tag.size();
+        out.write(reinterpret_cast<const char*>(&tag_len), sizeof(tag_len));
+        out.write(tag.data(), static_cast<std::streamsize>(tag_len));
     }
 
     if (!out) {
@@ -663,7 +670,17 @@ std::expected<void, DatabaseError> Database::LoadFromFile(const std::string& fil
         in.read(reinterpret_cast<char*>(value.data()), static_cast<std::streamsize>(val_len));
         if (!in) return std::unexpected(DatabaseError::InvalidData);
 
-        auto result = WriteEntry(key, value, "");
+        uint64_t tag_len = 0;
+        in.read(reinterpret_cast<char*>(&tag_len), sizeof(tag_len));
+        if (!in) return std::unexpected(DatabaseError::InvalidData);
+
+        std::string type_tag(tag_len, '\0');
+        if (tag_len > 0) {
+            in.read(type_tag.data(), static_cast<std::streamsize>(tag_len));
+            if (!in) return std::unexpected(DatabaseError::InvalidData);
+        }
+
+        auto result = WriteEntry(key, value, type_tag);
         if (!result) {
             return std::unexpected(result.error());
         }

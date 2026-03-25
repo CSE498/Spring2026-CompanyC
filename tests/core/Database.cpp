@@ -1282,6 +1282,55 @@ TEST_CASE("SQLite Database - SaveToFile and LoadFromFile", "[database][sqlite]")
     }
 }
 
+TEST_CASE("SaveToFile / LoadFromFile preserves type metadata", "[database]") {
+    std::string save_path = "/tmp/cse498_metadata_roundtrip.bin";
+
+    SECTION("In-memory round-trip preserves type tags") {
+        {
+            Database db;
+            (void)db.Store("num", 42);
+            (void)db.Store("str", std::string("hello"));
+            (void)db.Store("pos", WorldPosition(1.0, 2.0));
+            REQUIRE(db.SaveToFile(save_path).has_value());
+        }
+
+        Database db2;
+        REQUIRE(db2.LoadFromFile(save_path).has_value());
+
+        auto t1 = db2.GetType("num");
+        REQUIRE(t1.has_value());
+        REQUIRE(*t1 == "int");
+
+        auto t2 = db2.GetType("str");
+        REQUIRE(t2.has_value());
+        REQUIRE(*t2 == "string");
+
+        auto t3 = db2.GetType("pos");
+        REQUIRE(t3.has_value());
+        REQUIRE(*t3 == "WorldPosition");
+
+        std::remove(save_path.c_str());
+    }
+
+    SECTION("SQLite -> file -> in-memory preserves type tags") {
+        TempDB tmp("meta_save");
+        {
+            Database db(tmp.path);
+            (void)db.Store("v", std::vector<int>{1, 2, 3});
+            (void)db.Store("b", true);
+            REQUIRE(db.SaveToFile(save_path).has_value());
+        }
+
+        Database mem;
+        REQUIRE(mem.LoadFromFile(save_path).has_value());
+
+        REQUIRE(*mem.GetType("v") == "vector");
+        REQUIRE(*mem.GetType("b") == "bool");
+
+        std::remove(save_path.c_str());
+    }
+}
+
 // ============================================================================
 // SQLite Custom Type Registration Tests
 // ============================================================================
