@@ -1,4 +1,4 @@
-#include "./DynamicWorld.hpp"
+#include "DynamicWorld.hpp"
 
 int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
   WorldPosition cur = agent.GetLocation().AsWorldPosition();
