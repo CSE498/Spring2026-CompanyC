@@ -23,9 +23,25 @@ int main()
   world.AddAgent<PacingAgent>("Guard 2").SetHorizontal().ToggleDirection().SetLocation(WorldPosition{8,8});
   world.AddAgent<TrashInterface>("Interface").SetSymbol('@').SetLocation(WorldPosition{1,1});
 
+  // ActionLog
+
+  // ActionLog
+
   // Datalog
 
   // Datalog
+
+  // OutputManager
+
+  // OutputManager
+
+  // ReplayDriver
+
+  // ReplayDriver
+
+  // Timer
+
+  // Timer
 
   world.Run();
   
