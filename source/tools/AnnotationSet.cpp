@@ -1,171 +1,122 @@
-//By Sachin Karatha
-//
-//This class stores tags that are attached to a given object with a unique Id.
-//
-//Class includes methods to add and remove tags using vectors or strings depending
-//on the amount being added. Tags can also be checked for membership whether it be
-//only one or multiple. 
-//Integration between TagManager made by Shashank Papani with help of chatgpt
-
 #include "AnnotationSet.hpp"
+
 #include "TagManager.hpp"
-#include <set>
-#include <string>
+
 #include <algorithm>
 #include <cctype>
-#include <vector>
+#include <utility>
 
 namespace cse498 {
 
-//new constructor initializes object Id and tags with a default value of {}
-AnnotationSet::AnnotationSet(int obj, std::set<std::string> inTags){
-    objectId = obj;
-    tags = inTags;
+namespace {
+
+constexpr TagManager::ObjectId ToTagManagerId(int object_id) noexcept {
+  return static_cast<TagManager::ObjectId>(object_id);
 }
 
-
-//adds a tag to the tags
-void AnnotationSet::AddTag(std::string tag){
-    std::pair<bool,std::string>newTagPair=RemoveWhiteSpace(tag);
-    if (!newTagPair.first){
-        tags.insert(newTagPair.second);
-        if(tagManager){
-            tagManager->AddTag(static_cast<TagManager::ObjectId>(objectId),newTagPair.second);
-        }
-    }
 }
 
-//adds tags to the set of tags
-void AnnotationSet::AddTags(const std::vector<std::string>& addedTags) {
-    for (const auto& rawTag : addedTags) {
-        std::string tag = rawTag;
-        std::pair<bool,std::string>newTagPair=RemoveWhiteSpace(tag);
-        if (!newTagPair.first){
-            tags.insert(newTagPair.second);
-            if(tagManager){
-                tagManager->AddTag(static_cast<TagManager::ObjectId>(objectId),newTagPair.second);
-            }
-        }
+AnnotationSet::AnnotationSet(int obj, TagSet in_tags)
+    : object_id_(obj) {
+  for (std::string tag : in_tags) {
+    tag = NormalizeTag_(std::move(tag));
+    if (!tag.empty()) {
+      tags_.insert(std::move(tag));
     }
+  }
 }
 
+void AnnotationSet::AddTag(std::string tag) {
+  tag = NormalizeTag_(std::move(tag));
+  if (tag.empty()) {
+    return;
+  }
 
-//removes tags from the set of tags
-//returns true if all were successfull false otherwise
-bool AnnotationSet::RemoveTags(const std::vector<std::string>& removedTags){
-    bool allRemoved = true;
-
-    for (const auto& tag : removedTags) {
-        std::string newTag=tag;
-        std::pair<bool,std::string>newTagPair=RemoveWhiteSpace(newTag);
-        if (tags.erase(newTagPair.second) == 0) {
-            allRemoved = false;
-        }
-        else{
-            if(tagManager){
-                tagManager->RemoveTag(static_cast<TagManager::ObjectId>(objectId),newTagPair.second);
-            }
-        }
-    }
-
-    return allRemoved;
+  const bool inserted = tags_.insert(tag).second;
+  if (inserted && tag_manager_ != nullptr) {
+    tag_manager_->AddTag(ToTagManagerId(object_id_), tag);
+  }
 }
 
-//removes a tag from the set of tags
-//returns true if successfull false otherwise
-bool AnnotationSet::RemoveTag(const std::string& tag){
-    std::string newTag=tag;
-    std::pair<bool,std::string>newTagPair=RemoveWhiteSpace(newTag);
-    if (tags.erase(newTagPair.second) == 0) {
-        return false;
-    }
-    else{
-        if(tagManager){
-            tagManager->RemoveTag(static_cast<TagManager::ObjectId>(objectId),newTagPair.second);
-        }
-        return true;
-    }
+void AnnotationSet::AddTags(const std::vector<std::string>& added_tags) {
+  for (const auto& tag : added_tags) {
+    AddTag(tag);
+  }
 }
 
-//checks if a certain tag is attached to object
-//returns true if successfull false otherwise
-bool AnnotationSet::FindTag(const std::string& tag){
-    std::string newTag=tag;
-    std::pair<bool,std::string>newTagPair=RemoveWhiteSpace(newTag);
-    if(tags.count(newTagPair.second)==1){
-        return true;
-    }
-    else{
-        return false;
-    }
+bool AnnotationSet::RemoveTags(const std::vector<std::string>& removed_tags) {
+  bool all_removed = true;
+  for (const auto& tag : removed_tags) {
+    all_removed = RemoveTag(tag) && all_removed;
+  }
+  return all_removed;
 }
 
-//checks if any of a given set of tags are attached to an object
-//returns true if successfull false otherwise
-bool AnnotationSet::FindAnyTag(const std::vector<std::string>& searchTags){
-    for (const auto& tag : searchTags) {
-        std::string newTag=tag;
-        std::pair<bool,std::string>newTagPair=RemoveWhiteSpace(newTag);
-        if (tags.count(newTagPair.second)==1) {
-            return true;
-        }
-    }
+bool AnnotationSet::RemoveTag(const std::string& tag) {
+  const std::string normalized_tag = NormalizeTag_(tag);
+  if (normalized_tag.empty()) {
     return false;
+  }
+
+  if (tags_.erase(normalized_tag) == 0) {
+    return false;
+  }
+
+  if (tag_manager_ != nullptr) {
+    tag_manager_->RemoveTag(ToTagManagerId(object_id_), normalized_tag);
+  }
+  return true;
 }
-//checks if all of a given set of tags are attached to an object
-//returns true if successfull false otherwise
-bool AnnotationSet::FindAllTags(const std::vector<std::string>& searchTags){
-    for (const auto& tag : searchTags) {
-        std::string newTag=tag;
-        std::pair<bool,std::string>newTagPair=RemoveWhiteSpace(newTag);
-        if (!tags.count(newTagPair.second)) {
-            return false;
-        }
+
+bool AnnotationSet::FindTag(const std::string& tag) const {
+  const std::string normalized_tag = NormalizeTag_(tag);
+  return !normalized_tag.empty() && tags_.contains(normalized_tag);
+}
+
+bool AnnotationSet::FindAnyTag(const std::vector<std::string>& search_tags) const {
+  return std::any_of(search_tags.begin(), search_tags.end(),
+                     [this](const auto& tag) { return FindTag(tag); });
+}
+
+bool AnnotationSet::FindAllTags(const std::vector<std::string>& search_tags) const {
+  return std::all_of(search_tags.begin(), search_tags.end(),
+                     [this](const auto& tag) { return FindTag(tag); });
+}
+
+void AnnotationSet::DeleteAllTags() {
+  if (tag_manager_ != nullptr) {
+    for (const auto& tag : tags_) {
+      tag_manager_->RemoveTag(ToTagManagerId(object_id_), tag);
     }
-    return true;
+  }
+  tags_.clear();
 }
 
-//deletes all tags in the set without deleting the object
-void AnnotationSet::DeleteAllTags(){
-    if(tagManager){
-        for(const auto& tag:tags){
-            tagManager->RemoveTag(static_cast<TagManager::ObjectId>(objectId),tag);
-        }
-    }
-    tags.clear();
+int AnnotationSet::GetObjId() const noexcept {
+  return object_id_;
 }
 
-//gets object Id
-//returns int of object id
-int AnnotationSet::GetObjId()const{
-    return objectId;
+AnnotationSet::TagSet AnnotationSet::GetTags() const {
+  return tags_;
 }
 
-//gets tags
-//returns the set containing all tags
-std::set<std::string> AnnotationSet::GetTags()const{
-    return tags;
+int AnnotationSet::Size() const noexcept {
+  return static_cast<int>(tags_.size());
 }
 
-//gets how many tags are currently in the set
-int AnnotationSet::Size()const{
-    return tags.size();
+std::string AnnotationSet::NormalizeTag_(std::string tag) {
+  tag.erase(std::remove_if(tag.begin(), tag.end(),
+                           [](unsigned char ch) { return std::isspace(ch) != 0; }),
+            tag.end());
+  return tag;
 }
 
-//helper function for removing white space
-//returns a pair with if the tag if empty after and the cleaned tag
-std::pair<bool,std::string> AnnotationSet::RemoveWhiteSpace(std::string tag){
-    tag.erase(std::remove_if(tag.begin(), tag.end(), [](unsigned char x){ return std::isspace(x); }), tag.end());
-    std::pair<bool,std::string> result={tag.empty(),tag};
-    return(result);
+void AnnotationSet::AttachTagManager(TagManager& tm) {
+  tag_manager_ = &tm;
+  tm.RegisterObject(ToTagManagerId(object_id_));
+  for (const auto& tag : tags_) {
+    tm.AddTag(ToTagManagerId(object_id_), tag);
+  }
 }
 
-//attaches a tagmanager to the annotationset
-void AnnotationSet::AttachTagManager(TagManager& tm){
-    tagManager=&tm;
-    tm.RegisterObject(static_cast<TagManager::ObjectId>(objectId));
-    for(const auto& tag:tags){
-        tm.AddTag(static_cast<TagManager::ObjectId>(objectId),tag);
-    }
-}
 }

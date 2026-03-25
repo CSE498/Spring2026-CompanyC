@@ -1,36 +1,44 @@
 #pragma once
 
-#include <vector>
-#include <string>
 #include <set>
+#include <string>
+#include <vector>
 
 namespace cse498 {
-    class TagManager;
 
-    class AnnotationSet{
-        private:
-            int objectId; //id of attached object
-            std::set<std::string> tags; //collection of all tags
-            std::pair<bool,std::string> RemoveWhiteSpace(std::string);//helper function that removes white space
-            TagManager* tagManager=nullptr;
-        public:
-            //default constructor deleted
-            AnnotationSet()=delete;
-            AnnotationSet(int obj, std::set<std::string> tags={});
-            void AddTag(std::string);
-            void AddTags(const std::vector<std::string>& addedTags);
-            bool RemoveTags(const std::vector<std::string>&);
-            bool RemoveTag(const std::string&);
-            bool FindTag(const std::string&);
-            bool FindAnyTag(const std::vector<std::string>&);
-            bool FindAllTags(const std::vector<std::string>&);
-            void DeleteAllTags();
-            int GetObjId()const;
-            int Size()const;
-            std::set<std::string> GetTags()const;
+class TagManager;
 
-            //integration code with tagmanager made with Shashank Papani and Chatgpt
-            void AttachTagManager(TagManager& tm);
-    };      
+class AnnotationSet {
+public:
+  using TagSet = std::set<std::string>;
+
+  AnnotationSet() = delete;
+  AnnotationSet(int obj, TagSet tags = {});
+
+  void AddTag(std::string tag);
+  void AddTags(const std::vector<std::string>& added_tags);
+
+  bool RemoveTags(const std::vector<std::string>& removed_tags);
+  bool RemoveTag(const std::string& tag);
+
+  [[nodiscard]] bool FindTag(const std::string& tag) const;
+  [[nodiscard]] bool FindAnyTag(const std::vector<std::string>& search_tags) const;
+  [[nodiscard]] bool FindAllTags(const std::vector<std::string>& search_tags) const;
+
+  void DeleteAllTags();
+
+  [[nodiscard]] int GetObjId() const noexcept;
+  [[nodiscard]] int Size() const noexcept;
+  [[nodiscard]] TagSet GetTags() const;
+
+  void AttachTagManager(TagManager& tm);
+
+private:
+  [[nodiscard]] static std::string NormalizeTag_(std::string tag);
+
+  int object_id_;
+  TagSet tags_;
+  TagManager* tag_manager_ = nullptr;
+};
 
 }
