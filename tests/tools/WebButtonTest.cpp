@@ -5,7 +5,7 @@
  */
 
 #include "../../../third-party/Catch/single_include/catch2/catch.hpp"
-#include "../../../source/tools/WebButton/WebButton.hpp"
+#include "../../../source/tools/WebButton.hpp"
 #include <stdexcept>
 
 using cse498::WebButton;
@@ -257,14 +257,61 @@ TEST_CASE("WebButton - Unique IDs", "[WebButton]") {
 
 TEST_CASE("WebButton - Constructor with Callback", "[WebButton]") {
     bool callback_executed = false;
-    
+
     WebButton btn("Click Me", [&callback_executed]() {
         callback_executed = true;
     });
-    
+
     REQUIRE(btn.HasCallback() == true);
     REQUIRE(btn.GetLabel() == "Click Me");
-    
+
     btn.Click();
     REQUIRE(callback_executed == true);
+}
+
+// --- Template / callable tests ---
+
+static int free_function_call_count = 0;
+static void FreeButtonCallback() { ++free_function_call_count; }
+
+TEST_CASE("WebButton - Template SetOnClick with function pointer", "[WebButton][template]") {
+    free_function_call_count = 0;
+    WebButton btn("FP Test");
+
+    // SetOnClick is templated: accepts a plain function pointer, not just std::function
+    btn.SetOnClick(&FreeButtonCallback);
+
+    REQUIRE(btn.HasCallback() == true);
+    btn.Click();
+    REQUIRE(free_function_call_count == 1);
+
+    btn.Click();
+    REQUIRE(free_function_call_count == 2);
+}
+
+TEST_CASE("WebButton - Template constructor and SetOnClick with functor", "[WebButton][template]") {
+    // Functor (struct with operator()) to verify the template accepts any callable
+    struct CountingFunctor {
+        int& count;
+        explicit CountingFunctor(int& c) : count(c) {}
+        void operator()() const { ++count; }
+    };
+
+    int call_count = 0;
+    CountingFunctor functor(call_count);
+
+    SECTION("Template constructor accepts functor") {
+        WebButton btn("Functor Ctor", functor);
+        REQUIRE(btn.HasCallback() == true);
+        btn.Click();
+        REQUIRE(call_count == 1);
+    }
+
+    SECTION("Template SetOnClick accepts functor") {
+        WebButton btn("Functor Set");
+        btn.SetOnClick(functor);
+        REQUIRE(btn.HasCallback() == true);
+        btn.Click();
+        REQUIRE(call_count == 1);
+    }
 }

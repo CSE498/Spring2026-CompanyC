@@ -44,17 +44,6 @@ WebButton::WebButton(const std::string& label)
 #endif
 }
 
-WebButton::WebButton(const std::string& label, std::function<void()> onClick)
-    : WebButton(label)
-{
-    on_click_callback = std::move(onClick);
-#ifdef __EMSCRIPTEN__
-    AttachEventListener();
-#else
-    std::cout << "...with callback" << std::endl;
-#endif
-}
-
 WebButton::~WebButton() {
 #ifdef __EMSCRIPTEN__
     button_registry.erase(element_id);
@@ -205,15 +194,6 @@ const std::string& WebButton::GetLabel() const {
 //
 // Event Handling
 //
-
-void WebButton::SetOnClick(std::function<void()> callback) {
-    on_click_callback = std::move(callback);
-#ifdef __EMSCRIPTEN__
-    AttachEventListener();
-#else
-    std::cout << "[WebButton] " << element_id << " callback set" << std::endl;
-#endif
-}
 
 void WebButton::Click() {
     if (!is_enabled) {
