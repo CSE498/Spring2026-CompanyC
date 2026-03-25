@@ -42,7 +42,7 @@ namespace cse498 {
             mExitID = main_grid.AddCellType("exit", "Exit cell", 'E', true);
         }
 
-        void ScatterResources(size_t num_boulders, size_t num_stones, size_t num_iron_ores, size_t num_gold_ores, size_t num_diamond_ores) 
+        void ScatterResources(size_t num_stones, size_t num_iron_ores, size_t num_gold_ores, size_t num_diamond_ores) 
         {
             std::random_device rd;
             std::mt19937 gen(rd());
@@ -60,7 +60,6 @@ namespace cse498 {
                 }
             };
 
-            place_resource(mBoulderID, num_boulders);
             place_resource(mStoneID, num_stones);
             place_resource(mIronOreID, num_iron_ores);
             place_resource(mGoldOreID, num_gold_ores);
@@ -72,42 +71,42 @@ namespace cse498 {
             main_grid.Resize(width, height, mFloorID);
 
             main_grid.Load(std::vector<std::string>{
-                "#########################",
-                "#     #       #         #",
-                "# ###O# ##### # #####   #",
-                "# #   #     # #     #   #",
-                "# # ##### # # ##### ### #",
-                "# #     # # #     #     #",
-                "# ##### # # ##### ##### #",
-                "#     # # #   #   #     #",
-                "##### # #O### # ### ### #",
-                "#   # #   #   #   # #   #",
-                "# # # ##### ##### # # # #",
-                "# # #     #     #   # # #",
-                "# # ##### ##### ##### # #",
-                "# #     #   #   #     # #",
-                "# #####O### # ###O##### #",
-                "#     #     #     #     #",
-                "# ### #####O##### # ### #",
-                "#   #     #     # #   # #",
-                "### ##### ##### # ### # #",
-                "#       #     # #     # #",
-                "# #####O##### # ##### # #",
-                "#     #     # #     #   #",
-                "# ### ##### # #####O### #",
-                "#                   #   #",
-                "######################E##"
+            "#########################",
+            "#      #######          #",
+            "#  ###       ###   #### #",
+            "# ##   O        ## ##   #",
+            "# #   #####   O  ###    #",
+            "# #  ##   ##      #  ## #",
+            "# # ##     ##  ####  #  #",
+            "#   ##  ####   O ##     #",
+            "###      ##       ###   #",
+            "#    ###    ###     ##  #",
+            "#   ##   O    ##    ##  #",
+            "#   ##  ####   ###      #",
+            "#      O ####    ##  ####",
+            "#  ###        O  ##     #",
+            "# ##   #######   ###    #",
+            "# #   ##     ##     ##  #",
+            "#     ##     ##  O  ##  #",
+            "###    #######      ##  #",
+            "#        ##   O     ##  #",
+            "#   ####    ####    ##  #",
+            "#  ##   O      ##       #",
+            "#   ###      ###   #### #",
+            "#        ####   O       #",
+            "#   O                O  #",
+            "######################E##"
             });
 
             // Add some ores to the world
-            ScatterResources(10, 15, 10, 5, 2); // Example resource counts
+            ScatterResources(30, 20, 15, 5);
     };
 
     public:
         InteractionHeavyWorld() 
         { 
             ConfigureCellTypes();
-            GenerateWorld(25,25); 
+            GenerateWorld(25, 25); 
         }
 
         void RemoveBoulder(size_t x, size_t y) { 
@@ -118,7 +117,6 @@ namespace cse498 {
 
         void CraftPickaxe(size_t agent_id) {
             // Placeholder for crafting logic
-            // This would check the agent's inventory and update it accordingly
         }
 
         /// Allow the agents to move around the maze.
