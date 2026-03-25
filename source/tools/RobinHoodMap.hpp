@@ -172,7 +172,8 @@ std::pair<T*, bool> Emplace(Key key, Args&&... args) {
   return InsertEntry_(std::move(e));
 }
 
-
+// Inserts a new key/value if missing; otherwise assigns to the existing value.
+// Returns {pointer_to_value, inserted}. May trigger growth/rehash only if insertion occurs.
 std::pair<T*, bool> InsertOrAssign(const Key& key, T value) {
   if (T* p = Find(key)) {
     *p = std::move(value);
