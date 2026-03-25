@@ -6,7 +6,11 @@
  * arithmetic operators (+, -, *, /), and comparison operators for the Datum variant type.
  *
  * Key behaviors:
- *  - Arithmetic operations convert operands to double; invalid conversions yield NaN.
+ *  - Arithmetic on doubles and bools operates numerically.
+ *  - operator+ on two strings adds numerically if both are valid numbers, otherwise concatenates.
+ *  - operator+= follows the same rule as operator+.
+ *  - operator-, *, / on strings attempt numeric conversion; non-numeric strings yield NaN.
+ *  - Division by zero returns NaN rather than throwing.
  *  - Division by zero returns NaN rather than throwing error.
  *  - Mixed-type comparisons attempt numeric conversion where possible.
  *  - Bool converts to 1.0/0.0 for numeric ops; strings convert via std::stod.
@@ -17,7 +21,7 @@
  */
 
 #include "Datum.hpp"
-
+#include <ostream>
 
 namespace cse498 {
 
@@ -32,6 +36,9 @@ namespace cse498 {
 
     Datum::Datum(double value) : mValue(value) {}
 
+    // Stored directly as bool (not converted to double).
+    // The integral template constructor explicitly excludes bool via requires clause,
+    // so Datum(true) always routes here rather than to Datum(double).
     Datum::Datum(bool value) : mValue(value) {}
 
     Datum::Datum(const std::string& value) : mValue(value) {}
@@ -111,11 +118,6 @@ namespace cse498 {
 
     }
 
-    Datum Datum::operator+(const Datum& rhs) const {
-        return Datum(AsDouble() + rhs.AsDouble()); 
-
-
-    }
     Datum Datum::operator-(const Datum& rhs)const{
         return Datum(AsDouble() - rhs.AsDouble()); 
 
@@ -217,6 +219,74 @@ namespace cse498 {
         if (IsDouble() && std::isnan(std::get<double>(mValue))) return false;
         if (rhs.IsDouble() && std::isnan(std::get<double>(rhs.mValue))) return false;
         return !(rhs < *this);
+    }
+
+    // -------------------------------------------------------------------------
+    // Assignment operators
+    // -------------------------------------------------------------------------
+
+    Datum& Datum::operator=(double val) {
+        mValue = val;
+        return *this;
+    }
+
+    Datum& Datum::operator=(bool val) {
+        mValue = val;
+        return *this;
+    }
+
+    Datum& Datum::operator=(const std::string& val) {
+        mValue = val;
+        return *this;
+    }
+
+    Datum& Datum::operator=(const char* val) {
+        mValue = std::string(val);
+        return *this;
+    }
+
+    // -------------------------------------------------------------------------
+    // operator+ — numeric strings add numerically; non-numeric strings concatenate
+    // -------------------------------------------------------------------------
+
+    Datum Datum::operator+(const Datum& rhs) const {
+        if (IsString() && rhs.IsString()) {
+            double lhs_d = AsDouble();
+            double rhs_d = rhs.AsDouble();
+            if (!std::isnan(lhs_d) && !std::isnan(rhs_d)) {
+                return Datum(lhs_d + rhs_d);
+            }
+            return Datum(std::get<std::string>(mValue) + std::get<std::string>(rhs.mValue));
+        }
+        return Datum(AsDouble() + rhs.AsDouble());
+    }
+
+    // -------------------------------------------------------------------------
+    // operator+= — numeric strings add numerically; non-numeric strings append
+    // -------------------------------------------------------------------------
+
+    Datum& Datum::operator+=(const Datum& rhs) {
+        if (IsString()) {
+            double lhs_d = AsDouble();
+            double rhs_d = rhs.AsDouble();
+            if (!std::isnan(lhs_d) && !std::isnan(rhs_d)) {
+                mValue = lhs_d + rhs_d;
+            } else {
+                std::get<std::string>(mValue) += rhs.AsString();
+            }
+        } else {
+            mValue = AsDouble() + rhs.AsDouble();
+        }
+        return *this;
+    }
+
+    // -------------------------------------------------------------------------
+    // operator<< — prints the Datum's natural string representation
+    // -------------------------------------------------------------------------
+
+    std::ostream& operator<<(std::ostream& os, const Datum& d) {
+        os << d.AsString();
+        return os;
     }
 
 }
