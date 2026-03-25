@@ -22,6 +22,7 @@
 #include <iomanip>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -30,169 +31,179 @@
 namespace
 {
 
-  using namespace cse498;
+using namespace cse498;
 
-  class DemoAgent : public AgentBase
+// Match the exact clock/time_point type used by ActionLog entries.
+using ActionTimePoint = decltype(ActionEntry{}.timeOfAction);
+using ActionClock = typename ActionTimePoint::clock;
+
+class DemoAgent : public AgentBase
+{
+public:
+  DemoAgent(size_t id, const std::string &name, const WorldBase &world)
+      : AgentBase(id, name, world) {}
+
+  size_t SelectAction(const WorldGrid &grid) override
   {
-  public:
-    DemoAgent(size_t id, const std::string &name, const WorldBase &world)
-        : AgentBase(id, name, world) {}
+    (void)grid;
+    return 0;
+  }
+};
 
-    size_t SelectAction(const WorldGrid &grid) override
-    {
-      (void)grid;
-      return 0;
-    }
-  };
-
-  class DemoWorld : public WorldBase
+class DemoWorld : public WorldBase
+{
+protected:
+  void ConfigAgent(AgentBase &agent) override
   {
-  protected:
-    void ConfigAgent(AgentBase &agent) override
-    {
-      // Register every action string used in the scripted session (name -> arbitrary id).
-      agent.AddAction("click:ZoneA", 1);
-      agent.AddAction("click:ZoneB", 2);
-      agent.AddAction("movement:ZoneA", 3);
-      agent.AddAction("movement:ZoneB", 4);
-    }
-
-  public:
-    int DoAction(AgentBase &agent, size_t action_id) override
-    {
-      (void)agent;
-      (void)action_id;
-      return 1;
-    }
-  };
-
-  // Non-owning shared_ptr so ActionLog::recordAction can reference world-owned agents.
-  std::shared_ptr<AgentBase> ObserveAgent(AgentBase &agent)
-  {
-    return std::shared_ptr<AgentBase>(&agent, [](AgentBase *) {});
+    // Register every action string used in the scripted session (name -> arbitrary id).
+    agent.AddAction("click:ZoneA", 1);
+    agent.AddAction("click:ZoneB", 2);
+    agent.AddAction("movement:ZoneA", 3);
+    agent.AddAction("movement:ZoneB", 4);
   }
 
-  std::string MakeAction(const char *interaction, const char *zone)
+public:
+  int DoAction(AgentBase &agent, size_t action_id) override
   {
-    return std::string(interaction) + ":" + zone;
+    (void)agent;
+    (void)action_id;
+    return 1;
+  }
+};
+
+// Non-owning shared_ptr so ActionLog::recordAction can reference world-owned agents.
+std::shared_ptr<AgentBase> ObserveAgent(AgentBase &agent)
+{
+  return std::shared_ptr<AgentBase>(&agent, [](AgentBase *) {});
+}
+
+std::string MakeAction(const char *interaction, const char *zone)
+{
+  return std::string(interaction) + ":" + zone;
+}
+
+// Split "click:ZoneA" into verb and zone; returns false if malformed.
+bool ParseActionLabel(const std::string &label, std::string &verb_out,
+                      std::string &zone_out)
+{
+  const auto pos = label.find(':');
+  if (pos == std::string::npos)
+    return false;
+  verb_out = label.substr(0, pos);
+  zone_out = label.substr(pos + 1);
+  return !verb_out.empty() && !zone_out.empty();
+}
+
+struct FlattenedEvent
+{
+  size_t agent_id{};
+  ActionEntry entry{};
+};
+
+std::vector<FlattenedEvent> FlattenActions(const ActionLog &log)
+{
+  std::vector<FlattenedEvent> out;
+  for (const auto &kv : log.getActions())
+  {
+    for (const auto &e : kv.second)
+    {
+      out.push_back({kv.first, e});
+    }
   }
 
-  // Split "click:ZoneA" into verb and zone; returns false if malformed.
-  bool ParseActionLabel(const std::string &label, std::string &verb_out,
-                        std::string &zone_out)
+  std::sort(out.begin(), out.end(),
+            [](const FlattenedEvent &a, const FlattenedEvent &b)
+            { return a.entry.timeOfAction < b.entry.timeOfAction; });
+
+  return out;
+}
+
+void PrintSessionDashboard(const std::vector<FlattenedEvent> &timeline,
+                           double session_seconds_wall,
+                           double session_seconds_timer,
+                           const DataLog &durations_log,
+                           ActionTimePoint session_start_wall)
+{
+  std::map<std::string, int> zone_counts;
+  int clicks = 0;
+  int movements = 0;
+
+  double total_duration_us = 0.0;
+
+  for (const auto &fe : timeline)
   {
-    const auto pos = label.find(':');
-    if (pos == std::string::npos)
-      return false;
-    verb_out = label.substr(0, pos);
-    zone_out = label.substr(pos + 1);
-    return !verb_out.empty() && !zone_out.empty();
+    std::string verb;
+    std::string zone;
+    if (ParseActionLabel(fe.entry.actionType, verb, zone))
+    {
+      zone_counts[zone] += 1;
+      if (verb == "click")
+        ++clicks;
+      else if (verb == "movement")
+        ++movements;
+    }
+
+    total_duration_us += static_cast<double>(fe.entry.duration.count());
   }
 
-  struct FlattenedEvent
-  {
-    size_t agent_id{};
-    ActionEntry entry{};
-  };
+  const std::size_t total_events = timeline.size();
+  const double avg_ms =
+      total_events > 0 ? (total_duration_us / static_cast<double>(total_events)) / 1000.0
+                       : 0.0;
 
-  std::vector<FlattenedEvent> FlattenActions(const ActionLog &log)
+  std::cout << '\n';
+  std::cout << "======================================\n";
+  std::cout << "     SESSION SUMMARY DASHBOARD\n";
+  std::cout << "======================================\n";
+  std::cout << std::fixed << std::setprecision(3);
+  std::cout << "Total Duration: " << session_seconds_timer
+            << " seconds (Timer \"session\")\n";
+  std::cout << "Wall span (first to last event): " << session_seconds_wall << " seconds\n";
+  std::cout << "Total Events: " << total_events << "\n\n";
+
+  std::cout << "Activity by Zone:\n";
+  for (const auto &z : zone_counts)
   {
-    std::vector<FlattenedEvent> out;
-    for (const auto &kv : log.getActions())
-    {
-      for (const auto &e : kv.second)
-      {
-        out.push_back({kv.first, e});
-      }
-    }
-    std::sort(out.begin(), out.end(), [](const FlattenedEvent &a, const FlattenedEvent &b)
-              { return a.entry.timeOfAction < b.entry.timeOfAction; });
-    return out;
+    std::cout << "  - " << z.first << ": " << z.second << " events\n";
+  }
+  std::cout << '\n';
+
+  std::cout << "Interaction Summary:\n";
+  std::cout << "  - Clicks: " << clicks << '\n';
+  std::cout << "  - Movements: " << movements << "\n\n";
+
+  std::cout << "Additional Metrics:\n";
+  std::cout << "  - Average action duration (from ActionLog): " << avg_ms << " ms\n";
+
+  if (!durations_log.IsEmpty())
+  {
+    std::cout << "  - DataLog sample mean (ms between scripted steps): "
+              << durations_log.Mean() << '\n';
+    std::cout << "  - DataLog median: " << durations_log.Median() << '\n';
+    std::cout << "  - DataLog min / max: " << durations_log.Min() << " / "
+              << durations_log.Max() << '\n';
   }
 
-  void PrintSessionDashboard(const std::vector<FlattenedEvent> &timeline,
-                             double session_seconds_wall,
-                             double session_seconds_timer,
-                             const DataLog &durations_log,
-                             std::chrono::high_resolution_clock::time_point session_start_wall)
+  if (!timeline.empty())
   {
-    std::map<std::string, int> zone_counts;
-    int clicks = 0;
-    int movements = 0;
+    const auto t_first = timeline.front().entry.timeOfAction;
+    const auto t_last = timeline.back().entry.timeOfAction;
 
-    double total_duration_us = 0.0;
+    const double first_since_start =
+        std::chrono::duration<double>(t_first - session_start_wall).count();
+    const double last_since_start =
+        std::chrono::duration<double>(t_last - session_start_wall).count();
 
-    for (const auto &fe : timeline)
-    {
-      std::string verb;
-      std::string zone;
-      if (ParseActionLabel(fe.entry.actionType, verb, zone))
-      {
-        zone_counts[zone] += 1;
-        if (verb == "click")
-          ++clicks;
-        else if (verb == "movement")
-          ++movements;
-      }
-      total_duration_us += static_cast<double>(fe.entry.duration.count());
-    }
-
-    const std::size_t total_events = timeline.size();
-    const double avg_ms =
-        total_events > 0 ? (total_duration_us / static_cast<double>(total_events)) / 1000.0
-                         : 0.0;
-
-    std::cout << '\n';
-    std::cout << "======================================\n";
-    std::cout << "     SESSION SUMMARY DASHBOARD\n";
-    std::cout << "======================================\n";
-    std::cout << std::fixed << std::setprecision(3);
-    std::cout << "Total Duration: " << session_seconds_timer
-              << " seconds (Timer \"session\")\n";
-    std::cout << "Wall span (first to last event): " << session_seconds_wall << " seconds\n";
-    std::cout << "Total Events: " << total_events << "\n\n";
-
-    std::cout << "Activity by Zone:\n";
-    for (const auto &z : zone_counts)
-    {
-      std::cout << "  - " << z.first << ": " << z.second << " events\n";
-    }
-    std::cout << '\n';
-
-    std::cout << "Interaction Summary:\n";
-    std::cout << "  - Clicks: " << clicks << '\n';
-    std::cout << "  - Movements: " << movements << "\n\n";
-
-    std::cout << "Additional Metrics:\n";
-    std::cout << "  - Average action duration (from ActionLog): " << avg_ms << " ms\n";
-
-    if (!durations_log.IsEmpty())
-    {
-      std::cout << "  - DataLog sample mean (ms between scripted steps): "
-                << durations_log.Mean() << '\n';
-      std::cout << "  - DataLog median: " << durations_log.Median() << '\n';
-      std::cout << "  - DataLog min / max: " << durations_log.Min() << " / "
-                << durations_log.Max() << '\n';
-    }
-
-    if (!timeline.empty())
-    {
-      const auto t_first = timeline.front().entry.timeOfAction;
-      const auto t_last = timeline.back().entry.timeOfAction;
-      const double first_since_start =
-          std::chrono::duration<double>(t_first - session_start_wall).count();
-      const double last_since_start =
-          std::chrono::duration<double>(t_last - session_start_wall).count();
-      std::cout << "  - First event (seconds since demo start): " << first_since_start << " s\n";
-      std::cout << "  - Last event (seconds since demo start): " << last_since_start << " s\n";
-    }
-    else
-    {
-      std::cout << "  - First/Last event timestamps: (no events recorded)\n";
-    }
-
-    std::cout << "\n======================================\n";
+    std::cout << "  - First event (seconds since demo start): " << first_since_start << " s\n";
+    std::cout << "  - Last event (seconds since demo start): " << last_since_start << " s\n";
   }
+  else
+  {
+    std::cout << "  - First/Last event timestamps: (no events recorded)\n";
+  }
+
+  std::cout << "\n======================================\n";
+}
 
 } // namespace
 
@@ -200,7 +211,7 @@ int main()
 {
   using namespace cse498;
 
-  const auto wall_session_start = std::chrono::high_resolution_clock::now();
+  const auto wall_session_start = ActionClock::now();
 
   OutputManager logger;
   logger.setLevel(LogLevel::Verbose);
@@ -259,6 +270,7 @@ int main()
     {
       std::this_thread::sleep_for(std::chrono::milliseconds(step.pause_ms));
     }
+
     if (step.close_end)
     {
       action_log.actionEnd(who);
@@ -270,7 +282,7 @@ int main()
 
   clock.Stop("session");
 
-  const auto wall_session_end = std::chrono::high_resolution_clock::now();
+  const auto wall_session_end = ActionClock::now();
   const double wall_span =
       std::chrono::duration<double>(wall_session_end - wall_session_start).count();
 
@@ -286,6 +298,7 @@ int main()
   {
     replayer.update();
     ++replay_steps;
+
     std::ostringstream step_msg;
     step_msg << "Replay step " << replay_steps << " dispatched.";
     logger.logDebug(step_msg.str(), ctx);

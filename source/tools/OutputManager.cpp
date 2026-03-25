@@ -156,7 +156,7 @@ namespace cse498
   {
     // Fast-path: avoid taking the mutex at all if this message would be
     // filtered out at the current log level.
-    if (!ShouldLogUnlocked(msg_level))
+    if (!shouldLogUnlocked(msg_level))
     {
       return;
     }

@@ -17,7 +17,7 @@ namespace cse498
     struct ReplayEvent {
     size_t agent_id;
     std::string actionType;
-    std::chrono::high_resolution_clock::time_point time;
+    std::chrono::steady_clock::time_point time;
     };
 
     class ReplayDriver {
