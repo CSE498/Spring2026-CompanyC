@@ -9,6 +9,7 @@
 #pragma once
 
 #include <functional>
+#include <iostream>
 #include <string>
 #include <unordered_map>
 
@@ -67,11 +68,17 @@ public:
     WebButton(const std::string& label = DEFAULT_LABEL);
 
     /**
-     * @brief Constructor with label and click callback
+     * @brief Constructor with label and any callable click handler
+     * @tparam Callable Any callable type compatible with void() - lambda, function pointer, or functor
      * @param label The text to display on the button
-     * @param onClick Function to call when button is clicked
+     * @param onClick Callable to invoke when button is clicked
      */
-    WebButton(const std::string& label, std::function<void()> onClick);
+    template<typename Callable>
+    WebButton(const std::string& label, Callable&& onClick)
+        : WebButton(label)
+    {
+        SetOnClick(std::forward<Callable>(onClick));
+    }
 
     /**
      * @brief Destructor
@@ -99,10 +106,19 @@ public:
     [[nodiscard]] const std::string& GetLabel() const;
 
     /**
-     * @brief Set the function to call when button is clicked
-     * @param callback Function with signature void()
+     * @brief Set the click handler — accepts any callable compatible with void()
+     * @tparam Callable Lambda, function pointer, or functor with signature void()
+     * @param callable The callable to invoke on click
      */
-    void SetOnClick(std::function<void()> callback);
+    template<typename Callable>
+    void SetOnClick(Callable&& callable) {
+        on_click_callback = std::forward<Callable>(callable);
+#ifdef __EMSCRIPTEN__
+        AttachEventListener();
+#else
+        std::cout << "[WebButton] " << element_id << " callback set" << std::endl;
+#endif
+    }
 
     /**
      * @brief Trigger a button click programmatically
