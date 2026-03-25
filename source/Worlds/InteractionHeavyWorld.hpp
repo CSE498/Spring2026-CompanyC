@@ -7,15 +7,21 @@ namespace cse498 {
 
     class InteractionHeavyWorld : public WorldBase
     {
+    private:
+        std::vector<std::string> inventory;
+
     protected:
 
-        enum ActionType { REMAIN_STILL=0, MOVE_UP, MOVE_DOWN, MOVE_LEFT, MOVE_RIGHT };
+        enum ActionType { REMAIN_STILL=0, MOVE_UP, MOVE_DOWN, MOVE_LEFT, MOVE_RIGHT, BREAK, COLLECT, CRAFT };
 
         void ConfigAgent(AgentBase & agent) override {
             agent.AddAction("up", MOVE_UP);
             agent.AddAction("down", MOVE_DOWN);
             agent.AddAction("left", MOVE_LEFT);
             agent.AddAction("right", MOVE_RIGHT);
+            agent.AddAction("break", BREAK);
+            agent.AddAction("collect", COLLECT);
+            agent.AddAction("craft", CRAFT);
         }
         
         // CellType IDs
@@ -29,6 +35,7 @@ namespace cse498 {
         size_t mDiamondOreID;
         size_t mExitID;
 
+        // Helper functions for world generation
         void ConfigureCellTypes() 
         {
             mBorderID = main_grid.AddCellType("border", "Border cell", 'B', false);
@@ -42,20 +49,24 @@ namespace cse498 {
             mExitID = main_grid.AddCellType("exit", "Exit cell", 'E', true);
         }
 
+        // Helper function to randomly scatter resources in the world
         void ScatterResources(size_t num_stones, size_t num_iron_ores, size_t num_gold_ores, size_t num_diamond_ores) 
         {
             std::random_device rd;
+
             std::mt19937 gen(rd());
+
             std::uniform_int_distribution<int> x_dist(1, static_cast<int>(main_grid.GetWidth()) - 2);
             std::uniform_int_distribution<int> y_dist(1, static_cast<int>(main_grid.GetHeight()) - 2);
 
-            auto place_resource = [&](size_t resource_id, size_t count) {
+            auto place_resource = [&](size_t resource_id, size_t count) 
+            {
                 for (size_t i = 0; i < count; ++i) {
                     int x, y;
                     do {
                         x = x_dist(gen);
                         y = y_dist(gen);
-                    } while (main_grid(x, y) != mWallID); // Ensure we only place on wall cells
+                    } while (main_grid(x, y) != mWallID);
                     main_grid(x, y) = resource_id;
                 }
             };
@@ -98,9 +109,8 @@ namespace cse498 {
             "######################E##"
             });
 
-            // Add some ores to the world
             ScatterResources(30, 20, 15, 5);
-    };
+        };
 
     public:
         InteractionHeavyWorld() 
@@ -109,13 +119,15 @@ namespace cse498 {
             GenerateWorld(25, 25); 
         }
 
-        void RemoveBoulder(size_t x, size_t y) { 
-            if (main_grid(x, y) == mBoulderID) {
-                main_grid(x, y) = mFloorID;
-            }
+        void Collect(size_t x, size_t y) {
+            // Placeholder for resource collection logic
         }
 
-        void CraftPickaxe(size_t agent_id) {
+        void Break(size_t x, size_t y) {
+            // Placeholder for breaking logic
+        }
+
+        void Craft(size_t agent_id) {
             // Placeholder for crafting logic
         }
 
@@ -132,6 +144,14 @@ namespace cse498 {
                 case MOVE_RIGHT:   new_position = cur_position.Right(); break;
 
                 // Additional actions for interacting with resources could be added here
+                case BREAK: 
+                    Break(cur_position.CellX(), cur_position.CellY());
+
+                case COLLECT:
+                    Collect(cur_position.CellX(), cur_position.CellY());
+
+                case CRAFT:
+                    Craft(agent.GetID());
             }
 
             // Don't let the agent move off the world or into a wall or boulder.
