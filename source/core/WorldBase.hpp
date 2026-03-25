@@ -14,6 +14,7 @@
 #include "AgentBase.hpp"
 #include "ItemBase.hpp"
 #include "WorldGrid.hpp"
+#include "../tools/Timer.hpp"
 
 namespace cse498 {
 
@@ -38,6 +39,11 @@ namespace cse498 {
     virtual void ConfigAgent(AgentBase & /* agent */) { }
 
 
+  private:
+    /// Shared timer for this world instance (used for developer benchmarking/profiling).
+    /// @note Access via GetTimer() so all modules use a consistent entry point.
+    Timer mTimer;
+
   public:
     WorldBase() = default;
     virtual ~WorldBase() = default;
@@ -49,6 +55,13 @@ namespace cse498 {
 
     /// Get the total number of AGENT entities
     [[nodiscard]] size_t GetNumAgents() const { return agent_set.size(); }
+
+    /// Access the shared Timer
+    /// Usage: world.GetTimer().Start("...") / Stop("...")
+    Timer & GetTimer() { return mTimer; }
+
+    /// Access the shared Timer for this world (const overload)
+    const Timer & GetTimer() const { return mTimer; }
 
     /// Return a reference to an Item with a given ID.
     [[nodiscard]] ItemBase & GetItem(size_t id) {

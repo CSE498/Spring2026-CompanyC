@@ -1,7 +1,6 @@
 #include "Timer.hpp"
 
 #include <cassert>     // assert()
-#include <algorithm>   // sort
 
 namespace cse498 {
 

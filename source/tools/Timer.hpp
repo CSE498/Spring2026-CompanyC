@@ -6,9 +6,9 @@
 #include <unordered_map> // unordered_map
 #include <utility>       // pair
 #include <vector>        // vector
+#include <type_traits>   // is_void_v
 
-
-namespace cse498 {
+namespace cse498{
 
 class Timer {
 public:
@@ -44,21 +44,25 @@ public:
   Stats GetStats(const std::string& name) const;
   std::vector<std::pair<std::string, Stats>> GetAllStats() const;
 
-  // time (lambda/functor/function) under a name and return its result.
-  // ex :auto value = timer.TimeCall("World::Update", [&] { return world.Update(); });
-  // assumes a value is returned (aka no void)
+  // Time a function/lambda under a name.
+  // Works for both void and non-void returns. Utilized ChatGPT for this chunk: originally lambda only supported non void returns. Need to look into this more to 1. understand 2. test functionality
   template <typename Func, typename... Args>
   auto TimeCall(const std::string& name, Func&& fn, Args&&... args) {
     Start(name);
 
-    // always call stop even on early exit/exemtppions
+    // always call stop even on early exit/exceptions
     struct StopGuard {
       Timer& timer;
       const std::string& n;
       ~StopGuard() { timer.Stop(n); }
     } guard{*this, name};
 
-    return fn(std::forward<Args>(args)...);
+    if constexpr (std::is_void_v<decltype(fn(std::forward<Args>(args)...))>) {
+      fn(std::forward<Args>(args)...);
+      return; // void
+    } else {
+      return fn(std::forward<Args>(args)...); // non-void
+    }
   }
 
 private:
