@@ -80,7 +80,9 @@ public:
    * @tparam Args The argument types to forward
    * @param name The string identifier of the function to trigger
    * @param args The arguments to pass to the function
-   * @return Optional error message if function not found or type mismatch
+   * @return std::expected<void, std::string>
+   *         - On success: contains no value (void)
+   *         - On failure: contains an error message explaining the issue
    */
   template <typename... Args>
   std::expected<void, std::string> Trigger(const std::string &name,
