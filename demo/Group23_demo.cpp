@@ -4,12 +4,12 @@
  **/
 
 #include <iostream>
-#include "Agents/PacingAgent.hpp"
-#include "Worlds/MazeWorld.hpp"
-#include "Interfaces/TrashInterface.hpp"
-#include "tools/DataLog.hpp"
-#include "tools/ReplayDriver.hpp"
-#include "tools/OutputManager.hpp"
+#include "../source/Agents/PacingAgent.hpp"
+#include "../source/Worlds/MazeWorld.hpp"
+#include "../source/Interfaces/TrashInterface.hpp"
+#include "../source/tools/DataLog.hpp"
+#include "../source/tools/ReplayDriver.hpp"
+#include "../source/tools/OutputManager.hpp"
 
 #include <tuple>
 
