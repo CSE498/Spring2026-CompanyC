@@ -2,8 +2,6 @@
 
 #include <random>
 #include <iostream>
-#include <chrono>
-#include <thread>
 #include <algorithm>
 
 #include "../core/WorldBase.hpp"
@@ -52,7 +50,6 @@ public:
   void Run() override {
     mRunOver = false;
     while (!mRunOver) {
-      // std::this_thread::sleep_for(std::chrono::milliseconds(50));
       RunAgents();
       UpdateWorld();
 
