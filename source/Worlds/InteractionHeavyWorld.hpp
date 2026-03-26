@@ -1,3 +1,11 @@
+/**
+ * @file InteractionHeavyWorld.hpp
+ * @author Truong Phan
+ * 
+ * This is the initial module for the Interaction Heavy-Simulation world.
+ * @brief A World that consists of various resources that agents can interact with (e.g., break, collect, craft).
+ * @note Status: PROPOSAL
+ **/
 #pragma once
 
 #include <random>
@@ -8,12 +16,23 @@ namespace cse498 {
     class InteractionHeavyWorld : public WorldBase
     {
     private:
+        // Inventory for player items
         std::vector<std::string> inventory;
 
     protected:
-
-        enum ActionType { REMAIN_STILL=0, MOVE_UP, MOVE_DOWN, MOVE_LEFT, MOVE_RIGHT, BREAK, COLLECT, CRAFT };
-
+        // Action types for this world
+        enum ActionType { 
+            REMAIN_STILL=0, 
+            MOVE_UP, 
+            MOVE_DOWN, 
+            MOVE_LEFT, 
+            MOVE_RIGHT, 
+            BREAK, 
+            COLLECT, 
+            CRAFT 
+        };
+        
+        // Configure the agent's available actions in this world
         void ConfigAgent(AgentBase & agent) override {
             agent.AddAction("up", MOVE_UP);
             agent.AddAction("down", MOVE_DOWN);
@@ -59,6 +78,7 @@ namespace cse498 {
             std::uniform_int_distribution<int> x_dist(1, static_cast<int>(main_grid.GetWidth()) - 2);
             std::uniform_int_distribution<int> y_dist(1, static_cast<int>(main_grid.GetHeight()) - 2);
 
+            // Lambda function to place a specific resource type in the world
             auto place_resource = [&](size_t resource_id, size_t count) 
             {
                 for (size_t i = 0; i < count; ++i) {
@@ -146,12 +166,15 @@ namespace cse498 {
                 // Additional actions for interacting with resources could be added here
                 case BREAK: 
                     Break(cur_position.CellX(), cur_position.CellY());
+                    break;
 
                 case COLLECT:
                     Collect(cur_position.CellX(), cur_position.CellY());
+                    break;
 
                 case CRAFT:
                     Craft(agent.GetID());
+                    break;
             }
 
             // Don't let the agent move off the world or into a wall or boulder.

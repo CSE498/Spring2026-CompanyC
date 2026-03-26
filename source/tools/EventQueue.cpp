@@ -13,20 +13,6 @@
 namespace cse498
 {
     /**
-     * Comparison operator
-     * 
-     * @param a The first event
-     * @param b The second event
-     * @return Whether or not a should come after b in the heap
-     */
-    bool EventQueue::Comparator::operator()(const Event& a, const Event& b) const
-    {
-        if (a.mPriority == b.mPriority)
-            return a.mTiebreaker > b.mTiebreaker;
-        return a.mPriority > b.mPriority;
-    }
-
-    /**
      * Push an event onto the EventQueue, this function was written with the help of ChatGPT.
      * 
      * The event is copied to modify the tiebreaker, which is set to the current insertion index. 
@@ -34,15 +20,14 @@ namespace cse498
      * 
      * @param event The event to be added
      */
-    void EventQueue::Push(const Event& event)
+    void EventQueue::Push(Event event)
     {
-        Event temp = event;
-        temp.mTiebreaker = mInsertionIndex++;
+        event.mTiebreaker = mInsertionIndex++;
 
-        mHeap.push_back(temp);
+        mHeap.push_back(std::move(event));
         std::push_heap(mHeap.begin(), mHeap.end(), Comparator{});
 
-        assert(std::is_heap(mHeap.begin(), mHeap.end(), Comparator{}) && " EventQueue: Heap property broken");
+        assert(std::is_heap(mHeap.begin(), mHeap.end(), Comparator{}) && "EventQueue: Heap property broken");
     }
 
     /**
@@ -109,7 +94,7 @@ namespace cse498
     bool EventQueue::Empty() const 
     { 
         return mHeap.empty(); 
-    };
+    }
 
     /**
      * Clear all events from the EventQueue.

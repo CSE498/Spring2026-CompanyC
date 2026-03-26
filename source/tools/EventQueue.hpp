@@ -10,6 +10,7 @@
 #include <vector>   // For heap container
 #include <string>  // For event data type
 #include <cstddef> // For size_t
+#include <utility> // For std::move
 
 namespace cse498
 {
@@ -39,12 +40,15 @@ namespace cse498
          * @param data The event data
          * @param priority The priority of the event
          */
-        Event(const std::string& data, int priority) : mData(data), mPriority(priority), mTiebreaker(0) {}
-    
-        // Getters
+        Event(std::string data, int priority)
+            : mData(std::move(data)), mPriority(priority) {}
+
+        // Event Getters
         const std::string& GetData() const { return mData; }
+
         int GetPriority() const { return mPriority; }
-        int GetTiebreaker() const { return mTiebreaker; }
+
+        std::size_t GetTiebreaker() const { return mTiebreaker; }
 
         // Allow EventQueue to access private members of Event
         friend class EventQueue;
@@ -63,13 +67,23 @@ namespace cse498
         std::size_t mInsertionIndex = 0;
 
         /**
-         * Comparator
+         * Comparison operator
+         * 
          * 1. Lower priority values are processed first.
          * 2. If priorities are equal, the event inserted earlier (smaller mTiebreaker) is processed first.
+         * 
+         * @param a The first event
+         * @param b The second event
+         * @return Whether or not a should come after b in the heap
          */ 
         struct Comparator
         {
-            bool operator() (const Event& a, const Event& b) const;
+            constexpr bool operator()(const Event& a, const Event& b) const
+            {
+                if (a.mPriority == b.mPriority)
+                    return a.mTiebreaker > b.mTiebreaker;
+                return a.mPriority > b.mPriority;
+            }
         };
 
     public:
@@ -78,23 +92,28 @@ namespace cse498
          */
         EventQueue() = default;
 
+        /**
+         * Default Destructor
+         */
+        ~EventQueue() = default;
+
         // Copy constructor
         EventQueue(const EventQueue&) = default;
         
         // Assignment operator
         EventQueue& operator=(const EventQueue&) = default;
 
-        void Push(const Event& event);
+        void Push(Event event);
 
         void Push(const std::string& data, int priority);
 
         void Pop();
 
-        const Event& Top() const;
+        [[nodiscard]] const Event& Top() const;
 
-        std::size_t Size() const;
+        [[nodiscard]] std::size_t Size() const;
 
-        bool Empty() const;
+        [[nodiscard]] bool Empty() const;
 
         void Clear();
     };

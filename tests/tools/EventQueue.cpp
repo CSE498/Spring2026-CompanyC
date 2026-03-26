@@ -29,6 +29,22 @@ TEST_CASE("Test Event Constructor", "[Event]")
     REQUIRE(e2.GetTiebreaker() == 0);
 }
 
+TEST_CASE("Test Event Getters", "[Event]") 
+{
+    // Create an Event with specific data and priority
+    Event e("Sample Event", 42);
+
+    REQUIRE(e.GetData() == "Sample Event");
+    REQUIRE(e.GetPriority() == 42);
+    REQUIRE(e.GetTiebreaker() == 0);
+
+    // Check default Event
+    Event defaultEvent;
+    REQUIRE(defaultEvent.GetData() == "");
+    REQUIRE(defaultEvent.GetPriority() == 0);
+    REQUIRE(defaultEvent.GetTiebreaker() == 0);
+}
+
 TEST_CASE("Test EventQueue Constructor", "[EventQueue]") 
 {
     // Test default constructor
