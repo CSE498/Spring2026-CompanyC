@@ -10,6 +10,8 @@
 #include "tools/ReplayDriver.hpp"
 #include "tools/OutputManager.hpp"
 
+#include <tuple>
+
 using namespace cse498;
 
 // Timer and ActionLog classes are implemented within the WorldBase.hpp
@@ -21,9 +23,9 @@ int main()
   pacer1.SetLocation(cse498::WorldPosition{3,1});  
 
   // Available actions for the agents
-  size_t up = 1;
+  [[maybe_unused]] size_t up = 1;
   size_t down = 2;
-  size_t left = 3;
+  [[maybe_unused]]  size_t left = 3;
   size_t right = 4;
 
   // ActionLog
@@ -45,9 +47,33 @@ int main()
   // ActionLog
 
 
-  // Datalog
+  // DataLog
+  DataLog distanceLog;
 
-  // Datalog
+  // log some numeric values 
+  distanceLog.Add(1.5);
+  distanceLog.Add(2.0);
+  distanceLog.Add(4.5);
+
+  // do stats on numeric values
+  [[maybe_unused]] const auto distanceStats =
+      std::tuple{distanceLog.Count(), distanceLog.Mean(), distanceLog.Median(), distanceLog.Min(), distanceLog.Max()};
+
+  // log generic values such as WorldPosition 
+  DataLog<WorldPosition> positionLog;
+  positionLog.Add(pacer1.GetLocation().AsWorldPosition());
+  positionLog.Add(cur_position.Right());
+  positionLog.Add(cur_position.Right().Right());
+
+  // can still some stats for ordered values
+  [[maybe_unused]] const auto positionStats = std::tuple{positionLog.Count(), positionLog.Min(), positionLog.Max()};
+
+  // clear the logs 
+  distanceLog.Clear();
+  positionLog.Clear();
+  [[maybe_unused]] const bool logsCleared = distanceLog.IsEmpty() && positionLog.IsEmpty();
+
+  // DataLog
 
 
   // OutputManager
