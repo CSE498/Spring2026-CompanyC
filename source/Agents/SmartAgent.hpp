@@ -444,7 +444,7 @@ namespace cse498 {
     {
       if (action_result == 0) ClearPlan();
 
-      // Keep the pipeline warm: use any finished reply first, then try to
+      // Use any finished reply first, then try to
       // queue up the next one while there's still buffer space.
       PollNpcReply();
       MaybeStartNpcRequest(grid);
