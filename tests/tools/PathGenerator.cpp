@@ -37,7 +37,6 @@ TEST_CASE("PathGenerator basic path") {
 TEST_CASE("PathGenerator edge cases") {
 
     SECTION("start equals goal") {
-
         cse498::WorldView world(5, 5);
         cse498::PathGenerator pg;
         pg.SetWorldView(world);
@@ -57,13 +56,12 @@ TEST_CASE("PathGenerator edge cases") {
     }
 
     SECTION("start out of bounds") {
-
         cse498::WorldView world(5, 5);
         cse498::PathGenerator pg;
         pg.SetWorldView(world);
 
         const cse498::PathRequest req =
-            MakeReq(cse498::PathType::Shortest, {-1, 0}, {4, 4});
+            MakeReq(cse498::PathType::Shortest, {5, 0}, {4, 4});
 
         cse498::WorldPath path = pg.GeneratePath(req);
 
@@ -71,7 +69,6 @@ TEST_CASE("PathGenerator edge cases") {
     }
 
     SECTION("goal out of bounds") {
-
         cse498::WorldView world(5, 5);
         cse498::PathGenerator pg;
         pg.SetWorldView(world);
@@ -85,7 +82,6 @@ TEST_CASE("PathGenerator edge cases") {
     }
 
     SECTION("world view not set") {
-
         cse498::PathGenerator pg;
 
         const cse498::PathRequest req =
@@ -97,7 +93,6 @@ TEST_CASE("PathGenerator edge cases") {
     }
 
     SECTION("empty world") {
-
         cse498::WorldView world(0, 0);
         cse498::PathGenerator pg;
         pg.SetWorldView(world);
@@ -110,22 +105,20 @@ TEST_CASE("PathGenerator edge cases") {
         REQUIRE(path.length() == 0);
     }
 
-    SECTION("unreachable goal")
-{
-    cse498::WorldView world(5,5);
+    SECTION("unreachable goal") {
+        cse498::WorldView world(5, 5);
 
-    world.SetBlocked({1,0});
-    world.SetBlocked({0,1});
+        world.SetBlocked({1, 0});
+        world.SetBlocked({0, 1});
 
-    cse498::PathGenerator pg;
-    pg.SetWorldView(world);
+        cse498::PathGenerator pg;
+        pg.SetWorldView(world);
 
-    const auto req =
-        MakeReq(cse498::PathType::Shortest, {0,0}, {4,4});
+        const auto req =
+            MakeReq(cse498::PathType::Shortest, {0, 0}, {4, 4});
 
-    cse498::WorldPath path = pg.GeneratePath(req);
+        cse498::WorldPath path = pg.GeneratePath(req);
 
-    REQUIRE(path.length() == 0);
+        REQUIRE(path.length() == 0);
+    }
 }
-}
-

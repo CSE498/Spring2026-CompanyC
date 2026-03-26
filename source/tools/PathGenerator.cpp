@@ -4,6 +4,27 @@
 
 namespace cse498 {
 
+namespace {
+std::vector<StateGridPosition> GetNeighbors(const StateGridPosition& p)
+{
+    std::vector<StateGridPosition> neighbors;
+
+    if (p.GetX() > 0) {
+        neighbors.emplace_back(p.GetX() - 1, p.GetY());
+    }
+
+    neighbors.emplace_back(p.GetX() + 1, p.GetY());
+
+    if (p.GetY() > 0) {
+        neighbors.emplace_back(p.GetX(), p.GetY() - 1);
+    }
+
+    neighbors.emplace_back(p.GetX(), p.GetY() + 1);
+
+    return neighbors;
+}
+}
+
 void PathGenerator::SetWorldView(const WorldView& world) {
     world_view = std::cref(world);
 }
@@ -18,22 +39,20 @@ Point PathGenerator::ToDoublePoint(const StateGridPosition& p)
 
 WorldPath PathGenerator::GeneratePath(const PathRequest& req) const
 {
-    assert(!world_view.has_value());
+    if (!world_view.has_value()) {
+        return WorldPath{};
+    }
 
     switch (req.type)
     {
         case PathType::Shortest:
             return GenerateShortestPath(req.start, req.goal);
-
         case PathType::Patrol:
             return GeneratePatrolPath(req.start, req.max_length);
-
         case PathType::Avoid:
             return GenerateAvoidPath(req.start, req.goal, req.avoid);
-
         case PathType::Explore:
             return WorldPath{};
-
         default:
             return WorldPath{};
     }
@@ -75,7 +94,7 @@ WorldPath PathGenerator::GenerateShortestPath(
             break;
         }
 
-        for (const auto& next : current.Neighbors())
+        for (const auto& next : GetNeighbors(current))
         {
             if (!w.IsWalkable(next))
                 continue;
@@ -113,6 +132,8 @@ WorldPath PathGenerator::GeneratePatrolPath(
     std::optional<int> max_length
 ) const
 {
+    (void)start;
+    (void)max_length;
     return WorldPath{};
 }
 
@@ -154,7 +175,7 @@ WorldPath PathGenerator::GenerateExplorePath(
     auto IsFrontier = [&](const StateGridPosition& p) -> bool {
         if (!IsKnownWalkable(p)) return false;
 
-        for (const auto& neighbor : p.Neighbors()) {
+        for (const auto& neighbor : GetNeighbors(p)) {
             if (!IsDiscovered(neighbor)) {
                 return true;
             }
@@ -190,7 +211,7 @@ WorldPath PathGenerator::GenerateExplorePath(
             break;
         }
 
-        for (const auto& next : current.Neighbors()) {
+        for (const auto& next : GetNeighbors(current)) {
             if (!IsKnownWalkable(next)) continue;
             if (parent.find(next) != parent.end()) continue;
 
