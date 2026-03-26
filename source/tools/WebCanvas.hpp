@@ -50,6 +50,14 @@ class WebCanvas {
   void SetLineWidth(float width);
   void SetFont(const std::string& css_font);
 
+
+  void DrawGrid(int cols, int rows, int cell_width, int cell_height,
+              const std::function<void(int, int)>& draw_cell_fn);
+
+  void HighlightCell(int col, int row, int cell_width, int cell_height,
+                   const std::string& stroke_css = "#ffff00",
+                   float line_width = 3.0f);
+
   void FillRect(float x, float y, float width, float height);
   void StrokeRect(float x, float y, float width, float height);
   void DrawLine(float x1, float y1, float x2, float y2);

@@ -1,6 +1,6 @@
 /**
- * @file WebCanvas.hpp
- * @author Sadwal Patel
+ * @file WebCanvas.cpp
+ * @author Sadwal Patel, Naod Ghebredngl 
  * @brief Declaration of the WebCanvas wrapper used to manage an HTML canvas
  *        element for Group 24's browser-based interface.
  *
@@ -8,7 +8,7 @@
  * module, including primitive rendering, grid/cell helpers, entity drawing,
  * coordinate mapping, and click handling.
  *
- * Copyright (c) 2026 Sadwal Patel
+ * Copyright (c) 2026 Sadwal Patel, Naod Ghebredngl 
  * SPDX-License-Identifier: MIT
  *
  * citations - ChatGPT LLM (OpenAI) was used to help generate parts of this
@@ -390,6 +390,50 @@ void WebCanvas::HandleClick(int pixel_x, int pixel_y) {
   if (click_handler_) {
     click_handler_(pixel_x, pixel_y);
   }
+}
+
+void WebCanvas::DrawGrid(int cols, int rows, int cell_width, int cell_height,
+                         const std::function<void(int, int)>& draw_cell_fn) {
+  if (cols <= 0 || rows <= 0) {
+    throw std::invalid_argument("WebCanvas::DrawGrid: cols/rows must be positive");
+  }
+  if (cell_width <= 0 || cell_height <= 0) {
+    throw std::invalid_argument("WebCanvas::DrawGrid: invalid cell size");
+  }
+  if (!draw_cell_fn) {
+    throw std::invalid_argument("WebCanvas::DrawGrid: draw_cell_fn must be valid");
+  }
+
+  for (int row = 0; row < rows; ++row) {
+    for (int col = 0; col < cols; ++col) {
+      draw_cell_fn(col, row);
+    }
+  }
+}
+
+void WebCanvas::HighlightCell(int col, int row, int cell_width, int cell_height,
+                              const std::string& stroke_css,
+                              float line_width) {
+  if (col < 0 || row < 0) {
+    throw std::invalid_argument(
+        "WebCanvas::HighlightCell: row/col cannot be negative");
+  }
+  if (cell_width <= 0 || cell_height <= 0) {
+    throw std::invalid_argument(
+        "WebCanvas::HighlightCell: invalid cell size");
+  }
+  if (line_width <= 0.0f) {
+    throw std::invalid_argument(
+        "WebCanvas::HighlightCell: line width must be positive");
+  }
+
+  const float x = static_cast<float>(col * cell_width);
+  const float y = static_cast<float>(row * cell_height);
+
+  SetStrokeColor(stroke_css);
+  SetLineWidth(line_width);
+  StrokeRect(x, y, static_cast<float>(cell_width),
+             static_cast<float>(cell_height));
 }
 
 }  // namespace cse498

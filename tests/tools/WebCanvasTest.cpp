@@ -73,11 +73,70 @@ static void TestDrawValidation() {
   assert(threw);
 }
 
+static void TestDrawGridValidation() {
+  WebCanvas canvas("grid_canvas", 200, 200);
+
+  bool threw = false;
+  try {
+    canvas.DrawGrid(0, 10, 20, 20, [](int, int) {});
+  } catch (const std::invalid_argument&) {
+    threw = true;
+  }
+  assert(threw);
+
+  threw = false;
+  try {
+    canvas.DrawGrid(10, 10, 0, 20, [](int, int) {});
+  } catch (const std::invalid_argument&) {
+    threw = true;
+  }
+  assert(threw);
+
+  threw = false;
+  try {
+    canvas.DrawGrid(10, 10, 20, 20, std::function<void(int, int)>());
+  } catch (const std::invalid_argument&) {
+    threw = true;
+  }
+  assert(threw);
+}
+
+static void TestHighlightCellValidation() {
+  WebCanvas canvas("highlight_canvas", 200, 200);
+
+  bool threw = false;
+  try {
+    canvas.HighlightCell(-1, 0, 20, 20);
+  } catch (const std::invalid_argument&) {
+    threw = true;
+  }
+  assert(threw);
+
+  threw = false;
+  try {
+    canvas.HighlightCell(0, 0, 0, 20);
+  } catch (const std::invalid_argument&) {
+    threw = true;
+  }
+  assert(threw);
+
+  threw = false;
+  try {
+    canvas.HighlightCell(0, 0, 20, 20, "#ffff00", 0.0f);
+  } catch (const std::invalid_argument&) {
+    threw = true;
+  }
+  assert(threw);
+}
+
+
 int main() {
   TestConstructorAndGetters();
   TestResize();
   TestPixelToCell();
   TestClickHandler();
   TestDrawValidation();
+  TestDrawGridValidation();
+  TestHighlightCellValidation();
   return 0;
 }

@@ -177,21 +177,35 @@ void RenderWorld() {
 
   g_canvas->Clear();
 
-  for (const auto& cell : g_world->GetRenderableCells()) {
-    const auto it = legend_by_id.find(cell.legend_id);
-    const cse498::LegendEntry* entry = (it != legend_by_id.end()) ? &it->second : nullptr;
-    const std::string fill = entry ? entry->fill_css : "#e5e7eb";
-    const std::string glyph = entry ? entry->glyph : "?";
-    g_canvas->DrawCell(cell.x, cell.y, kCellPx, kCellPx, fill, glyph, "#111827");
-    if (cell.selected) {
-      g_canvas->SetStrokeColor("#ef4444");
-      g_canvas->SetLineWidth(3.0f);
-      g_canvas->StrokeRect(static_cast<float>(cell.x * kCellPx + 1),
-                           static_cast<float>(cell.y * kCellPx + 1),
-                           static_cast<float>(kCellPx - 2),
-                           static_cast<float>(kCellPx - 2));
-    }
-  }
+  g_canvas->DrawGrid(kGridSize, kGridSize, kCellPx, kCellPx,
+    [&](int col, int row) {
+
+      // Find matching world cell
+      for (const auto& cell : g_world->GetRenderableCells()) {
+        if (cell.x == col && cell.y == row) {
+
+          const auto it = legend_by_id.find(cell.legend_id);
+          const cse498::LegendEntry* entry =
+              (it != legend_by_id.end()) ? &it->second : nullptr;
+
+          const std::string fill = entry ? entry->fill_css : "#e5e7eb";
+          const std::string glyph = entry ? entry->glyph : "?";
+
+          g_canvas->DrawCell(col, row, kCellPx, kCellPx,
+                             fill, glyph, "#111827");
+
+          if (cell.selected) {
+            g_canvas->HighlightCell(col, row, kCellPx, kCellPx);
+          }
+
+          return;
+        }
+      }
+
+      // Default empty cell
+      g_canvas->DrawCell(col, row, kCellPx, kCellPx,
+                         "#f9fafb", "", "#000000");
+});
 
   for (const auto& entity : g_world->GetEntities()) {
     const float center_x = static_cast<float>(entity.x * kCellPx + kCellPx / 2);
