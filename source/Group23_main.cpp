@@ -19,6 +19,10 @@ using namespace cse498;
 int main()
 {
   MazeWorld world;
+
+  //get the shared Timer owned by WorldBase
+  auto & timer = world.GetTimer();
+
   auto& pacer1 = world.AddAgent<cse498::PacingAgent>("Pacer 1");
   pacer1.SetLocation(cse498::WorldPosition{3,1});  
 
@@ -30,6 +34,10 @@ int main()
 
   // ActionLog
   // ActionLog is already created within the world through the WorldBase.hpp file 
+
+  //time the ActionLog demo block
+  timer.Start("ActionLog::DemoBlock:session");
+
   // Have and agents action recorded within the log
   cse498::WorldPosition cur_position = pacer1.GetLocation().AsWorldPosition();
   pacer1.SetLocation(cur_position.Up());
@@ -43,6 +51,9 @@ int main()
 
   // Clear the ActionLog
   world.GetActionLog().clear();
+
+  //stop timing the ActionLog demo block
+  timer.Stop("ActionLog::DemoBlock:session");
 
   // ActionLog
 
@@ -91,6 +102,9 @@ int main()
   world.GetActionLog().recordAction(pacer1, down);
   world.GetActionLog().recordAction(pacer1, right);
 
+  //time the replay block
+  timer.Start("ReplayDriver::Replay:session");
+
   // Start replay
   replayDriver.startReplay(world.GetActionLog());
 
@@ -99,11 +113,12 @@ int main()
       replayDriver.update();
   }
 
+  //stop timing the replay block
+  timer.Stop("ReplayDriver::Replay:session");
+
   // ReplayDriver
 
 
-  // Timer
 
-  // Timer
   
 }
