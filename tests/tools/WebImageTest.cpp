@@ -1,3 +1,26 @@
+/**
+ * @file WebImageTest.cpp
+ * @author Sadwal Patel
+ * @brief Unit tests for the WebImage class and related asset-key helpers.
+ *
+ * This file verifies the native, non-browser behavior of WebImage. The tests
+ * focus on public API behavior such as default construction, property setters
+ * and getters, opacity clamping, CSS class/style bookkeeping, lifecycle
+ * operations, move semantics, auto-sizing behavior, and asset helper path
+ * generation.
+ *
+ * These tests are intended to be run locally with a normal C++ compiler. In
+ * native mode, the browser bridge inside WebImage uses no-op stubs so the class
+ * can still be tested safely without Emscripten.
+ *
+ * Copyright (c) 2026 Sadwal Patel
+ * SPDX-License-Identifier: MIT
+ *
+ * citations - ChatGPT LLM (OpenAI) was used to help generate parts of this
+ * file. The code was then reviewed and heavily edited by the author to ensure
+ * correctness and suitability for the project.
+ */
+
 #include <cassert>
 #include <iostream>
 #include <utility>
@@ -7,6 +30,12 @@
 
 using cse498::WebImage;
 
+/**
+ * @brief Verify the default state of a newly constructed WebImage.
+ *
+ * This checks the expected initial values for all major properties before the
+ * image has been created in the DOM.
+ */
 static void TestDefaults() {
   WebImage img;
   assert(img.GetSource().empty());
@@ -23,6 +52,12 @@ static void TestDefaults() {
   assert(!img.IsCreated());
 }
 
+/**
+ * @brief Verify that the main setters correctly update stored state.
+ *
+ * This test checks the typical usage path for configuring a WebImage before it
+ * is attached to the browser DOM.
+ */
 static void TestSetters() {
   WebImage img;
   img.SetSource(cse498::web_assets::AssetPath(cse498::web_assets::kPlayer));
@@ -48,6 +83,11 @@ static void TestSetters() {
   assert(img.GetElementId() == "hero-image");
 }
 
+/**
+ * @brief Verify that opacity values are clamped into the valid [0, 1] range.
+ *
+ * This ensures invalid user input does not leave the object in a bad state.
+ */
 static void TestOpacityClamp() {
   WebImage img;
   img.SetOpacity(-10.0);
@@ -56,6 +96,12 @@ static void TestOpacityClamp() {
   assert(img.GetOpacity() == 1.0);
 }
 
+/**
+ * @brief Verify CSS class and inline-style bookkeeping behavior.
+ *
+ * This test checks duplicate class insertion, class removal, style setting, and
+ * ignored empty-property operations.
+ */
 static void TestClassesAndStyles() {
   WebImage img;
   assert(!img.HasCssClass("rounded"));
@@ -73,6 +119,12 @@ static void TestClassesAndStyles() {
   img.ClearStyle("");
 }
 
+/**
+ * @brief Verify move-construction of a created WebImage.
+ *
+ * This checks that ownership/state transfer works correctly when moving an
+ * image that already has a created DOM-backed handle.
+ */
 static void TestLifecycleMoveCtor() {
   WebImage a("a.png", "a");
   assert(!a.IsCreated());
@@ -90,6 +142,12 @@ static void TestLifecycleMoveCtor() {
   assert(!b.IsCreated());
 }
 
+/**
+ * @brief Verify DOM removal, full destruction, and later recreation.
+ *
+ * RemoveFromDom should keep the object logically created, while Destroy should
+ * fully reset the handle so EnsureCreated can allocate a new one later.
+ */
 static void TestRemoveFromDomAndDestroyRecreate() {
   WebImage img("assets/test.png", "demo");
   img.SetParentElementId("root");
@@ -115,6 +173,12 @@ static void TestRemoveFromDomAndDestroyRecreate() {
   assert(h2 != 0);
 }
 
+/**
+ * @brief Verify move-assignment transfers ownership correctly.
+ *
+ * This is especially important because WebImage is intended to behave like a
+ * move-only wrapper around one browser image element.
+ */
 static void TestMoveAssign() {
   WebImage a("a.png", "a");
   a.EnsureCreated();
@@ -139,6 +203,12 @@ static void TestMoveAssign() {
   assert(!b.IsCreated());
 }
 
+/**
+ * @brief Verify auto-size edge cases.
+ *
+ * In this API, a size of 0 means "auto" for that dimension. This test checks
+ * fully fixed sizing as well as mixed fixed/auto combinations.
+ */
 static void TestSizeAutoEdgeCases() {
   WebImage img;
 
@@ -160,6 +230,12 @@ static void TestSizeAutoEdgeCases() {
   assert(img.GetHeightPx() == 0.0);
 }
 
+/**
+ * @brief Verify that shared asset keys produce the expected asset paths.
+ *
+ * This ensures the helper layer used by Group 24 stays consistent when mapping
+ * symbolic asset names to project-relative image paths.
+ */
 static void TestAssetHelper() {
   using namespace cse498::web_assets;
   assert(AssetPath(kPlayer) == "assets/player.png");
@@ -167,6 +243,12 @@ static void TestAssetHelper() {
   assert(AssetPath(kFragileWall) == "assets/fragile_wall.png");
 }
 
+/**
+ * @brief Run all WebImage-related tests.
+ *
+ * If execution reaches the end of main without an assertion failure, the test
+ * suite is considered successful.
+ */
 int main() {
   TestDefaults();
   TestSetters();

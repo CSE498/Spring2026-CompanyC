@@ -1,3 +1,26 @@
+/**
+ * @file WebImageSmoke_main.cpp
+ * @author Sadwal Patel
+ * @brief Emscripten smoke-test driver for the Group 24 WebImage class.
+ *
+ * This file creates a minimal browser page and uses the WebImage wrapper to
+ * render a visible image element from C++. It is intended as a lightweight
+ * verification that the WebImage class correctly creates, styles, positions,
+ * and displays an HTML <img> element through the Emscripten JavaScript bridge.
+ *
+ * The smoke test does not represent the full Group 24 UI module. Its purpose is
+ * only to validate the standalone behavior of WebImage in a browser runtime.
+ *
+ * Copyright (c) 2026 Sadwal Patel
+ * SPDX-License-Identifier: MIT
+ *
+ * citations - ChatGPT LLM (OpenAI) was used to help generate parts of this
+ * file. The code was then reviewed and heavily edited by the author to ensure
+ * correctness and suitability for the project.
+ */
+
+
+
 #include "tools/WebImage.h"
 
 #ifdef __EMSCRIPTEN__
