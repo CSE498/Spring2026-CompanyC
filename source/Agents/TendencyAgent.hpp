@@ -1,6 +1,6 @@
 /**
 * @file TendencyAgent.h
- * @auther Ahmed Ezaz Labib
+ * @auther Ahmed Ezaz Labib, Shashank Papani
  * Tendency-based agent that collects resources and constructs buildings.
  *
  * Design:
