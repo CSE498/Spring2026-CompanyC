@@ -3,7 +3,6 @@
 #include <set>
 #include <string>
 #include <vector>
-
 namespace cse498 {
 
 class TagManager;
@@ -15,11 +14,18 @@ public:
   AnnotationSet() = delete;
   AnnotationSet(int obj, TagSet tags = {});
 
-  void AddTag(std::string tag);
-  void AddTags(const std::vector<std::string>& added_tags);
+  void AddTag(std::string);
+  template <typename ...T>
+  void AddTags(T&&... tags){
+    (AddTag(std::string(std::forward<T>(tags))), ...);
+  };
 
-  bool RemoveTags(const std::vector<std::string>& removed_tags);
+  
   bool RemoveTag(const std::string& tag);
+  template <typename ...T>
+  [[nodiscard]] bool RemoveTags(T&&... tags){
+    return (RemoveTag(std::string(std::forward<T>(tags))) && ...);
+  };
 
   [[nodiscard]] bool FindTag(const std::string& tag) const;
   [[nodiscard]] bool FindAnyTag(const std::vector<std::string>& search_tags) const;

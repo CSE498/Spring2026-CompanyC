@@ -1,5 +1,5 @@
-#include "catch2/catch.hpp"
 
+#include <catch2/catch.hpp>
 #include "../../source/tools/AnnotationSet.hpp"
 #include <algorithm>
 
@@ -44,15 +44,15 @@ TEST_CASE("AddingTags-AnnotationSet","[AnnotationSet]"){
         REQUIRE(annotationSet.Size()==1);
     }
     SECTION("Adding multiple tags at once"){
-        annotationSet.AddTags({"cat","dog","raccoon"});
+        annotationSet.AddTags("cat","dog","raccoon");
         REQUIRE(annotationSet.Size()==3);
     }
     SECTION("No duplicate tags in set when added"){
-        annotationSet.AddTags({"cat","cat","raccoon"});
+        annotationSet.AddTags("cat","cat","raccoon");
         REQUIRE(annotationSet.Size()==2);
     }
     SECTION("No duplicate tags in set when added to set with the tag"){
-        annotationSet.AddTags({"cat","raccoon"});
+        annotationSet.AddTags("cat","raccoon");
         REQUIRE(annotationSet.Size()==2);
         annotationSet.AddTag("cat");
         REQUIRE(annotationSet.Size()==2);
@@ -82,7 +82,7 @@ TEST_CASE("RemovingTags-AnnotationSet","[AnnotationSet]"){
         REQUIRE(annotationSet.Size()==2);
     }
     SECTION("Deleting multiple tags"){
-        annotationSet.RemoveTags({"ghost", "boogieman"});
+        annotationSet.RemoveTags("ghost", "boogieman");
         std::set<std::string> vals={"spectre"};
         REQUIRE(annotationSet.GetTags()==vals);
         REQUIRE(annotationSet.Size()==1);
