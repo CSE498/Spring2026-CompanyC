@@ -134,17 +134,15 @@ void cse498::DynamicWorld::UpdateWorld() {
 
   mUpdateCounter++;
 
-  std::for_each(std::begin(mBuildings), std::end(mBuildings), 
-  [&](auto building) {
-    std::for_each(std::begin(building.GetResources()), std::end(building.GetResources()), 
-    [&] (auto resource) {
+  for(auto building : mBuildings){
+    if (building.GetResources().size() == 0) continue;
+    for (auto resource : building.GetResources()){
       const size_t ticks_since_built = mUpdateCounter - building.GetBuiltTime();
       if (ticks_since_built % resource.second == 0) {
         mWorldGlobalCounts[resource.first] += 1;
       }
     }
-  );
-  });
+  }
 
   // Spawner logic: spawn a PacingAgent at the closest grass cell every 60 ticks
   for (auto & [pos, built_time] : mSpawners) {
