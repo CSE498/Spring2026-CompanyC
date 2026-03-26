@@ -41,6 +41,13 @@
 
 namespace cse498 {
 
+namespace {
+
+// CSS value for sidebar-style embedding (avoids magic string in ApplyFlowLayoutStyles).
+constexpr const char* kFlowLayoutMinHeightCss = "2.5em";
+
+}  // namespace
+
 // -------------------------------------------------------
 // JS bridge (Emscripten) / native stubs
 // -------------------------------------------------------
@@ -780,6 +787,16 @@ bool WebTextbox::IsCreated() const noexcept { return created_; }
  * @return Handle value, or 0 if not created.
  */
 int32_t WebTextbox::GetHandle() const noexcept { return handle_; }
+
+void WebTextbox::ApplyFlowLayoutStyles() {
+  if (!created_) return;
+  PushStyle_("position", "relative");
+  PushStyle_("left", "0");
+  PushStyle_("top", "0");
+  PushStyle_("width", "100%");
+  PushStyle_("boxSizing", "border-box");
+  PushStyle_("minHeight", kFlowLayoutMinHeightCss);
+}
 
 // -------------------------------------------------------
 // Private helpers

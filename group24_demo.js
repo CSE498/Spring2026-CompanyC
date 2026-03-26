@@ -912,6 +912,86 @@ async function createWasm() {
 
   
 
+  var UTF8Decoder = globalThis.TextDecoder && new TextDecoder();
+  
+  var findStringEnd = (heapOrArray, idx, maxBytesToRead, ignoreNul) => {
+      var maxIdx = idx + maxBytesToRead;
+      if (ignoreNul) return maxIdx;
+      // TextDecoder needs to know the byte length in advance, it doesn't stop on
+      // null terminator by itself.
+      // As a tiny code save trick, compare idx against maxIdx using a negation,
+      // so that maxBytesToRead=undefined/NaN means Infinity.
+      while (heapOrArray[idx] && !(idx >= maxIdx)) ++idx;
+      return idx;
+    };
+  
+  
+    /**
+   * Given a pointer 'idx' to a null-terminated UTF8-encoded string in the given
+   * array that contains uint8 values, returns a copy of that string as a
+   * Javascript String object.
+   * heapOrArray is either a regular array, or a JavaScript typed array view.
+   * @param {number=} idx
+   * @param {number=} maxBytesToRead
+   * @param {boolean=} ignoreNul - If true, the function will not stop on a NUL character.
+   * @return {string}
+   */
+  var UTF8ArrayToString = (heapOrArray, idx = 0, maxBytesToRead, ignoreNul) => {
+  
+      var endPtr = findStringEnd(heapOrArray, idx, maxBytesToRead, ignoreNul);
+  
+      // When using conditional TextDecoder, skip it for short strings as the overhead of the native call is not worth it.
+      if (endPtr - idx > 16 && heapOrArray.buffer && UTF8Decoder) {
+        return UTF8Decoder.decode(heapOrArray.subarray(idx, endPtr));
+      }
+      var str = '';
+      while (idx < endPtr) {
+        // For UTF8 byte structure, see:
+        // http://en.wikipedia.org/wiki/UTF-8#Description
+        // https://www.ietf.org/rfc/rfc2279.txt
+        // https://tools.ietf.org/html/rfc3629
+        var u0 = heapOrArray[idx++];
+        if (!(u0 & 0x80)) { str += String.fromCharCode(u0); continue; }
+        var u1 = heapOrArray[idx++] & 63;
+        if ((u0 & 0xE0) == 0xC0) { str += String.fromCharCode(((u0 & 31) << 6) | u1); continue; }
+        var u2 = heapOrArray[idx++] & 63;
+        if ((u0 & 0xF0) == 0xE0) {
+          u0 = ((u0 & 15) << 12) | (u1 << 6) | u2;
+        } else {
+          if ((u0 & 0xF8) != 0xF0) warnOnce('Invalid UTF-8 leading byte ' + ptrToString(u0) + ' encountered when deserializing a UTF-8 string in wasm memory to a JS string!');
+          u0 = ((u0 & 7) << 18) | (u1 << 12) | (u2 << 6) | (heapOrArray[idx++] & 63);
+        }
+  
+        if (u0 < 0x10000) {
+          str += String.fromCharCode(u0);
+        } else {
+          var ch = u0 - 0x10000;
+          str += String.fromCharCode(0xD800 | (ch >> 10), 0xDC00 | (ch & 0x3FF));
+        }
+      }
+      return str;
+    };
+  
+    /**
+   * Given a pointer 'ptr' to a null-terminated UTF8-encoded string in the
+   * emscripten HEAP, returns a copy of that string as a Javascript String object.
+   *
+   * @param {number} ptr
+   * @param {number=} maxBytesToRead - An optional length that specifies the
+   *   maximum number of bytes to read. You can omit this parameter to scan the
+   *   string until the first 0 byte. If maxBytesToRead is passed, and the string
+   *   at [ptr, ptr+maxBytesToReadr[ contains a null byte in the middle, then the
+   *   string will cut short at that byte index.
+   * @param {boolean=} ignoreNul - If true, the function will not stop on a NUL character.
+   * @return {string}
+   */
+  var UTF8ToString = (ptr, maxBytesToRead, ignoreNul) => {
+      assert(typeof ptr == 'number', `UTF8ToString expects a number (got ${typeof ptr})`);
+      return ptr ? UTF8ArrayToString(HEAPU8, ptr, maxBytesToRead, ignoreNul) : '';
+    };
+  var ___assert_fail = (condition, filename, line, func) =>
+      abort(`Assertion failed: ${UTF8ToString(condition)}, at: ` + [filename ? UTF8ToString(filename) : 'unknown filename', line, func ? UTF8ToString(func) : 'unknown function']);
+
   class ExceptionInfo {
       // excPtr - Thrown object pointer to wrap. Metadata pointer is calculated from it.
       constructor(excPtr) {
@@ -1357,83 +1437,6 @@ async function createWasm() {
   
   
   
-  var UTF8Decoder = globalThis.TextDecoder && new TextDecoder();
-  
-  var findStringEnd = (heapOrArray, idx, maxBytesToRead, ignoreNul) => {
-      var maxIdx = idx + maxBytesToRead;
-      if (ignoreNul) return maxIdx;
-      // TextDecoder needs to know the byte length in advance, it doesn't stop on
-      // null terminator by itself.
-      // As a tiny code save trick, compare idx against maxIdx using a negation,
-      // so that maxBytesToRead=undefined/NaN means Infinity.
-      while (heapOrArray[idx] && !(idx >= maxIdx)) ++idx;
-      return idx;
-    };
-  
-  
-    /**
-   * Given a pointer 'idx' to a null-terminated UTF8-encoded string in the given
-   * array that contains uint8 values, returns a copy of that string as a
-   * Javascript String object.
-   * heapOrArray is either a regular array, or a JavaScript typed array view.
-   * @param {number=} idx
-   * @param {number=} maxBytesToRead
-   * @param {boolean=} ignoreNul - If true, the function will not stop on a NUL character.
-   * @return {string}
-   */
-  var UTF8ArrayToString = (heapOrArray, idx = 0, maxBytesToRead, ignoreNul) => {
-  
-      var endPtr = findStringEnd(heapOrArray, idx, maxBytesToRead, ignoreNul);
-  
-      // When using conditional TextDecoder, skip it for short strings as the overhead of the native call is not worth it.
-      if (endPtr - idx > 16 && heapOrArray.buffer && UTF8Decoder) {
-        return UTF8Decoder.decode(heapOrArray.subarray(idx, endPtr));
-      }
-      var str = '';
-      while (idx < endPtr) {
-        // For UTF8 byte structure, see:
-        // http://en.wikipedia.org/wiki/UTF-8#Description
-        // https://www.ietf.org/rfc/rfc2279.txt
-        // https://tools.ietf.org/html/rfc3629
-        var u0 = heapOrArray[idx++];
-        if (!(u0 & 0x80)) { str += String.fromCharCode(u0); continue; }
-        var u1 = heapOrArray[idx++] & 63;
-        if ((u0 & 0xE0) == 0xC0) { str += String.fromCharCode(((u0 & 31) << 6) | u1); continue; }
-        var u2 = heapOrArray[idx++] & 63;
-        if ((u0 & 0xF0) == 0xE0) {
-          u0 = ((u0 & 15) << 12) | (u1 << 6) | u2;
-        } else {
-          if ((u0 & 0xF8) != 0xF0) warnOnce('Invalid UTF-8 leading byte ' + ptrToString(u0) + ' encountered when deserializing a UTF-8 string in wasm memory to a JS string!');
-          u0 = ((u0 & 7) << 18) | (u1 << 12) | (u2 << 6) | (heapOrArray[idx++] & 63);
-        }
-  
-        if (u0 < 0x10000) {
-          str += String.fromCharCode(u0);
-        } else {
-          var ch = u0 - 0x10000;
-          str += String.fromCharCode(0xD800 | (ch >> 10), 0xDC00 | (ch & 0x3FF));
-        }
-      }
-      return str;
-    };
-  
-    /**
-   * Given a pointer 'ptr' to a null-terminated UTF8-encoded string in the
-   * emscripten HEAP, returns a copy of that string as a Javascript String object.
-   *
-   * @param {number} ptr
-   * @param {number=} maxBytesToRead - An optional length that specifies the
-   *   maximum number of bytes to read. You can omit this parameter to scan the
-   *   string until the first 0 byte. If maxBytesToRead is passed, and the string
-   *   at [ptr, ptr+maxBytesToReadr[ contains a null byte in the middle, then the
-   *   string will cut short at that byte index.
-   * @param {boolean=} ignoreNul - If true, the function will not stop on a NUL character.
-   * @return {string}
-   */
-  var UTF8ToString = (ptr, maxBytesToRead, ignoreNul) => {
-      assert(typeof ptr == 'number', `UTF8ToString expects a number (got ${typeof ptr})`);
-      return ptr ? UTF8ArrayToString(HEAPU8, ptr, maxBytesToRead, ignoreNul) : '';
-    };
   var __embind_register_std_string = (rawType, name) => {
       name = AsciiToString(name);
       var stdStringIsUTF8 = true;
@@ -3233,12 +3236,18 @@ function checkIncomingModuleAPI() {
   ignoredModuleProp('logReadFiles');
   ignoredModuleProp('loadSplitModule');
 }
-function Group24EnsureUi() { if (document.getElementById('group24_root')) return; var style = document.createElement('style'); style.textContent = [ '#group24_root{font-family:system-ui,Arial,sans-serif;padding:12px;color:#111827;}', '#group24_topbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}', '#group24_main{display:flex;gap:12px;align-items:flex-start;}', '#group24_canvas_host{min-width:500px;}', '#group24_sidebar{width:320px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:10px;padding:12px;}', '#group24_actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px;}', '#group24_actions button,#group24_topbar button,#group24_topbar select{padding:8px 10px;border:1px solid #9ca3af;border-radius:8px;background:white;}', '#group24_hud,#group24_log{white-space:pre-wrap;background:white;border:1px solid #d1d5db;border-radius:8px;padding:10px;margin-top:10px;}', '#group24_title{font-size:20px;font-weight:700;margin-right:8px;}', '#group24_canvas{border:1px solid #374151;border-radius:8px;background:#ffffff;}' ].join(''); document.head.appendChild(style); var root = document.createElement('div'); root.id = 'group24_root'; root.innerHTML = [ '<div id="group24_topbar">', '<span id="group24_title">Group 24 Stub Demo</span>', '<label for="group24_world_select">World:</label>', '<select id="group24_world_select"><option value="stub">Stub World</option></select>', '<button id="g24btn-1">Start</button>', '<button id="g24btn-2">Reset</button>', '<button id="g24btn-3">Save</button>', '<button id="g24btn-4">Load</button>', '<span id="group24_mode_tick"></span>', '</div>', '<div id="group24_main">', '<div id="group24_canvas_host"></div>', '<div id="group24_sidebar">', '<div><strong>Available Actions</strong></div>', '<div id="group24_actions">', '<button id="g24btn-5">Up</button>', '<button id="g24btn-6">Down</button>', '<button id="g24btn-7">Left</button>', '<button id="g24btn-8">Right</button>', '<button id="g24btn-9">Collect</button>', '<button id="g24btn-10">Build</button>', '</div>', '<div id="group24_hud"></div>', '<div id="group24_log"></div>', '</div>', '</div>' ].join(''); document.body.innerHTML = ''; document.body.appendChild(root); for (var code = 1; code <= 10; ++code) { (function(c) { var btn = document.getElementById('g24btn-' + c); if (!btn) return; btn.addEventListener('click', function() { Module.ccall('Group24HandleAction', null, ['number'], [c]); }); })(code); } document.addEventListener('keydown', function(ev) { var key = ev.key.toLowerCase(); var map = { 'w': 5, 'arrowup': 5, 's': 6, 'arrowdown': 6, 'a': 7, 'arrowleft': 7, 'd': 8, 'arrowright': 8, 'e': 9, 'b': 10, 'r': 2, 'enter': 1 }; if (!(key in map)) return; ev.preventDefault(); Module.ccall('Group24HandleAction', null, ['number'], [map[key]]); }); }
-function Group24SetHudText(hud_ptr) { var el = document.getElementById('group24_hud'); if (!el) return; el.textContent = hud_ptr ? UTF8ToString(hud_ptr) : ''; }
-function Group24SetLogText(log_ptr) { var el = document.getElementById('group24_log'); if (!el) return; el.textContent = log_ptr ? UTF8ToString(log_ptr) : ''; }
+function Group24EnsureUi() { if (document.getElementById('group24_root')) return; var style = document.createElement('style'); style.textContent = [ '#group24_root{font-family:system-ui,Arial,sans-serif;padding:12px;color:#111827;}', '#group24_topbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}', '#group24_main{display:flex;gap:12px;align-items:flex-start;}', '#group24_canvas_host{min-width:500px;}', '#group24_sidebar{width:320px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:10px;padding:12px;}', '#group24_actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px;}', '#group24_actions button,#group24_topbar button,#group24_topbar select{padding:8px 10px;border:1px solid #9ca3af;border-radius:8px;background:white;}', '#group24_hud_host,#group24_log_host{white-space:pre-wrap;background:white;border:1px solid #d1d5db;border-radius:8px;padding:10px;margin-top:10px;overflow:visible;min-height:3em;}', '#group24_title{font-size:20px;font-weight:700;margin-right:8px;}', '#group24_canvas{border:1px solid #374151;border-radius:8px;background:#ffffff;}' ].join(''); document.head.appendChild(style); var root = document.createElement('div'); root.id = 'group24_root'; root.innerHTML = [ '<div id="group24_topbar">', '<span id="group24_title">Group 24 Stub Demo</span>', '<label for="group24_world_select">World:</label>', '<select id="group24_world_select"><option value="stub">Stub World</option></select>', '<button id="g24btn-1">Start</button>', '<button id="g24btn-2">Reset</button>', '<button id="g24btn-3">Save</button>', '<button id="g24btn-4">Load</button>', '<span id="group24_mode_tick"></span>', '</div>', '<div id="group24_main">', '<div id="group24_canvas_host"></div>', '<div id="group24_sidebar">', '<div><strong>Available Actions</strong></div>', '<div id="group24_actions">', '<button id="g24btn-5">Up</button>', '<button id="g24btn-6">Down</button>', '<button id="g24btn-7">Left</button>', '<button id="g24btn-8">Right</button>', '<button id="g24btn-9">Collect</button>', '<button id="g24btn-10">Build</button>', '</div>', '<div id="group24_hud_host"></div>', '<div id="group24_log_host"></div>', '</div>', '</div>' ].join(''); document.body.innerHTML = ''; document.body.appendChild(root); for (var code = 1; code <= 10; ++code) { (function(c) { var btn = document.getElementById('g24btn-' + c); if (!btn) return; btn.addEventListener('click', function() { Module.ccall('Group24HandleAction', null, ['number'], [c]); }); })(code); } document.addEventListener('keydown', function(ev) { var key = ev.key.toLowerCase(); var map = { 'w': 5, 'arrowup': 5, 's': 6, 'arrowdown': 6, 'a': 7, 'arrowleft': 7, 'd': 8, 'arrowright': 8, 'e': 9, 'b': 10, 'r': 2, 'enter': 1 }; if (!(key in map)) return; ev.preventDefault(); Module.ccall('Group24HandleAction', null, ['number'], [map[key]]); }); }
 function Group24SetModeTick(text_ptr) { var el = document.getElementById('group24_mode_tick'); if (!el) return; el.textContent = text_ptr ? UTF8ToString(text_ptr) : ''; }
 function Group24SetActionEnabled(code,enabled) { var btn = document.getElementById('g24btn-' + code); if (!btn) return; btn.disabled = !enabled; }
 function CSE498_RegisterCanvasClickHandlerJs(element_id,self_ptr) { var id = UTF8ToString(element_id); var canvas = document.getElementById(id); if (!canvas) return; if (!Module.__cse498CanvasClicks) { Module.__cse498CanvasClicks = {}; } if (Module.__cse498CanvasClicks[id]) { return; } Module.__cse498CanvasClicks[id] = true; canvas.addEventListener('click', function(evt) { var rect = canvas.getBoundingClientRect(); var x = Math.floor(evt.clientX - rect.left); var y = Math.floor(evt.clientY - rect.top); Module.ccall('CSE498_WebCanvasHandleClickBridge', null, ['number', 'number', 'number'], [self_ptr, x, y]); }); }
+function cse498_wtb_create() { if (!Module.__cse498WebTextbox) { Module.__cse498WebTextbox = { nextId: 1, map: new Map() }; } var st = Module.__cse498WebTextbox; var id = st.nextId++; var div = document.createElement('div'); div.style.position = 'absolute'; div.style.left = '0px'; div.style.top = '0px'; div.style.display = 'none'; div.style.opacity = '1'; st.map.set(id, div); return id; }
+function cse498_wtb_destroy(handle) { var st = Module.__cse498WebTextbox; if (!st) return; var el = st.map.get(handle); if (!el) return; if (el.parentNode) el.remove(); st.map.delete(handle); }
+function cse498_wtb_detach(handle) { var st = Module.__cse498WebTextbox; if (!st) return; var el = st.map.get(handle); if (!el) return; if (el.parentNode) el.remove(); }
+function cse498_wtb_set_text(handle,txt_ptr) { var st = Module.__cse498WebTextbox; if (!st) return; var el = st.map.get(handle); if (el) el.textContent = UTF8ToString(txt_ptr); }
+function cse498_wtb_set_style(handle,prop_ptr,val_ptr) { var st = Module.__cse498WebTextbox; if (!st) return; var el = st.map.get(handle); if (!el) return; el.style[UTF8ToString(prop_ptr)] = UTF8ToString(val_ptr); }
+function cse498_wtb_set_id(handle,id_ptr) { var st = Module.__cse498WebTextbox; if (!st) return; var el = st.map.get(handle); if (!el) return; var v = id_ptr ? UTF8ToString(id_ptr) : ""; if (v.length === 0) el.removeAttribute('id'); else el.id = v; }
+function cse498_wtb_attach(handle,parent_id_ptr) { var st = Module.__cse498WebTextbox; if (!st) return; var el = st.map.get(handle); if (!el) return; var pid = parent_id_ptr ? UTF8ToString(parent_id_ptr) : ""; var parent = (pid.length > 0) ? document.getElementById(pid) : null; if (!parent) parent = document.body; if (el.parentNode !== parent) parent.appendChild(el); }
+function cse498_wtb_set_visible(handle,visible) { var st = Module.__cse498WebTextbox; if (!st) return; var el = st.map.get(handle); if (el) el.style.display = visible ? 'block' : 'none'; }
 
 // Imports from the Wasm binary.
 var ___getTypeName = makeInvalidEarlyAccess('___getTypeName');
@@ -3305,11 +3314,9 @@ var wasmImports = {
   /** @export */
   Group24SetActionEnabled,
   /** @export */
-  Group24SetHudText,
-  /** @export */
-  Group24SetLogText,
-  /** @export */
   Group24SetModeTick,
+  /** @export */
+  __assert_fail: ___assert_fail,
   /** @export */
   __cxa_throw: ___cxa_throw,
   /** @export */
@@ -3352,6 +3359,20 @@ var wasmImports = {
   _emval_set_property: __emval_set_property,
   /** @export */
   _tzset_js: __tzset_js,
+  /** @export */
+  cse498_wtb_attach,
+  /** @export */
+  cse498_wtb_create,
+  /** @export */
+  cse498_wtb_destroy,
+  /** @export */
+  cse498_wtb_set_id,
+  /** @export */
+  cse498_wtb_set_style,
+  /** @export */
+  cse498_wtb_set_text,
+  /** @export */
+  cse498_wtb_set_visible,
   /** @export */
   emscripten_resize_heap: _emscripten_resize_heap,
   /** @export */

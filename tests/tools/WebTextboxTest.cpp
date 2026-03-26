@@ -637,8 +637,64 @@ static void TestStyleSnapshot() {
   assert(b.GetLeftPx() == 10.0);
 
   b.EnsureCreated();
-  b.ApplySnapshot(copy);
+  b.SetStyle(copy);
   assert(b.GetText() == "mutated");
+}
+
+// ----- Test: AppendLine -----
+
+static void TestAppendLine() {
+  WebTextbox box;
+  box.AppendLine("first");
+  assert(box.GetText() == "first");
+  box.AppendLine("second");
+  assert(box.GetText() == "first\nsecond");
+  box.ClearText();
+  box.AppendLine(42);
+  assert(box.GetText() == "42");
+}
+
+// ----- Test: group api aliases (Create, Clear, Show, Hide, SetStyle) -----
+
+static void TestGroupContractAliases() {
+  WebTextbox box;
+  box.SetText("tmp");
+  box.Clear();
+  assert(box.GetText().empty());
+
+  box.AppendLine("row1");
+  box.AppendLine("row2");
+  assert(box.GetText() == "row1\nrow2");
+
+  box.Create();
+  assert(box.IsCreated());
+  box.Hide();
+  assert(!box.IsVisible());
+  box.Show();
+  assert(box.IsVisible());
+
+  WebTextbox styled;
+  styled.SetFontSize(22);
+  styled.SetTextColor("#112233");
+  const WebTextbox::StyleSnapshot snap = styled.CaptureStyle();
+  WebTextbox clone;
+  clone.SetStyle(snap);
+  assert(clone.GetFontSize() == 22);
+  assert(clone.GetTextColor() == "#112233");
+
+  box.Destroy();
+}
+
+// ----- Test: ApplyFlowLayoutStyles (sidebar embedding; no crash, state intact) -----
+
+static void TestApplyFlowLayoutStyles() {
+  WebTextbox box;
+  box.SetText("flow");
+  box.Create();
+  box.ApplyFlowLayoutStyles();
+  assert(box.GetText() == "flow");
+  assert(box.IsCreated());
+  box.Destroy();
 }
 
 // ----- main -----
@@ -669,6 +725,9 @@ int main() {
   TestTemplateSetText();
   TestTemplateAppendText();
   TestStyleSnapshot();
+  TestAppendLine();
+  TestGroupContractAliases();
+  TestApplyFlowLayoutStyles();
 
   std::cout << "All WebTextbox tests passed." << std::endl;
   return 0;

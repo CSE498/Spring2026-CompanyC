@@ -7,6 +7,7 @@
 #include "tools/IWorldUiAdapter.hpp"
 #include "tools/StubWorldAdapter.hpp"
 #include "tools/WebCanvas.hpp"
+#include "tools/WebTextbox.hpp"
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -19,8 +20,15 @@ constexpr int kCanvasHeightPx = 480;
 constexpr int kGridSize = 10;
 constexpr int kCellPx = kCanvasWidthPx / kGridSize;
 
+// DOM host ids and shared font stack (match #group24_root typography).
+constexpr const char* kHudHostElementId = "group24_hud_host";
+constexpr const char* kLogHostElementId = "group24_log_host";
+constexpr const char* kSidebarFontStack = "system-ui, Arial, sans-serif";
+
 std::unique_ptr<cse498::WebCanvas> g_canvas;
 std::unique_ptr<cse498::IWorldUiAdapter> g_world;
+cse498::WebTextbox g_hud_text;
+cse498::WebTextbox g_log_text;
 
 enum ActionCode {
   kActionStart = 1,
@@ -48,7 +56,7 @@ EM_JS(void, Group24EnsureUi, (), {
     '#group24_sidebar{width:320px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:10px;padding:12px;}',
     '#group24_actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px;}',
     '#group24_actions button,#group24_topbar button,#group24_topbar select{padding:8px 10px;border:1px solid #9ca3af;border-radius:8px;background:white;}',
-    '#group24_hud,#group24_log{white-space:pre-wrap;background:white;border:1px solid #d1d5db;border-radius:8px;padding:10px;margin-top:10px;}',
+    '#group24_hud_host,#group24_log_host{white-space:pre-wrap;background:white;border:1px solid #d1d5db;border-radius:8px;padding:10px;margin-top:10px;overflow:visible;min-height:3em;}',
     '#group24_title{font-size:20px;font-weight:700;margin-right:8px;}',
     '#group24_canvas{border:1px solid #374151;border-radius:8px;background:#ffffff;}'
   ].join('');
@@ -79,8 +87,8 @@ EM_JS(void, Group24EnsureUi, (), {
           '<button id="g24btn-9">Collect</button>',
           '<button id="g24btn-10">Build</button>',
         '</div>',
-        '<div id="group24_hud"></div>',
-        '<div id="group24_log"></div>',
+        '<div id="group24_hud_host"></div>',
+        '<div id="group24_log_host"></div>',
       '</div>',
     '</div>'
   ].join('');
@@ -109,18 +117,6 @@ EM_JS(void, Group24EnsureUi, (), {
   });
 });
 
-EM_JS(void, Group24SetHudText, (const char* hud_ptr), {
-  var el = document.getElementById('group24_hud');
-  if (!el) return;
-  el.textContent = hud_ptr ? UTF8ToString(hud_ptr) : '';
-});
-
-EM_JS(void, Group24SetLogText, (const char* log_ptr), {
-  var el = document.getElementById('group24_log');
-  if (!el) return;
-  el.textContent = log_ptr ? UTF8ToString(log_ptr) : '';
-});
-
 EM_JS(void, Group24SetModeTick, (const char* text_ptr), {
   var el = document.getElementById('group24_mode_tick');
   if (!el) return;
@@ -134,8 +130,6 @@ EM_JS(void, Group24SetActionEnabled, (int code, int enabled), {
 });
 #else
 void Group24EnsureUi() {}
-void Group24SetHudText(const char*) {}
-void Group24SetLogText(const char*) {}
 void Group24SetModeTick(const char*) {}
 void Group24SetActionEnabled(int, int) {}
 #endif
@@ -227,8 +221,8 @@ void RenderWorld() {
     hud_text << "- " << entry.first << ": " << entry.second << "\n";
   }
 
-  Group24SetHudText(hud_text.str().c_str());
-  Group24SetLogText(hud.status_message.c_str());
+  g_hud_text.SetText(hud_text.str());
+  g_log_text.SetText(hud.status_message);
 
   std::ostringstream mode_tick;
   mode_tick << "Mode: " << hud.mode << " | Tick: " << hud.tick;
@@ -254,6 +248,18 @@ void InitializeDemo() {
     g_world->SelectCell(cell.first, cell.second);
     RenderWorld();
   });
+
+  g_hud_text.SetParentId(kHudHostElementId);
+  g_log_text.SetParentId(kLogHostElementId);
+  g_hud_text.SetWordWrap("break-word");
+  g_log_text.SetWordWrap("break-word");
+  g_hud_text.Create();
+  g_log_text.Create();
+  g_hud_text.ApplyFlowLayoutStyles();
+  g_log_text.ApplyFlowLayoutStyles();
+  g_hud_text.SetFontFamily(kSidebarFontStack);
+  g_log_text.SetFontFamily(kSidebarFontStack);
+
   RenderWorld();
 }
 

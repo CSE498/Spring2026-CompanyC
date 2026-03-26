@@ -81,6 +81,9 @@ class WebTextbox final {
   [[nodiscard]] StyleSnapshot CaptureStyle() const noexcept;
   void ApplySnapshot(const StyleSnapshot& snapshot);
 
+  /** Group contract name for ApplySnapshot (applies copied style + text state). */
+  void SetStyle(const StyleSnapshot& snapshot) { ApplySnapshot(snapshot); }
+
   // -- Content
   // Using advance feature: templates (SetText / AppendText forwarding)
   template<typename StringLike>
@@ -102,7 +105,36 @@ class WebTextbox final {
     PushText_();
   }
 
+  /**
+   * Appends one line of content. If the box already has text, inserts a newline
+   * first, then appends (same value rules as AppendText for arithmetic vs text).
+   */
+  template<typename T>
+  void AppendLine(T&& value) {
+    if (!text_.empty()) {
+      text_ += "\n";
+    }
+    using U = std::remove_cv_t<std::remove_reference_t<T>>;
+    if constexpr (std::is_arithmetic_v<U>) {
+      text_ += std::to_string(value);
+    } else {
+      text_ += std::string(std::forward<T>(value));
+    }
+    PushText_();
+  }
+
   void ClearText();
+  /** better api name for ClearText(). */
+  void Clear() { ClearText(); }
+
+  /** better api name for EnsureCreated(). */
+  void Create() { EnsureCreated(); }
+
+  /** better api name for SetVisible(true). */
+  void Show() { SetVisible(true); }
+
+  /** better api name for SetVisible(false). */
+  void Hide() { SetVisible(false); }
 
   // -- Font / Typography --
   void SetFontFamily(const std::string& family);
@@ -160,6 +192,13 @@ class WebTextbox final {
   void Destroy();
   [[nodiscard]] bool IsCreated() const noexcept;
   [[nodiscard]] int32_t GetHandle() const noexcept;
+
+  /**
+   * After Create(), call this when embedding in a sidebar or stacked panel.
+   * The default DOM node uses position:absolute (for overlays); flow layout
+   * uses position:relative and width:100% so multi-line HUD text is not clipped.
+   */
+  void ApplyFlowLayoutStyles();
 
  private:
   void MoveFrom_(WebTextbox&& other) noexcept;
