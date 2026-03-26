@@ -12,9 +12,12 @@
 #include <map>
 #include <cassert>
 #include <stdexcept>
+#include <concepts>
+#include <type_traits>
 #include <random>
 #include <cmath>
 #include <limits>
+#include <utility>
 
 namespace cse498 {
 
@@ -30,25 +33,38 @@ public:
     using map_type = std::map<T, weight_type, Compare>;
     using const_iterator = typename map_type::const_iterator;
 
+    static_assert(std::is_floating_point_v<weight_type>, "WeightedSet::weight_type must be floating point");
+
     WeightedSet() = default;
     ~WeightedSet() = default;
+    WeightedSet(const WeightedSet&) = default;
+    WeightedSet(WeightedSet&&) noexcept = default;
+    WeightedSet& operator=(const WeightedSet&) = default;
+    WeightedSet& operator=(WeightedSet&&) noexcept = default;
 
-    // Insert a new element with the given positive weight. Returns true on success.
+    // Value semantics: two sets are equal iff their stored key->weight mappings are equal.
+    bool operator==(const WeightedSet& other) const noexcept {
+        return m_map == other.m_map;
+    }
+    bool operator!=(const WeightedSet& other) const noexcept { return !(*this == other); }
+
+    void swap(WeightedSet& other) noexcept {
+        using std::swap;
+        swap(m_map, other.m_map);
+        swap(m_total, other.m_total);
+    }
+
+    // Insert a new element with the given non-negative weight. Returns true on success.
     // If the element already exists, returns false.
     bool insert(const T& value, weight_type weight) {
-        // Validate weight at runtime. An assert only checks in debug builds;
-        // in release builds a zero or negative weight would be accepted and
-        // could corrupt the total weight. Throw an exception for invalid
-        // weights so callers always get a clear error.
-        if (!(weight > 0.0)) {
-            throw std::invalid_argument("WeightedSet::insert: weight must be positive");
-        }
+        // Negative weights are a programmer error: assert in debug; allow zero.
+        assert(weight >= 0.0 && "WeightedSet::insert: weight must be non-negative");
+        
         auto it = m_map.find(value);
         if (it != m_map.end()) {
             return false; // duplicate
         }
         auto p = m_map.emplace(value, weight);
-        if (!p.second) return false;
         m_total += weight;
         return true;
     }
@@ -59,6 +75,20 @@ public:
         if (it == m_map.end()) return false;
         m_total -= it->second;
         m_map.erase(it);
+        return true;
+    }
+
+    // Update the weight of an existing element. Returns true if updated, false if not found.
+    bool set_weight(const T& value, weight_type weight) {
+        // Negative weights are a programmer error: assert in debug; allow zero.
+        assert(weight >= 0.0 && "WeightedSet::set_weight: weight must be non-negative");
+
+        auto it = m_map.find(value);
+        if (it == m_map.end()) return false;
+
+        m_total -= it->second;
+        it->second = weight;
+        m_total += weight;
         return true;
     }
 
@@ -100,20 +130,32 @@ public:
     }
 
     // Convenience: sample using a random number generator. Produces a uniform real in [0, total_weight()).
-    template <typename URBG>
+    template <std::uniform_random_bit_generator URBG>
     const_iterator sample_random(URBG& rng) const {
         assert(!empty() && "sample_random called on empty WeightedSet");
-        // Use nextafter(m_total, max) so the distribution's upper bound is the
-        // next representable value above m_total. uniform_real_distribution
-        // typically generates values in [a, b), so this ensures we can obtain
-        // values effectively up to m_total (inclusive) and pass them to
-        // sample_by_weight which accepts cumulative == m_total.
-        std::uniform_real_distribution<weight_type> dist(0.0, std::nextafter(m_total, std::numeric_limits<weight_type>::max()));
-        return sample_by_weight(dist(rng));
+
+        // If every element has weight 0, there's no meaningful "random by weight" to do.
+        // In that degenerate case, just return the first element.
+        if (m_total == 0.0) return m_map.cbegin();
+
+        // Use a distribution over [0, m_total). Clamp in case floating-point quirks
+        // ever produce a value slightly above m_total (which sample_by_weight asserts against).
+        std::uniform_real_distribution<weight_type> dist(0.0, m_total);
+        weight_type x = dist(rng);
+        if (x > m_total) x = m_total;
+        return sample_by_weight(x);
     }
 
     const_iterator begin() const noexcept { return m_map.cbegin(); }
     const_iterator end() const noexcept { return m_map.cend(); }
+
+    // Lambda-friendly iteration: calls fn(key, weight) for every stored element.
+    template <typename Fn>
+    void for_each(Fn&& fn) const {
+        for (const auto& [k, w] : m_map) {
+            fn(k, w);
+        }
+    }
 
 private:
     map_type m_map;
