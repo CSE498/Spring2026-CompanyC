@@ -11,9 +11,9 @@
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
-g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -O0 -g \
+g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -O0 -g \
   -I./source \
-  ./tests/tools/WebTextbox/WebTextbox.cpp ./source/tools/WebTextbox/WebTextbox.cpp \
+  ./tests/tools/WebTextboxTest.cpp ./source/tools/WebTextbox.cpp \
   -o webtextbox_tests
 
 ./webtextbox_tests

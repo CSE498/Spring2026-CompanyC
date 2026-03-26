@@ -9,10 +9,10 @@ cd "$(git rev-parse --show-toplevel)"
 
 rm -f webtextbox_demo.js webtextbox_demo.wasm
 
-em++ -std=c++17 -O0 -g -Wall -Wextra -Wpedantic -Werror \
+em++ -std=c++20 -O0 -g -Wall -Wextra -Wpedantic -Werror \
   -I./source \
-  ./source/tools/WebTextbox/WebTextbox.cpp \
-  ./source/tools/WebTextbox/webtextbox_smoke_demo.cpp \
+  ./source/tools/WebTextbox.cpp \
+  ./demos/web/webtextbox_smoke_demo.cpp \
   -sWASM=1 \
   -sEXPORTED_FUNCTIONS="['_RunWebTextboxDemo']" \
   -sEXPORTED_RUNTIME_METHODS="['ccall','cwrap']" \

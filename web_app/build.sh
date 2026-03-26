@@ -31,15 +31,15 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 rm -f "$SCRIPT_DIR/app.js" "$SCRIPT_DIR/app.wasm"
 
-em++ -std=c++17 -O0 -g -Wall -Wextra -Wpedantic -Werror -Wno-dollar-in-identifier-extension \
+em++ -std=c++20 -O0 -g -Wall -Wextra -Wpedantic -Werror -Wno-dollar-in-identifier-extension \
   -I./source \
   -I./web_app \
   ./web_app/main.cpp \
   ./web_app/AppUI.cpp \
-  ./source/tools/WebTextbox/WebTextbox.cpp \
-  ./source/tools/WebButton/WebButton.cpp \
-  ./source/tools/WebImage/WebImage.cpp \
-  ./source/web/WebCanvas.cpp \
+  ./source/tools/WebTextbox.cpp \
+  ./source/tools/WebButton.cpp \
+  ./source/tools/WebImage.cpp \
+  ./source/tools/WebCanvas.cpp \
   -sWASM=1 \
   -sEXPORTED_FUNCTIONS="['_RunWebInterface']" \
   -sEXPORTED_RUNTIME_METHODS="['ccall','cwrap']" \

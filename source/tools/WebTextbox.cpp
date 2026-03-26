@@ -11,6 +11,16 @@
  * through a small JS bridge. Under native builds everything is a
  * no-op stub so we can still run unit tests without a brower.
  *
+ * How to compile this file alone (native g++, from repository root). Use ONE
+ * line, or if you break lines with backslash, the next line must NOT start
+ * with * (star) or the shell will treat * as "all files in this folder":
+ *   g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -O0 -g -I./source -c ./source/tools/WebTextbox.cpp
+ *
+ * How to run the full WebTextbox unit test suite (recommended):
+ *   bash tests/run_webtextbox_tests.sh
+ *   That script uses -std=c++20 -Wall -Wextra -Wpedantic -Werror and must
+ *   finish with no compiler warnings and "All WebTextbox tests passed."
+ *
  * @author Prijam Khanal
  * Copyright (c) 2026 Prijam Khanal
  * SPDX-License-Identifier: MIT
@@ -23,6 +33,7 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -294,33 +305,74 @@ void WebTextbox::MoveFrom_(WebTextbox&& other) noexcept {
   other.created_ = false;
 }
 
+// Using advance feature: value semantics (snapshot is an independent copy of
+// style fields; safe to pass around without sharing the WebTextbox DOM handle.)
+WebTextbox::StyleSnapshot WebTextbox::CaptureStyle() const noexcept {
+  StyleSnapshot s;
+  s.text = text_;
+  s.font_family = font_family_;
+  s.font_size_px = font_size_px_;
+  s.font_weight = font_weight_;
+  s.font_style = font_style_;
+  s.line_height = line_height_;
+  s.text_color = text_color_;
+  s.bg_color = bg_color_;
+  s.text_decoration = text_decoration_;
+  s.word_wrap = word_wrap_;
+  s.text_align = text_align_;
+  s.padding = padding_;
+  s.left_px = left_px_;
+  s.top_px = top_px_;
+  s.width_px = width_px_;
+  s.height_px = height_px_;
+  s.visible = visible_;
+  s.opacity = opacity_;
+  s.element_id = element_id_;
+  s.parent_id = parent_id_;
+  return s;
+}
+
+// Using advance feature: value semantics (apply a copied snapshot into this
+// object; optionally refreshes the DOM if the element already exists.)
+void WebTextbox::ApplySnapshot(const StyleSnapshot& snapshot) {
+  assert(snapshot.font_size_px > 0 && "snapshot font size must be positive");
+  assert(snapshot.line_height > 0.0 && "snapshot line height must be positive");
+  assert(snapshot.width_px >= 0.0 && snapshot.height_px >= 0.0);
+
+  text_ = snapshot.text;
+  font_family_ = snapshot.font_family;
+  font_size_px_ = snapshot.font_size_px;
+  font_weight_ = snapshot.font_weight;
+  font_style_ = snapshot.font_style;
+  line_height_ = snapshot.line_height;
+  text_color_ = snapshot.text_color;
+  bg_color_ = snapshot.bg_color;
+  text_decoration_ = snapshot.text_decoration;
+  word_wrap_ = snapshot.word_wrap;
+  text_align_ = snapshot.text_align;
+  padding_ = snapshot.padding;
+  left_px_ = snapshot.left_px;
+  top_px_ = snapshot.top_px;
+  width_px_ = snapshot.width_px;
+  height_px_ = snapshot.height_px;
+  visible_ = snapshot.visible;
+  opacity_ = ClampOpacity_(snapshot.opacity);
+  element_id_ = snapshot.element_id;
+  parent_id_ = snapshot.parent_id;
+  if (created_) {
+    SyncAll_();
+  }
+}
+
 // -------------------------------------------------------
 // Content
 // -------------------------------------------------------
-/**
- * @brief Sets the textbox content.
- * @param text New text to display.
- */
-void WebTextbox::SetText(const std::string& text) {
-  text_ = text;
-  PushText_();
-}
-
 /**
  * @brief Gets the current textbox content.
  * @return Const reference to the current text.
  */
 const std::string& WebTextbox::GetText() const noexcept {
   return text_;
-}
-
-/**
- * @brief Appends text to the existing textbox content.
- * @param text Text to append.
- */
-void WebTextbox::AppendText(const std::string& text) {
-  text_ += text;
-  PushText_();
 }
 
 /**
@@ -710,7 +762,7 @@ void WebTextbox::RemoveFromDom() {
 /**
  * @brief Destroys the element and releases any underlying resources.
  */
-  void WebTextbox::Destroy() {
+void WebTextbox::Destroy() {
   if (!created_) return;
   cse498_wtb_destroy(handle_);
   handle_ = 0;
@@ -739,7 +791,7 @@ int32_t WebTextbox::GetHandle() const noexcept { return handle_; }
  * @return Clamped opacity value.
  */
 double WebTextbox::ClampOpacity_(double v) noexcept {
-  return std::clamp(v, kMinOpacity, kMaxOpacity);
+  return ClampOpacityCompileTime(v);
 }
 
 /**
@@ -789,42 +841,41 @@ void WebTextbox::SyncAll_() {
   // text content
   PushText_();
 
-  // font stuff
-  if (!font_family_.empty())
-    PushStyle_("fontFamily", font_family_);
-  PushStyle_("fontSize", std::to_string(font_size_px_) + "px");
-  PushStyle_("fontWeight", font_weight_);
-  PushStyle_("fontStyle", font_style_);
-  PushStyle_("lineHeight", std::to_string(line_height_));
+  const auto push_if_not_empty = [this](const char* prop,
+                                        const std::string& val) {
+    if (!val.empty()) {
+      PushStyle_(prop, val);
+    }
+  };
 
-  // colors
-  if (!text_color_.empty())
-    PushStyle_("color", text_color_);
-  if (!bg_color_.empty())
-    PushStyle_("backgroundColor", bg_color_);
+  std::vector<std::pair<std::string, std::string>> styles;
+  styles.reserve(20);
+  push_if_not_empty("fontFamily", font_family_);
+  styles.emplace_back("fontSize", std::to_string(font_size_px_) + "px");
+  styles.emplace_back("fontWeight", font_weight_);
+  styles.emplace_back("fontStyle", font_style_);
+  styles.emplace_back("lineHeight", std::to_string(line_height_));
+  push_if_not_empty("color", text_color_);
+  push_if_not_empty("backgroundColor", bg_color_);
+  push_if_not_empty("textDecoration", text_decoration_);
+  styles.emplace_back("wordWrap", word_wrap_);
+  styles.emplace_back("textAlign", text_align_);
+  styles.emplace_back("left", std::to_string(left_px_) + "px");
+  styles.emplace_back("top", std::to_string(top_px_) + "px");
+  if (width_px_ > 0) {
+    styles.emplace_back("width", std::to_string(width_px_) + "px");
+  }
+  if (height_px_ > 0) {
+    styles.emplace_back("height", std::to_string(height_px_) + "px");
+  }
+  push_if_not_empty("padding", padding_);
+  styles.emplace_back("opacity", std::to_string(opacity_));
 
-  // decoration and wrapping
-  if (!text_decoration_.empty())
-    PushStyle_("textDecoration", text_decoration_);
-  PushStyle_("wordWrap", word_wrap_);
+  // Using advance feature: ranges
+  std::ranges::for_each(styles, [this](const std::pair<std::string, std::string>& p) {
+    PushStyle_(p.first, p.second);
+  });
 
-  // alignment
-  PushStyle_("textAlign", text_align_);
-
-  // position + size
-  PushStyle_("left", std::to_string(left_px_) + "px");
-  PushStyle_("top", std::to_string(top_px_) + "px");
-  if (width_px_ > 0)
-    PushStyle_("width", std::to_string(width_px_) + "px");
-  if (height_px_ > 0)
-    PushStyle_("height", std::to_string(height_px_) + "px");
-
-  // padding
-  if (!padding_.empty())
-    PushStyle_("padding", padding_);
-
-  // opacity + visibility (do visibility last so it appears fully styled)
-  PushStyle_("opacity", std::to_string(opacity_));
   cse498_wtb_set_visible(handle_, visible_ ? 1 : 0);
 }
 

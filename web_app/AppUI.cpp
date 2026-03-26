@@ -14,10 +14,10 @@
 
 #include "AppUI.hpp"
 
-#include "tools/WebButton/WebButton.hpp"
-#include "tools/WebImage/WebImage.h"
-#include "tools/WebTextbox/WebTextbox.hpp"
-#include "web/WebCanvas.hpp"
+#include "tools/WebButton.hpp"
+#include "tools/WebImage.h"
+#include "tools/WebTextbox.hpp"
+#include "tools/WebCanvas.hpp"
 
 #include <string>
 

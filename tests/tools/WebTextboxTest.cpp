@@ -6,6 +6,13 @@
  * has native stubs that let us exercise all the C++ logic
  * without an actual browser.
  *
+ * How to run these tests (from repository root; recommended):
+ *   bash tests/run_webtextbox_tests.sh
+ *
+ * Manual compile-and-run (same flags as the script; must print
+ * "All WebTextbox tests passed." and exit 0):
+ * g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -O0 -g -I./source ./tests/tools/WebTextboxTest.cpp ./source/tools/WebTextbox.cpp -o webtextbox_tests && ./webtextbox_tests
+ *
  * Citation - LLM (OpenAI) was used to help generate parts of this file,
  * and maintain consistency with the project. The code was then reviewed
  * and heavily edited by the author to ensure correctness and suitability
@@ -21,7 +28,7 @@
 #include <string>
 #include <utility>
 
-#include "tools/WebTextbox/WebTextbox.hpp"
+#include "tools/WebTextbox.hpp"
 
 using cse498::WebTextbox;
 
@@ -561,6 +568,77 @@ static void TestNamedConstants() {
                 "min opacity should be 0.0");
   static_assert(WebTextbox::kMaxOpacity == 1.0,
                 "max opacity should be 1.0");
+  static_assert(WebTextbox::ClampOpacityCompileTime(-1.0) == 0.0, "");
+  static_assert(WebTextbox::ClampOpacityCompileTime(2.0) == 1.0, "");
+  static_assert(WebTextbox::ClampOpacityCompileTime(0.25) == 0.25, "");
+}
+
+// ----- Test: template SetText (string literals and std::string) -----
+
+static void TestTemplateSetText() {
+  WebTextbox box;
+  box.SetText("literal");
+  assert(box.GetText() == "literal");
+
+  const std::string s = "from string";
+  box.SetText(s);
+  assert(box.GetText() == "from string");
+
+  box.SetText(std::string("rvalue"));
+  assert(box.GetText() == "rvalue");
+}
+
+// ----- Test: template AppendText (strings and arithmetic) -----
+
+static void TestTemplateAppendText() {
+  WebTextbox box;
+  box.SetText("n=");
+  box.AppendText(42);
+  assert(box.GetText() == "n=42");
+
+  box.ClearText();
+  box.AppendText(100);
+  assert(box.GetText() == "100");
+
+  box.ClearText();
+  box.AppendText("a");
+  box.AppendText("b");
+  assert(box.GetText() == "ab");
+}
+
+// ----- Test: StyleSnapshot value semantics (capture / apply) -----
+
+static void TestStyleSnapshot() {
+  WebTextbox a;
+  a.SetText("hello");
+  a.SetFontFamily("Arial");
+  a.SetFontSize(20);
+  a.SetOpacity(0.75);
+  a.SetPosition(10, 20);
+
+  WebTextbox::StyleSnapshot snap = a.CaptureStyle();
+  assert(snap.text == "hello");
+  assert(snap.font_family == "Arial");
+  assert(snap.font_size_px == 20);
+  assert(snap.opacity == 0.75);
+  assert(snap.left_px == 10.0 && snap.top_px == 20.0);
+
+  WebTextbox::StyleSnapshot copy = snap;
+  copy.text = "mutated";
+  assert(snap.text == "hello");
+  assert(copy.text == "mutated");
+
+  WebTextbox b;
+  b.ApplySnapshot(snap);
+  assert(b.GetText() == "hello");
+  assert(b.GetFontFamily() == "Arial");
+  assert(b.GetFontSize() == 20);
+  assert(b.GetOpacity() == 0.75);
+  assert(b.GetLeftPx() == 10.0);
+
+  b.EnsureCreated();
+  b.ApplySnapshot(copy);
+  assert(b.GetText() == "mutated");
 }
 
 // ----- main -----
@@ -588,6 +666,9 @@ int main() {
   TestMoveAssign();
   TestSettersAfterCreate();
   TestNamedConstants();
+  TestTemplateSetText();
+  TestTemplateAppendText();
+  TestStyleSnapshot();
 
   std::cout << "All WebTextbox tests passed." << std::endl;
   return 0;

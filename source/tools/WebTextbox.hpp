@@ -17,6 +17,8 @@
 
 #include <cstdint>
 #include <string>
+#include <type_traits>
+#include <utility>
 
 namespace cse498 {
 
@@ -29,6 +31,42 @@ class WebTextbox final {
   static constexpr double kMinOpacity = 0.0;
   static constexpr double kMaxOpacity = 1.0;
 
+  // Using advance feature: constexpr (compile-time opacity bounds)
+  /** Compile-time opacity clamp; mirrors runtime DOM behavior for tests. */
+  static constexpr double ClampOpacityCompileTime(double v) noexcept {
+    return (v < kMinOpacity) ? kMinOpacity
+                             : (v > kMaxOpacity ? kMaxOpacity : v);
+  }
+
+  // Using advance feature: value semantics (StyleSnapshot is a plain copyable
+  // value type: it holds duplicated style data, not the live DOM handle.)
+  /**
+   * Value type holding a copy of all user-facing style state (no DOM handle).
+   * Copy and assign snapshots freely; each snapshot is independent state.
+   */
+  struct StyleSnapshot {
+    std::string text;
+    std::string font_family;
+    int font_size_px = kDefaultFontSize;
+    std::string font_weight = "normal";
+    std::string font_style = "normal";
+    double line_height = kDefaultLineHeight;
+    std::string text_color;
+    std::string bg_color;
+    std::string text_decoration;
+    std::string word_wrap = "normal";
+    std::string text_align = "left";
+    std::string padding;
+    double left_px = 0.0;
+    double top_px = 0.0;
+    double width_px = 0.0;
+    double height_px = 0.0;
+    bool visible = true;
+    double opacity = kDefaultOpacity;
+    std::string element_id;
+    std::string parent_id;
+  };
+
   WebTextbox();
   ~WebTextbox();
 
@@ -40,10 +78,30 @@ class WebTextbox final {
   WebTextbox(WebTextbox&& other) noexcept;
   WebTextbox& operator=(WebTextbox&& other) noexcept;
 
-  // -- Content --
-  void SetText(const std::string& text);
+  [[nodiscard]] StyleSnapshot CaptureStyle() const noexcept;
+  void ApplySnapshot(const StyleSnapshot& snapshot);
+
+  // -- Content
+  // Using advance feature: templates (SetText / AppendText forwarding)
+  template<typename StringLike>
+  void SetText(StringLike&& text) {
+    text_ = std::string(std::forward<StringLike>(text));
+    PushText_();
+  }
+
   [[nodiscard]] const std::string& GetText() const noexcept;
-  void AppendText(const std::string& text);
+
+  template<typename T>
+  void AppendText(T&& value) {
+    using U = std::remove_cv_t<std::remove_reference_t<T>>;
+    if constexpr (std::is_arithmetic_v<U>) {
+      text_ += std::to_string(value);
+    } else {
+      text_ += std::string(std::forward<T>(value));
+    }
+    PushText_();
+  }
+
   void ClearText();
 
   // -- Font / Typography --
