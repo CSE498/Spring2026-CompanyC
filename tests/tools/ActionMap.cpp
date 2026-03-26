@@ -1,5 +1,5 @@
 /**
- * @file ActionMap.cpp
+ * @file ActionMapTests.cpp
  * @brief Unit tests for the ActionMap class.
  */
 
@@ -18,16 +18,16 @@ TEST_CASE("ActionMap - Basic Functionality", "[ActionMap]") {
           true);
 
   SECTION("Trigger executes the stored function") {
-    auto err = am.Trigger("TestFunc");
-    REQUIRE_FALSE(err.has_value());
+    auto result = am.Trigger("TestFunc");
+    REQUIRE(result.has_value());
     REQUIRE(wasCalled == true);
   }
 
   SECTION("Triggering a non-existent function does nothing (safe)") {
     // Reset flag
     wasCalled = false;
-    auto err = am.Trigger("GhostFunc"); // Should just print error and continue
-    REQUIRE(err.has_value());
+    auto result = am.Trigger("GhostFunc");
+    REQUIRE_FALSE(result.has_value());
     REQUIRE(wasCalled == false);
   }
 }
@@ -41,8 +41,8 @@ TEST_CASE("ActionMap - Multiple Registrations", "[ActionMap]") {
   am.AddFunction<>("Load", std::function<void()>([&]() { loadCalled = true; }));
 
   SECTION("Triggering one does not affect the other") {
-    auto err = am.Trigger("Save");
-    REQUIRE_FALSE(err.has_value());
+    auto result = am.Trigger("Save");
+    REQUIRE(result.has_value());
     REQUIRE(saveCalled == true);
     REQUIRE(loadCalled == false);
   }
@@ -61,8 +61,8 @@ TEST_CASE("ActionMap - Duplicate Registration Fails", "[ActionMap]") {
               "Update", std::function<void()>([&]() { value = 2; })) == false);
 
   SECTION("The map does not overwrite existing logic") {
-    auto err = am.Trigger("Update");
-    REQUIRE_FALSE(err.has_value());
+    auto result = am.Trigger("Update");
+    REQUIRE(result.has_value());
     REQUIRE(value == 1);
   }
 }
@@ -76,8 +76,8 @@ TEST_CASE("ActionMap - ReplaceFunction Overwrites", "[ActionMap]") {
   am.ReplaceFunction<>("Update", std::function<void()>([&]() { value = 2; }));
 
   SECTION("ReplaceFunction updates the stored function") {
-    auto err = am.Trigger("Update");
-    REQUIRE_FALSE(err.has_value());
+    auto result = am.Trigger("Update");
+    REQUIRE(result.has_value());
     REQUIRE(value == 2);
   }
 }
@@ -131,13 +131,13 @@ TEST_CASE("ActionMap - Functions With Arguments", "[ActionMap]") {
                       std::function<void(int)>([&](int x) { result += x; }));
 
   SECTION("Trigger with correct argument type") {
-    auto err = am.Trigger("Add", 5);
-    REQUIRE_FALSE(err.has_value());
+    auto resultExpected = am.Trigger("Add", 5);
+    REQUIRE(resultExpected.has_value());
     REQUIRE(result == 5);
   }
 
   SECTION("Trigger with wrong signature fails") {
-    auto err = am.Trigger("Add");
-    REQUIRE(err.has_value());
+    auto resultExpected = am.Trigger("Add");
+    REQUIRE_FALSE(resultExpected.has_value());
   }
 }

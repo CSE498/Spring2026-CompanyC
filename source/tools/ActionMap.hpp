@@ -6,6 +6,7 @@
 
 #include <any>
 #include <cassert>
+#include <expected>
 #include <functional>
 #include <optional>
 #include <string>
@@ -82,7 +83,8 @@ public:
    * @return Optional error message if function not found or type mismatch
    */
   template <typename... Args>
-  std::optional<std::string> Trigger(const std::string &name, Args &&...args);
+  std::expected<void, std::string> Trigger(const std::string &name,
+                                           Args &&...args);
 
   /**
    * @brief Unregisters a function by name
@@ -150,27 +152,28 @@ void ActionMap::ReplaceFunction(const std::string &name,
 }
 
 template <typename... Args>
-std::optional<std::string> ActionMap::Trigger(const std::string &name,
-                                              Args &&...args) {
+std::expected<void, std::string> ActionMap::Trigger(const std::string &name,
+                                                    Args &&...args) {
   auto it = function_map.find(name);
   if (it == function_map.end()) {
-    return "Function '" + name + "' not found in ActionMap";
+    return std::unexpected("Function '" + name + "' not found in ActionMap");
   }
 
   std::type_index expected_type(typeid(std::function<void(Args...)>));
   if (it->second.type_info != expected_type) {
-    return "Type mismatch for function '" + name +
-           "': incorrect argument types";
+    return std::unexpected("Type mismatch for function '" + name +
+                           "': incorrect argument types");
   }
 
   auto *func_ptr =
       std::any_cast<std::function<void(Args...)>>(&(it->second.function));
   if (func_ptr == nullptr) {
-    return "Internal error: failed to cast function '" + name + "'";
+    return std::unexpected("Internal error: failed to cast function '" + name +
+                           "'");
   }
 
   (*func_ptr)(std::forward<Args>(args)...);
-  return std::nullopt;
+  return {};
 }
 
 } // namespace cse498
