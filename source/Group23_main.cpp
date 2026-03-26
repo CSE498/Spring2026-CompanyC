@@ -32,6 +32,23 @@ int main()
   [[maybe_unused]]  size_t left = 3;
   size_t right = 4;
 
+  // OutputManager
+  OutputManager logger;
+  logger.setLevel(LogLevel::Verbose);
+  logger.enableTimestamps(true);
+  logger.enableMetadata(true);
+  logger.enableTarget(OutputTarget::Console, true);
+  logger.enableTarget(OutputTarget::Buffer, true);
+
+  LogContext ctx;
+  ctx.tag = "Group23";
+  ctx.agentId = 0;
+  ctx.tick = 0;
+
+  logger.logNormal("Simulation started", ctx);
+  logger.logVerbose("Pacer1 initial position set to (3,1)", ctx);
+  // OutputManager
+
   // ActionLog
   // ActionLog is already created within the world through the WorldBase.hpp file 
 
@@ -85,11 +102,6 @@ int main()
   [[maybe_unused]] const bool logsCleared = distanceLog.IsEmpty() && positionLog.IsEmpty();
 
   // DataLog
-
-
-  // OutputManager
-
-  // OutputManager
 
 
   // ReplayDriver
