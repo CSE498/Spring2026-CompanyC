@@ -30,8 +30,8 @@ public:
     StateGrid() = default;
 
     // -- Accessors --
-    [[nodiscard]] int GetHeight() const { return mHeight; }
-    [[nodiscard]] int GetWidth() const { return mWidth; }
+    [[nodiscard]] size_t GetHeight() const { return mHeight; }
+    [[nodiscard]] size_t GetWidth() const { return mWidth; }
 
     [[nodiscard]] State const &GetState(StateGridPosition pos) const {
       assert(InBounds(pos));
@@ -54,8 +54,8 @@ public:
 
 private:
     // Dimensions
-    int mHeight = 0;
-    int mWidth = 0;
+    size_t mHeight = 0;
+    size_t mWidth = 0;
 
     // Main data structure to manage states
     std::vector<State> mGrid;
