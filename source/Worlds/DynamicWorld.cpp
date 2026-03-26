@@ -1,7 +1,8 @@
-#include "DynamicWorld.hpp"
+#include <algorithm>
+#include "./DynamicWorld.hpp"
 
 int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
-  WorldPosition cur = agent.GetLocation().AsWorldPosition();
+  const WorldPosition cur = agent.GetLocation().AsWorldPosition();
   WorldPosition next = cur;
 
   switch (action_id) {
@@ -56,9 +57,9 @@ int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
     mWorldGlobalCounts["wood"] -= 20;
     mWorldGlobalCounts["steel"] -= 20;
     mMainGrid[cur] = mLumberyardId;
-    Building b(mUpdateCounter);
-    b.AddResource("wood", 20);
-    mBuildings.push_back(b);
+    Building lumberyard(mUpdateCounter);
+    lumberyard.AddResource("wood", 20);
+    mBuildings.push_back(lumberyard);
     return true;
   }
   case BUILD_QUARRY: {
@@ -69,10 +70,10 @@ int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
     mWorldGlobalCounts["stone"] -= 20;
     mWorldGlobalCounts["wood"] -= 20;
     mMainGrid[cur] = mQuarryId;
-    Building b(mUpdateCounter);
-    b.AddResource("steel", 40);
-    b.AddResource("stone", 10);
-    mBuildings.push_back(b);
+    Building quarry(mUpdateCounter);
+    quarry.AddResource("steel", 40);
+    quarry.AddResource("stone", 10);
+    mBuildings.push_back(quarry);
     return true;
   }
   case BUILD_SPAWNER: {
@@ -94,9 +95,9 @@ int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
     mWorldGlobalCounts["wheat"] -= 20;
     mWorldGlobalCounts["wood"] -= 20;
     mMainGrid[cur] = mFarmId;
-    Building b(mUpdateCounter);
-    b.AddResource("wheat", 10);
-    mBuildings.push_back(b);
+    Building farm(mUpdateCounter);
+    farm.AddResource("wheat", 10);
+    mBuildings.push_back(farm);
     return true;
   }
   case BUILD_TOWNHALL: {
@@ -133,16 +134,17 @@ void cse498::DynamicWorld::UpdateWorld() {
 
   mUpdateCounter++;
 
-  for (auto building : mBuildings) {
-    // each building can start producing the resources after it's built,
-    // and produces them at a rate determined by the building type.
-    for (auto resource : building.GetResources()) {
-      size_t ticks_since_built = mUpdateCounter - building.GetBuiltTime();
+  std::for_each(std::begin(mBuildings), std::end(mBuildings), 
+  [&](auto building) {
+    std::for_each(std::begin(building.GetResources()), std::end(building.GetResources()), 
+    [&] (auto resource) {
+      const size_t ticks_since_built = mUpdateCounter - building.GetBuiltTime();
       if (ticks_since_built % resource.second == 0) {
         mWorldGlobalCounts[resource.first] += 1;
       }
     }
-  }
+  );
+  });
 
   // Spawner logic: spawn a PacingAgent at the closest grass cell every 60 ticks
   for (auto & [pos, built_time] : mSpawners) {

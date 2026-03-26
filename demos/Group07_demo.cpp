@@ -11,7 +11,6 @@
 // Minimal agent that always returns a fixed action ID for controlled testing.
 class StubAgent : public cse498::AgentBase {
 public:
-  size_t next_action = 0;
 
   StubAgent(size_t id, const std::string & name, const cse498::WorldBase & world)
     : AgentBase(id, name, world) { }
@@ -27,9 +26,12 @@ public:
 };
 
 int main(){
-    cse498::DynamicWorld world;
+    constexpr int width = 80;
+    constexpr int height = 80;
 
-    size_t basicAgentCount= 80;
+    cse498::DynamicWorld world(width, height);
+
+    constexpr int basicAgentCount= 80;
 
     int agentPositionX = 0;
     int agentPositionY = 0;
@@ -45,8 +47,8 @@ int main(){
         std::string name = "Basic Agent " + std::to_string(i+1);
         std::random_device rd;
         std::mt19937 gen(rd());
-        std::uniform_int_distribution<int> x_pos(0, 79);
-        std::uniform_int_distribution<int> y_pos(0, 79);
+        std::uniform_int_distribution<int> x_pos(0, width - 1);
+        std::uniform_int_distribution<int> y_pos(0, height - 1);
         world.AddAgent<StubAgent>(name).SetLocation(cse498::WorldPosition{x_pos(gen), y_pos(gen)});
     }
 
