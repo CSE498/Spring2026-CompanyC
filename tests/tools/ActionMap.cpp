@@ -1,5 +1,5 @@
 /**
- * @file ActionMapTests.cpp
+ * @file ActionMap.cpp
  * @brief Unit tests for the ActionMap class.
  */
 
