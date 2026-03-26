@@ -3,6 +3,7 @@
  * @brief An example driver for Group 23 module
  **/
 
+#include <iostream>
 #include "Agents/PacingAgent.hpp"
 #include "Worlds/MazeWorld.hpp"
 #include "Interfaces/TrashInterface.hpp"
@@ -72,6 +73,14 @@ int main()
   //stop timing the ActionLog demo block
   timer.Stop("ActionLog::DemoBlock:session");
 
+  logger.logNormal("ActionLog — actions for Pacer1: "
+    + std::to_string(pacerActions.size()), ctx);
+  logger.logVerbose("ActionLog cleared", ctx);
+  logger.logNormal("ActionLog demo block duration: "
+      + std::to_string(timer.Last("ActionLog::DemoBlock:session"))
+      + " seconds", ctx);
+    
+
   // ActionLog
 
 
@@ -87,6 +96,13 @@ int main()
   [[maybe_unused]] const auto distanceStats =
       std::tuple{distanceLog.Count(), distanceLog.Mean(), distanceLog.Median(), distanceLog.Min(), distanceLog.Max()};
 
+  logger.logNormal("DataLog (Distance) — count: "  + std::to_string(distanceLog.Count())
+    + ", mean: "   + std::to_string(distanceLog.Mean())
+    + ", median: " + std::to_string(distanceLog.Median())
+    + ", min: "    + std::to_string(distanceLog.Min())
+    + ", max: "    + std::to_string(distanceLog.Max()), ctx);
+
+
   // log generic values such as WorldPosition 
   DataLog<WorldPosition> positionLog;
   positionLog.Add(pacer1.GetLocation().AsWorldPosition());
@@ -96,12 +112,19 @@ int main()
   // can still some stats for ordered values
   [[maybe_unused]] const auto positionStats = std::tuple{positionLog.Count(), positionLog.Min(), positionLog.Max()};
 
+  logger.logNormal("DataLog (Position) — count: "
+    + std::to_string(positionLog.Count()), ctx);
+  logger.logVerbose("Min/Max position values recorded successfully", ctx);
+
   // clear the logs 
   distanceLog.Clear();
   positionLog.Clear();
   [[maybe_unused]] const bool logsCleared = distanceLog.IsEmpty() && positionLog.IsEmpty();
 
   // DataLog
+
+
+
 
 
   // ReplayDriver
@@ -129,6 +152,23 @@ int main()
   timer.Stop("ReplayDriver::Replay:session");
 
   // ReplayDriver
+
+
+
+  // -----------------------------------
+  // Timer summary
+  // -----------------------------------
+  logger.logNormal("Timer — ActionLog block: "
+    + std::to_string(timer.Last("ActionLog::DemoBlock:session"))
+    + " seconds", ctx);
+  logger.logNormal("Timer — Replay block: "
+    + std::to_string(timer.Last("ReplayDriver::Replay:session"))
+    + " seconds", ctx);
+
+
+  logger.logNormal("Simulation finished.", ctx);
+
+  return 0;
 
 
 
