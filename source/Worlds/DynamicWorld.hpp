@@ -25,8 +25,12 @@ public:
    * @brief Construct a DynamicWorld with default size and configured cell types.
    */
   DynamicWorld() {
+      ConfigureCellTypes();
+      GenerateWorld(100, 100);
+    }
+  DynamicWorld(int width, int height) {
     ConfigureCellTypes();
-    GenerateWorld(80, 80);
+    GenerateWorld(width, height);
   }
 
   /**
