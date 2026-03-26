@@ -240,13 +240,13 @@ inline bool WriteTextFile(const std::string & path, const std::string & contents
   return future;
 }
 
-} // namespace smart_agent_bridge_detail
+}
 
 inline void EnsureSmartAgentDefaultCallback()
 {
   SmartAgent::SetNpcRequestCallback(&smart_agent_bridge_detail::RequestSmartAgentMoveViaLlamaServer);
 }
 
-} // namespace cse498
+}
 
 #endif
