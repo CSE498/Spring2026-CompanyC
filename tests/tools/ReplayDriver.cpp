@@ -21,26 +21,15 @@ TEST_CASE("ReplayDriver replays actions for single agent correctly", "[core]")
     auto& pacer = world.AddAgent<cse498::PacingAgent>("Pacer 1");
     pacer.SetLocation(cse498::WorldPosition{3,1});
   
-    auto pacerPtr = std::shared_ptr<cse498::AgentBase>(&pacer, [](cse498::AgentBase*){});
     const cse498::WorldPosition curr_position = pacer.GetLocation().AsWorldPosition();
 
-    SECTION("SendAction applies one action using agent_id")
-    {
-        cse498::ReplayEvent event;
-        event.agent_id = pacer.GetID();
-        event.actionType = "down";
-        event.time = std::chrono::high_resolution_clock::now();
-
-        replayDriver.sendAction(event); //Send action to agent
-
-        REQUIRE(pacer.GetActionResult() == 1);  // Check if doAction is successful
-        REQUIRE(pacer.GetLocation().AsWorldPosition() == curr_position.Down()); // Check if agent is in expected position after action
-    }
+    constexpr size_t down = 2;
+    constexpr size_t right = 4;
 
     SECTION("update function replays multiple actions ") 
     {
-        actionLog.recordAction(pacerPtr, "down");
-        actionLog.recordAction(pacerPtr, "right");
+        actionLog.recordAction(pacer, down);
+        actionLog.recordAction(pacer, right);
 
         pacer.SetLocation(curr_position);
         replayDriver.startReplay(actionLog);
@@ -71,12 +60,13 @@ TEST_CASE("ReplayDriver pause/resume functionality", "[core]")
 
     auto& pacer = world.AddAgent<cse498::PacingAgent>("Pacer");
     pacer.SetLocation(cse498::WorldPosition{3, 1});
-
-     auto pacerPtr = std::shared_ptr<cse498::AgentBase>(&pacer, [](cse498::AgentBase*){});
     const auto curr_position = pacer.GetLocation().AsWorldPosition();
 
-    actionLog.recordAction(pacerPtr, "down");
-    actionLog.recordAction(pacerPtr, "right");
+    constexpr size_t down = 2;
+    constexpr size_t right = 4;
+
+    actionLog.recordAction(pacer, down);
+    actionLog.recordAction(pacer, right);
 
     pacer.SetLocation(curr_position);
     replayDriver.startReplay(actionLog);
@@ -118,22 +108,23 @@ TEST_CASE("ReplayDriver replays action in chronological order with multiple agen
     pacer2.SetHorizontal();
     pacer2.SetLocation(cse498::WorldPosition{7,7});
 
-    auto pacer1Ptr = std::shared_ptr<cse498::AgentBase>(&pacer1, [](cse498::AgentBase*){});
-    auto pacer2Ptr = std::shared_ptr<cse498::AgentBase>(&pacer2, [](cse498::AgentBase*){});
+    constexpr size_t down = 2;
+    constexpr size_t left = 3;
+    constexpr size_t right = 4;
 
     const auto p1_curr_position = pacer1.GetLocation().AsWorldPosition();
     const auto p2_curr_position = pacer2.GetLocation().AsWorldPosition();
 
-    actionLog.recordAction(pacer1Ptr, "down");
+    actionLog.recordAction(pacer1, down);
     std::this_thread::sleep_for(std::chrono::microseconds(50));
 
-    actionLog.recordAction(pacer2Ptr, "left");
+    actionLog.recordAction(pacer2, left);
     std::this_thread::sleep_for(std::chrono::microseconds(50));
 
-    actionLog.recordAction(pacer1Ptr, "right");
+    actionLog.recordAction(pacer1, right);
     std::this_thread::sleep_for(std::chrono::microseconds(50));
 
-    actionLog.recordAction(pacer2Ptr, "down");
+    actionLog.recordAction(pacer2, down);
 
     pacer1.SetLocation(p1_curr_position);
     pacer2.SetLocation(p2_curr_position);
@@ -192,10 +183,11 @@ TEST_CASE("ReplayDriver resetReplay resets progress but keps event if not cleare
 
     auto& pacer = world.AddAgent<cse498::PacingAgent>("Pacer 1");
     pacer.SetLocation(cse498::WorldPosition{3,1});
-    auto pacerPtr = std::shared_ptr<cse498::AgentBase>(&pacer, [](cse498::AgentBase*){});
     const auto curr_position = pacer.GetLocation().AsWorldPosition();
 
-    actionLog.recordAction(pacerPtr, "right");
+    constexpr size_t right = 4;
+
+    actionLog.recordAction(pacer, right);
 
     pacer.SetLocation(curr_position);
     replayDriver.startReplay(actionLog);

@@ -56,6 +56,22 @@ int main()
 
 
   // ReplayDriver
+  cse498::ReplayDriver replayDriver(world);
+
+    // Reset agent to starting position
+  pacer1.SetLocation(cse498::WorldPosition{3,1});
+
+  // Record some actions
+  world.GetActionLog().recordAction(pacer1, down);
+  world.GetActionLog().recordAction(pacer1, right);
+
+  // Start replay
+  replayDriver.startReplay(world.GetActionLog());
+
+  // Update step by step
+  while (!replayDriver.isFinished()) {
+      replayDriver.update();
+  }
 
   // ReplayDriver
 
