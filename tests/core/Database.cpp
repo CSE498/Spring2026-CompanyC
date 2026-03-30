@@ -2040,3 +2040,174 @@ TEST_CASE("Database - Extended numeric types with vectors", "[database][numeric]
     REQUIRE((*loaded)[1] == -2LL);
     REQUIRE((*loaded)[2] == 3'000'000'000LL);
 }
+
+
+// Change Tracking Tests
+
+TEST_CASE("Database - FlushDirty returns stored keys", "[database][change-tracking]") {
+    Database db;
+    db.Store("key1", 42);
+
+    auto dirty = db.FlushDirty();
+    REQUIRE(dirty.size() == 1);
+    REQUIRE(dirty[0].first == "key1");
+    REQUIRE(dirty[0].second == ChangeType::Store);
+
+    // Second flush should be empty
+    auto dirty2 = db.FlushDirty();
+    REQUIRE(dirty2.empty());
+}
+
+TEST_CASE("Database - FlushDirty tracks Update and Delete", "[database][change-tracking]") {
+    Database db;
+    db.Store("key1", 100);
+    (void)db.FlushDirty();  // clear the Store entry
+
+    SECTION("Update marks ChangeType::Update") {
+        db.Update("key1", 200);
+        auto dirty = db.FlushDirty();
+        REQUIRE(dirty.size() == 1);
+        REQUIRE(dirty[0].first == "key1");
+        REQUIRE(dirty[0].second == ChangeType::Update);
+    }
+
+    SECTION("Delete marks ChangeType::Delete") {
+        db.Delete("key1");
+        auto dirty = db.FlushDirty();
+        REQUIRE(dirty.size() == 1);
+        REQUIRE(dirty[0].first == "key1");
+        REQUIRE(dirty[0].second == ChangeType::Delete);
+    }
+}
+
+TEST_CASE("Database - FlushDirty last-write-wins", "[database][change-tracking]") {
+    Database db;
+    db.Store("key1", 42);
+    db.Update("key1", 99);
+    db.Delete("key1");
+
+    auto dirty = db.FlushDirty();
+    REQUIRE(dirty.size() == 1);
+    REQUIRE(dirty[0].first == "key1");
+    REQUIRE(dirty[0].second == ChangeType::Delete);
+}
+
+TEST_CASE("Database - FlushDirty tracks multiple keys", "[database][change-tracking]") {
+    Database db;
+    db.Store("a", 1);
+    db.Store("b", 2);
+    db.Store("c", 3);
+
+    auto dirty = db.FlushDirty();
+    REQUIRE(dirty.size() == 3);
+
+    // Collect into a map for order-independent checking
+    std::unordered_map<std::string, ChangeType> dirty_map;
+    for (auto& [k, t] : dirty) dirty_map[k] = t;
+
+    REQUIRE(dirty_map.at("a") == ChangeType::Store);
+    REQUIRE(dirty_map.at("b") == ChangeType::Store);
+    REQUIRE(dirty_map.at("c") == ChangeType::Store);
+}
+
+TEST_CASE("Database - OnChange callback fires on mutations", "[database][change-tracking]") {
+    Database db;
+
+    std::vector<std::pair<std::string, ChangeType>> events;
+    db.OnChange([&](const std::string& key, ChangeType type) {
+        events.emplace_back(key, type);
+    });
+
+    db.Store("x", 10);
+    REQUIRE(events.size() == 1);
+    REQUIRE(events[0].first == "x");
+    REQUIRE(events[0].second == ChangeType::Store);
+
+    db.Update("x", 20);
+    REQUIRE(events.size() == 2);
+    REQUIRE(events[1].second == ChangeType::Update);
+
+    db.Delete("x");
+    REQUIRE(events.size() == 3);
+    REQUIRE(events[2].second == ChangeType::Delete);
+}
+
+TEST_CASE("Database - Multiple OnChange callbacks all fire", "[database][change-tracking]") {
+    Database db;
+
+    int count_a = 0;
+    int count_b = 0;
+    db.OnChange([&](const std::string&, ChangeType) { count_a++; });
+    db.OnChange([&](const std::string&, ChangeType) { count_b++; });
+
+    db.Store("key", 42);
+    REQUIRE(count_a == 1);
+    REQUIRE(count_b == 1);
+
+    db.Update("key", 99);
+    REQUIRE(count_a == 2);
+    REQUIRE(count_b == 2);
+}
+
+TEST_CASE("Database - Clear resets dirty set", "[database][change-tracking]") {
+    Database db;
+    db.Store("a", 1);
+    db.Store("b", 2);
+
+    db.Clear();
+
+    auto dirty = db.FlushDirty();
+    REQUIRE(dirty.empty());
+}
+
+TEST_CASE("Database - Rollback restores dirty set", "[database][change-tracking]") {
+    Database db;
+    db.Store("pre_txn", 1);
+    // dirty: {pre_txn: Store}
+
+    db.BeginTransaction();
+    // snapshot: {pre_txn: Store}
+
+    db.Store("in_txn", 2);
+    // dirty: {pre_txn: Store, in_txn: Store}
+
+    db.Rollback();
+    // dirty restored to snapshot: {pre_txn: Store}
+
+    auto dirty = db.FlushDirty();
+    REQUIRE(dirty.size() == 1);
+    REQUIRE(dirty[0].first == "pre_txn");
+    REQUIRE(dirty[0].second == ChangeType::Store);
+}
+
+TEST_CASE("Database - Commit preserves dirty set", "[database][change-tracking]") {
+    Database db;
+
+    db.BeginTransaction();
+    db.Store("key1", 42);
+    db.Commit();
+
+    auto dirty = db.FlushDirty();
+    REQUIRE(dirty.size() == 1);
+    REQUIRE(dirty[0].first == "key1");
+    REQUIRE(dirty[0].second == ChangeType::Store);
+}
+
+TEST_CASE("Database - Failed mutations do not dirty", "[database][change-tracking]") {
+    Database db;
+    std::vector<std::pair<std::string, ChangeType>> events;
+    db.OnChange([&](const std::string& key, ChangeType type) {
+        events.emplace_back(key, type);
+    });
+
+    // Update on nonexistent key should fail and not dirty
+    auto result = db.Update("nonexistent", 42);
+    REQUIRE(!result.has_value());
+    REQUIRE(db.FlushDirty().empty());
+    REQUIRE(events.empty());
+
+    // Delete on nonexistent key should return false and not dirty
+    REQUIRE_FALSE(db.Delete("nonexistent"));
+    REQUIRE(db.FlushDirty().empty());
+    REQUIRE(events.empty());
+}
