@@ -21,9 +21,14 @@ CATCH_INC := ../third-party/Catch/single_include
 SQLITE_DIR := ../third-party/sqlite
 SQLITE_OBJ := $(BUILD_DIR)/third-party/sqlite3.o
 
+# IXWebSocket - (Group 9)
+IXWS_DIR := ../third-party/ixwebsocket
+IXWS_SRCS := $(wildcard $(IXWS_DIR)/*.cpp)
+IXWS_OBJS := $(patsubst $(IXWS_DIR)/%.cpp, $(BUILD_DIR)/third-party/ixws_%.o, $(IXWS_SRCS))
+
 CXXFLAGS ?= -O2 -g
 WARNFLAGS ?= -Wall -Wextra -Wpedantic
-CPPFLAGS += -I$(SRC_DIR) -I$(CATCH_INC)
+CPPFLAGS += -I$(SRC_DIR) -I$(CATCH_INC) -I$(IXWS_DIR)/..
 LDFLAGS  ?=
 LDLIBS   ?=
 
@@ -51,13 +56,18 @@ test: $(BIN)
 	$(BIN)
 
 # Link test runner
-$(BIN): $(OBJ_FILES) $(SQLITE_OBJ) | $(BUILD_DIR)
+$(BIN): $(OBJ_FILES) $(SQLITE_OBJ) $(IXWS_OBJS) | $(BUILD_DIR)
 	$(CXX) -std=c++23 $(CXXFLAGS) $(WARNFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 # Compile SQLite amalgamation (C, not C++)
 $(SQLITE_OBJ): $(SQLITE_DIR)/sqlite3.c | $(BUILD_DIR)
 	@mkdir -p $(dir $@)
 	cc -O2 -DSQLITE_THREADSAFE=1 -c $< -o $@
+
+# Compile IXWebSocket sources (C++17)
+$(BUILD_DIR)/third-party/ixws_%.o: $(IXWS_DIR)/%.cpp | $(BUILD_DIR)
+	@mkdir -p $(dir $@)
+	$(CXX) -std=c++17 -O2 -I$(IXWS_DIR)/.. -MMD -MP -c $< -o $@
 
 # Compile source/ -> build/tests/source/...
 $(BUILD_DIR)/source/%.o: $(SRC_DIR)/% | $(BUILD_DIR)
