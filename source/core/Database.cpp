@@ -198,6 +198,7 @@ void Database::Clear() {
         mMemoryStorage.clear();
         mTypeMetadata.clear();
     }
+    mDirtyKeys.clear();
 }
 
 size_t Database::Size() const {
@@ -205,7 +206,30 @@ size_t Database::Size() const {
 }
 
 bool Database::Delete(const std::string& key) {
-    return DeleteEntry(key);
+    bool removed = DeleteEntry(key);
+
+    if (removed) {
+        mDirtyKeys[key] = ChangeType::Delete;
+        for (auto& cb : mChangeCallbacks) cb(key, ChangeType::Delete);
+    }
+
+    return removed;
+}
+
+void Database::OnChange(std::function<void(const std::string& key, ChangeType type)> callback) {
+    mChangeCallbacks.push_back(std::move(callback));
+}
+
+std::vector<std::pair<std::string, ChangeType>> Database::FlushDirty() {
+    std::vector<std::pair<std::string, ChangeType>> result;
+    result.reserve(mDirtyKeys.size());
+
+    for (auto& [key, type] : mDirtyKeys) {
+        result.emplace_back(key, type);
+    }
+    
+    mDirtyKeys.clear();
+    return result;
 }
 
 std::vector<std::string> Database::ListKeys() const {
@@ -561,6 +585,7 @@ std::expected<void, DatabaseError> Database::BeginTransaction() {
         mSnapshotMetadata = mTypeMetadata;
     }
 
+    mSnapshotDirtyKeys = mDirtyKeys;
     mInTransaction = true;
     return {};
 }
@@ -580,6 +605,7 @@ std::expected<void, DatabaseError> Database::Commit() {
         mSnapshotMetadata.clear();
     }
 
+    mSnapshotDirtyKeys.clear();
     mInTransaction = false;
     return {};
 }
@@ -599,6 +625,7 @@ std::expected<void, DatabaseError> Database::Rollback() {
         mTypeMetadata = std::move(mSnapshotMetadata);
     }
 
+    mDirtyKeys = std::move(mSnapshotDirtyKeys);
     mInTransaction = false;
     return {};
 }

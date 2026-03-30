@@ -54,6 +54,7 @@
 #include <memory>
 #include <shared_mutex>
 #include <typeindex>
+#include <functional>
 
 namespace cse498 {
 
@@ -88,6 +89,9 @@ enum class DatabaseError {
     TransactionFailed,    
     TypeMismatch          
 };
+
+/// Types of mutations tracked for sync
+enum class ChangeType : uint8_t { Store, Update, Delete };
 
 /// Configuration for Database behavior
 struct DatabaseConfig {
@@ -201,6 +205,12 @@ public:
     /// load from binary to in mem db
     std::expected<void, DatabaseError> LoadFromFile(const std::string& filepath);
 
+    /// Register a change callback. 
+    void OnChange(std::function<void(const std::string& key, ChangeType type)> callback);
+
+    /// Returns all dirty keys with their last change type then clears dirty set.
+    [[nodiscard]] std::vector<std::pair<std::string, ChangeType>> FlushDirty();
+
 private:
     /// Storage format indicator
     enum class StorageFormat : uint8_t {
@@ -218,9 +228,14 @@ private:
     bool mUsingSqlite = false;
     bool mInTransaction = false;
 
+    // Change tracking
+    std::unordered_map<std::string, ChangeType> mDirtyKeys;
+    std::vector<std::function<void(const std::string&, ChangeType)>> mChangeCallbacks;
+
     // In-memory transaction snapshots (captured at BeginTransaction, restored on Rollback)
     std::unordered_map<std::string, std::vector<uint8_t>> mSnapshotStorage;
     std::unordered_map<std::string, std::string> mSnapshotMetadata;
+    std::unordered_map<std::string, ChangeType> mSnapshotDirtyKeys;
 
     Serializer mSerializer;
     DatabaseConfig mConfig;
@@ -283,6 +298,9 @@ std::expected<void, DatabaseError> Database::Store(const std::string& key, const
     if (!result) {
         return std::unexpected(result.error());
     }
+
+    mDirtyKeys[key] = ChangeType::Store;
+    for (auto& cb : mChangeCallbacks) cb(key, ChangeType::Store);
 
     Log("[Store] Stored successfully");
     return {};
@@ -374,6 +392,9 @@ std::expected<void, DatabaseError> Database::Update(const std::string& key, cons
 
         if (!result) return std::unexpected(result.error());
     }
+
+    mDirtyKeys[key] = ChangeType::Update;
+    for (auto& cb : mChangeCallbacks) cb(key, ChangeType::Update);
 
     return {};
 }
