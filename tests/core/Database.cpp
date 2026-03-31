@@ -8,6 +8,7 @@
 #include "../../source/core/Database.hpp"
 #include "../../source/core/Location.hpp"
 #include "../../source/tools/Datum.hpp"
+#include <set>
 
 using namespace cse498;
 
@@ -2210,4 +2211,195 @@ TEST_CASE("Database - Failed mutations do not dirty", "[database][change-trackin
     REQUIRE_FALSE(db.Delete("nonexistent"));
     REQUIRE(db.FlushDirty().empty());
     REQUIRE(events.empty());
+}
+
+// ============================================================================
+// Raw Blob Access, for SyncManager
+// ============================================================================
+
+TEST_CASE("Database - GetRawBytes returns stored blob", "[database][raw-bytes]") {
+    Database db;
+    REQUIRE(db.Store("key1", 42).has_value());
+
+    auto raw = db.GetRawBytes("key1");
+    REQUIRE(raw.has_value());
+    REQUIRE_FALSE(raw->empty());
+
+    // First byte is StorageFormat prefix (Raw = 0 for small values)
+    REQUIRE((*raw)[0] == 0);
+}
+
+TEST_CASE("Database - GetRawBytes returns KeyNotFound for missing key", "[database][raw-bytes]") {
+    Database db;
+    auto raw = db.GetRawBytes("nonexistent");
+    REQUIRE_FALSE(raw.has_value());
+    REQUIRE(raw.error() == DatabaseError::KeyNotFound);
+}
+
+TEST_CASE("Database - SetRawBytes writes and is readable", "[database][raw-bytes]") {
+    Database db;
+    REQUIRE(db.Store("key1", 100).has_value());
+    auto original = db.GetRawBytes("key1");
+    REQUIRE(original.has_value());
+
+    // Write the same raw bytes under a new key
+    Database db2;
+    auto result = db2.SetRawBytes("key1_copy", *original, "int");
+    REQUIRE(result.has_value());
+
+    // The raw bytes should be identical
+    auto copied = db2.GetRawBytes("key1_copy");
+    REQUIRE(copied.has_value());
+    REQUIRE(*copied == *original);
+
+    // Can Load the value back as the original type
+    auto val = db2.Load<int>("key1_copy");
+    REQUIRE(val.has_value());
+    REQUIRE(*val == 100);
+}
+
+TEST_CASE("Database - SetRawBytes mark_dirty=true dirties key", "[database][raw-bytes]") {
+    Database db;
+    std::vector<uint8_t> blob = {0x00, 0x41};  // StorageFormat::Raw + one byte
+    REQUIRE(db.SetRawBytes("k", blob, "", true).has_value());
+
+    auto dirty = db.FlushDirty();
+    REQUIRE(dirty.size() == 1);
+    REQUIRE(dirty[0].first == "k");
+    REQUIRE(dirty[0].second == ChangeType::Store);
+}
+
+TEST_CASE("Database - SetRawBytes mark_dirty=false does not dirty key", "[database][raw-bytes]") {
+    Database db;
+    std::vector<uint8_t> blob = {0x00, 0x41};
+    REQUIRE(db.SetRawBytes("k", blob, "", false).has_value());
+
+    auto dirty = db.FlushDirty();
+    REQUIRE(dirty.empty());
+}
+
+TEST_CASE("Database - SetRawBytes mark_dirty=true fires OnChange", "[database][raw-bytes]") {
+    Database db;
+    std::string changed_key;
+    ChangeType changed_type{};
+    db.OnChange([&](const std::string& key, ChangeType type) {
+        changed_key = key;
+        changed_type = type;
+    });
+
+    std::vector<uint8_t> blob = {0x00, 0x41};
+    REQUIRE(db.SetRawBytes("k", blob, "", true).has_value());
+    REQUIRE(changed_key == "k");
+    REQUIRE(changed_type == ChangeType::Store);
+}
+
+TEST_CASE("Database - SetRawBytes mark_dirty=false does not fire OnChange", "[database][raw-bytes]") {
+    Database db;
+    bool callback_fired = false;
+    db.OnChange([&](const std::string&, ChangeType) {
+        callback_fired = true;
+    });
+
+    std::vector<uint8_t> blob = {0x00, 0x41};
+    REQUIRE(db.SetRawBytes("k", blob, "", false).has_value());
+    REQUIRE_FALSE(callback_fired);
+}
+
+// ============================================================================
+// Bulk Export/Import (for SyncManager)
+// ============================================================================
+
+TEST_CASE("Database - ExportAll returns all entries", "[database][raw-bytes]") {
+    Database db;
+    REQUIRE(db.Store("a", 1).has_value());
+    REQUIRE(db.Store("b", std::string("hello")).has_value());
+    REQUIRE(db.Store("c", 3.14).has_value());
+
+    auto entries = db.ExportAll();
+    REQUIRE(entries.size() == 3);
+
+    // Check that keys are present (order may vary)
+    std::set<std::string> keys;
+    for (auto& [key, blob, tag] : entries) {
+        keys.insert(key);
+        REQUIRE_FALSE(blob.empty());
+    }
+    REQUIRE(keys.count("a") == 1);
+    REQUIRE(keys.count("b") == 1);
+    REQUIRE(keys.count("c") == 1);
+}
+
+TEST_CASE("Database - ExportAll on empty database", "[database][raw-bytes]") {
+    Database db;
+    auto entries = db.ExportAll();
+    REQUIRE(entries.empty());
+}
+
+TEST_CASE("Database - ImportAll populates database", "[database][raw-bytes]") {
+    // Build source database
+    Database src;
+    REQUIRE(src.Store("x", 42).has_value());
+    REQUIRE(src.Store("y", std::string("world")).has_value());
+    auto entries = src.ExportAll();
+
+    // Import into a fresh database
+    Database dst;
+    auto result = dst.ImportAll(entries);
+    REQUIRE(result.has_value());
+    REQUIRE(dst.Size() == 2);
+
+    auto val_x = dst.Load<int>("x");
+    REQUIRE(val_x.has_value());
+    REQUIRE(*val_x == 42);
+
+    auto val_y = dst.Load<std::string>("y");
+    REQUIRE(val_y.has_value());
+    REQUIRE(*val_y == "world");
+}
+
+TEST_CASE("Database - ImportAll does not mark keys dirty", "[database][raw-bytes]") {
+    Database src;
+    REQUIRE(src.Store("k", 1).has_value());
+    auto entries = src.ExportAll();
+
+    Database dst;
+    REQUIRE(dst.ImportAll(entries).has_value());
+
+    auto dirty = dst.FlushDirty();
+    REQUIRE(dirty.empty());
+}
+
+TEST_CASE("Database - ImportAll does not fire OnChange callbacks", "[database][raw-bytes]") {
+    Database src;
+    REQUIRE(src.Store("k", 1).has_value());
+    auto entries = src.ExportAll();
+
+    Database dst;
+    bool callback_fired = false;
+    dst.OnChange([&](const std::string&, ChangeType) {
+        callback_fired = true;
+    });
+
+    REQUIRE(dst.ImportAll(entries).has_value());
+    REQUIRE_FALSE(callback_fired);
+}
+
+TEST_CASE("Database - ExportAll + ImportAll round-trips all types", "[database][raw-bytes]") {
+    Database src;
+    REQUIRE(src.Store("int_key", 99).has_value());
+    REQUIRE(src.Store("str_key", std::string("test")).has_value());
+    REQUIRE(src.Store("bool_key", true).has_value());
+    REQUIRE(src.Store("double_key", 2.718).has_value());
+    REQUIRE(src.Store("vec_key", std::vector<int>{1, 2, 3}).has_value());
+
+    auto entries = src.ExportAll();
+
+    Database dst;
+    REQUIRE(dst.ImportAll(entries).has_value());
+
+    REQUIRE(*dst.Load<int>("int_key") == 99);
+    REQUIRE(*dst.Load<std::string>("str_key") == "test");
+    REQUIRE(*dst.Load<bool>("bool_key") == true);
+    REQUIRE(*dst.Load<double>("double_key") == 2.718);
+    REQUIRE(*dst.Load<std::vector<int>>("vec_key") == std::vector<int>{1, 2, 3});
 }
