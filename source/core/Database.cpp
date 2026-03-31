@@ -232,6 +232,54 @@ std::vector<std::pair<std::string, ChangeType>> Database::FlushDirty() {
     return result;
 }
 
+std::expected<std::vector<uint8_t>, DatabaseError> Database::GetRawBytes(const std::string& key) const {
+    return ReadEntry(key);
+}
+
+std::expected<void, DatabaseError> Database::SetRawBytes(const std::string& key, const std::vector<uint8_t>& value, const std::string& type_tag, bool mark_dirty) {
+    auto result = WriteEntry(key, value, type_tag);
+    if (!result) {
+        return std::unexpected(result.error());
+    }
+
+    if (mark_dirty) {
+        mDirtyKeys[key] = ChangeType::Store;
+        for (auto& cb : mChangeCallbacks) {
+            cb(key, ChangeType::Store);
+        }
+    }
+
+    return {};
+}
+
+std::vector<std::tuple<std::string, std::vector<uint8_t>, std::string>> Database::ExportAll() const {
+    std::vector<std::tuple<std::string, std::vector<uint8_t>, std::string>> result;
+    auto keys = AllKeys();
+    result.reserve(keys.size());
+
+    for (const auto& key : keys) {
+        auto raw = ReadEntry(key);
+        if (!raw) continue;
+
+        auto type_tag = GetType(key);
+        std::string tag = type_tag.has_value() ? *type_tag : "";
+
+        result.emplace_back(key, std::move(*raw), std::move(tag));
+    }
+
+    return result;
+}
+
+std::expected<void, DatabaseError> Database::ImportAll(const std::vector<std::tuple<std::string, std::vector<uint8_t>, std::string>>& entries) {
+    for (const auto& [key, value, type_tag] : entries) {
+        auto result = WriteEntry(key, value, type_tag);
+        if (!result) {
+            return std::unexpected(result.error());
+        }
+    }
+    return {};
+}
+
 std::vector<std::string> Database::ListKeys() const {
     return AllKeys();
 }

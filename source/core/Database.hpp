@@ -50,6 +50,7 @@
 #include <unordered_map>
 #include <expected>
 #include <vector>
+#include <tuple>
 #include <cstdint>
 #include <memory>
 #include <shared_mutex>
@@ -210,6 +211,20 @@ public:
 
     /// Returns all dirty keys with their last change type then clears dirty set.
     [[nodiscard]] std::vector<std::pair<std::string, ChangeType>> FlushDirty();
+
+    /// Get raw stored bytes for a key (includes StorageFormat prefix byte).
+    [[nodiscard]] std::expected<std::vector<uint8_t>, DatabaseError> GetRawBytes(const std::string& key) const;
+
+    /// Write raw encoded bytes for a key.
+    std::expected<void, DatabaseError> SetRawBytes(const std::string& key, const std::vector<uint8_t>& value, const std::string& type_tag = "", bool mark_dirty = true);
+
+    /// Export all entries as (key, raw_bytes, type_tag) tuples.
+    /// Used by SyncManager to build FULL_STATE messages.
+    [[nodiscard]] std::vector<std::tuple<std::string, std::vector<uint8_t>, std::string>> ExportAll() const;
+
+    /// Import entries written by ExportAll. Does NOT mark keys dirty
+    /// and does NOT fire OnChange callbacks (remote state should not re-propagate).
+    std::expected<void, DatabaseError> ImportAll(const std::vector<std::tuple<std::string, std::vector<uint8_t>, std::string>>& entries);
 
 private:
     /// Storage format indicator
