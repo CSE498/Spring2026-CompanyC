@@ -9,6 +9,7 @@
 #include "../../source/core/Database.hpp"
 #include "../../source/tools/WebSocketConnection.hpp"
 #include "../../source/tools/WebSocketServer.hpp"
+#include "../../source/tools/Serializer.hpp"
 
 #include <thread>
 #include <chrono>
@@ -155,6 +156,120 @@ TEST_CASE("SyncManager - Large payload round-trips", "[sync]") {
     REQUIRE(decoded.has_value());
     REQUIRE(decoded->first == SyncMessageType::DELTA);
     REQUIRE(decoded->second == payload);
+}
+
+// ============================================================================
+// Save Protocol Payload Helpers
+// ============================================================================
+
+TEST_CASE("SyncManager - LOAD payload round-trip", "[sync]") {
+    auto encoded = SyncManager::EncodeLoadPayload("world_1");
+    REQUIRE_FALSE(encoded.empty());
+
+    auto decoded = SyncManager::DecodeLoadPayload(encoded);
+    REQUIRE(decoded.has_value());
+    REQUIRE(*decoded == "world_1");
+}
+
+TEST_CASE("SyncManager - SAVE_LIST payload round-trip", "[sync]") {
+    std::vector<SaveInfo> saves = {
+        {"world_alpha", 1711800000},
+        {"world_beta",  1711900000},
+        {"world_gamma", 1712000000}
+    };
+
+    auto encoded = SyncManager::EncodeSaveListPayload(saves);
+    REQUIRE_FALSE(encoded.empty());
+
+    auto decoded = SyncManager::DecodeSaveListPayload(encoded);
+    REQUIRE(decoded.has_value());
+    REQUIRE(decoded->size() == 3);
+    REQUIRE((*decoded)[0].name == "world_alpha");
+    REQUIRE((*decoded)[0].timestamp == 1711800000);
+    REQUIRE((*decoded)[1].name == "world_beta");
+    REQUIRE((*decoded)[1].timestamp == 1711900000);
+    REQUIRE((*decoded)[2].name == "world_gamma");
+    REQUIRE((*decoded)[2].timestamp == 1712000000);
+}
+
+TEST_CASE("SyncManager - SAVE_LIST empty list round-trip", "[sync]") {
+    std::vector<SaveInfo> empty_saves;
+
+    auto encoded = SyncManager::EncodeSaveListPayload(empty_saves);
+    REQUIRE_FALSE(encoded.empty());
+
+    auto decoded = SyncManager::DecodeSaveListPayload(encoded);
+    REQUIRE(decoded.has_value());
+    REQUIRE(decoded->empty());
+}
+
+TEST_CASE("SyncManager - SAVE payload round-trip", "[sync]") {
+    Database db;
+    REQUIRE(db.Store("player:1:health", 100).has_value());
+    REQUIRE(db.Store("player:1:name", std::string("Alice")).has_value());
+    (void)db.FlushDirty();
+
+    auto encoded = SyncManager::EncodeSavePayload("my_save", db);
+    REQUIRE_FALSE(encoded.empty());
+
+    auto decoded = SyncManager::DecodeSavePayload(encoded);
+    REQUIRE(decoded.has_value());
+
+    auto& [name, state_bytes] = *decoded;
+    REQUIRE(name == "my_save");
+    REQUIRE_FALSE(state_bytes.empty());
+
+    // Verify state bytes contain the right number of entries
+    Serializer s;
+    std::string state_data(state_bytes.begin(), state_bytes.end());
+    size_t pos = 0;
+    auto count = s.DeserializeAt<int>(state_data, pos);
+    REQUIRE(count.has_value());
+    REQUIRE(*count == 2);
+}
+
+TEST_CASE("SyncManager - Long save name round-trips", "[sync]") {
+    std::string long_name(1500, 'x');
+
+    SECTION("LOAD payload") {
+        auto encoded = SyncManager::EncodeLoadPayload(long_name);
+        auto decoded = SyncManager::DecodeLoadPayload(encoded);
+        REQUIRE(decoded.has_value());
+        REQUIRE(*decoded == long_name);
+    }
+
+    SECTION("SAVE payload") {
+        Database db;
+        REQUIRE(db.Store("key", 1).has_value());
+        (void)db.FlushDirty();
+
+        auto encoded = SyncManager::EncodeSavePayload(long_name, db);
+        auto decoded = SyncManager::DecodeSavePayload(encoded);
+        REQUIRE(decoded.has_value());
+        REQUIRE(decoded->first == long_name);
+    }
+}
+
+TEST_CASE("SyncManager - Decode payload rejects empty input", "[sync]") {
+    std::vector<uint8_t> empty;
+
+    SECTION("DecodeSavePayload") {
+        auto result = SyncManager::DecodeSavePayload(empty);
+        REQUIRE_FALSE(result.has_value());
+        REQUIRE(result.error() == SyncError::DecodeFailed);
+    }
+
+    SECTION("DecodeLoadPayload") {
+        auto result = SyncManager::DecodeLoadPayload(empty);
+        REQUIRE_FALSE(result.has_value());
+        REQUIRE(result.error() == SyncError::DecodeFailed);
+    }
+
+    SECTION("DecodeSaveListPayload") {
+        auto result = SyncManager::DecodeSaveListPayload(empty);
+        REQUIRE_FALSE(result.has_value());
+        REQUIRE(result.error() == SyncError::DecodeFailed);
+    }
 }
 
 // ============================================================================
