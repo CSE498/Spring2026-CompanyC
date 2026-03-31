@@ -174,7 +174,15 @@ std::expected<void, std::string> ActionMap::Trigger(const std::string &name,
                            "'");
   }
 
-  (*func_ptr)(std::forward<Args>(args)...);
+  try {
+    (*func_ptr)(std::forward<Args>(args)...);
+  } catch (const std::exception &e) {
+    return std::unexpected("Function '" + name +
+                           "' threw exception: " + std::string(e.what()));
+  } catch (...) {
+    return std::unexpected("Function '" + name +
+                           "' threw an unknown exception");
+  }
   return {};
 }
 
