@@ -78,6 +78,16 @@ public:
     /// Decode a message frame back to (type, payload)
     [[nodiscard]] static std::expected<std::pair<SyncMessageType, std::vector<uint8_t>>, SyncError> DecodeMessage(const std::vector<uint8_t>& frame);
 
+    /// Save protocol payload helpers (public for testability)
+    [[nodiscard]] static std::vector<uint8_t> EncodeSavePayload(const std::string& name, Database& db);
+    [[nodiscard]] static std::expected<std::pair<std::string, std::vector<uint8_t>>, SyncError> DecodeSavePayload(const std::vector<uint8_t>& payload);
+
+    [[nodiscard]] static std::vector<uint8_t> EncodeLoadPayload(const std::string& name);
+    [[nodiscard]] static std::expected<std::string, SyncError> DecodeLoadPayload(const std::vector<uint8_t>& payload);
+
+    [[nodiscard]] static std::vector<uint8_t> EncodeSaveListPayload(const std::vector<SaveInfo>& saves);
+    [[nodiscard]] static std::expected<std::vector<SaveInfo>, SyncError> DecodeSaveListPayload(const std::vector<uint8_t>& payload);
+
 private:
     struct Impl;
     std::unique_ptr<Impl> mImpl;

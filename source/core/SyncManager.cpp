@@ -261,6 +261,87 @@ void ApplyUpdatePayload(Database& db, const std::vector<uint8_t>& payload) {
 } // namespace
 
 
+// Save protocol payload helpers
+
+std::vector<uint8_t> SyncManager::EncodeSavePayload(const std::string& name, Database& db) {
+    Serializer s;
+    std::string name_str = s.Serialize(name);
+    auto state_bytes = EncodeFullStatePayload(db);
+
+    std::vector<uint8_t> result;
+    result.reserve(name_str.size() + state_bytes.size());
+    result.insert(result.end(), name_str.begin(), name_str.end());
+    result.insert(result.end(), state_bytes.begin(), state_bytes.end());
+    return result;
+}
+
+std::expected<std::pair<std::string, std::vector<uint8_t>>, SyncError> SyncManager::DecodeSavePayload(const std::vector<uint8_t>& payload) {
+    Serializer s;
+    std::string data(payload.begin(), payload.end());
+    size_t pos = 0;
+
+    auto name = s.DeserializeAt<std::string>(data, pos);
+    if (!name) return std::unexpected(SyncError::DecodeFailed);
+
+    std::vector<uint8_t> state_bytes(payload.begin() + pos, payload.end());
+    return std::pair{std::move(*name), std::move(state_bytes)};
+}
+
+std::vector<uint8_t> SyncManager::EncodeLoadPayload(const std::string& name) {
+    Serializer s;
+    std::string payload_str = s.Serialize(name);
+    return {payload_str.begin(), payload_str.end()};
+}
+
+std::expected<std::string, SyncError> SyncManager::DecodeLoadPayload(const std::vector<uint8_t>& payload) {
+    Serializer s;
+    std::string data(payload.begin(), payload.end());
+    size_t pos = 0;
+
+    auto name = s.DeserializeAt<std::string>(data, pos);
+    if (!name) return std::unexpected(SyncError::DecodeFailed);
+
+    return *name;
+}
+
+std::vector<uint8_t> SyncManager::EncodeSaveListPayload(const std::vector<SaveInfo>& saves) {
+    Serializer s;
+    std::string payload_str = s.Serialize(static_cast<int>(saves.size()));
+
+    for (const auto& info : saves) {
+        payload_str += s.Serialize(info.name);
+        payload_str += s.Serialize(static_cast<unsigned long long>(info.timestamp));
+    }
+
+    return {payload_str.begin(), payload_str.end()};
+}
+
+std::expected<std::vector<SaveInfo>, SyncError> SyncManager::DecodeSaveListPayload(const std::vector<uint8_t>& payload) {
+    Serializer s;
+    std::string data(payload.begin(), payload.end());
+    size_t pos = 0;
+
+    auto count_opt = s.DeserializeAt<int>(data, pos);
+    if (!count_opt || *count_opt < 0) return std::unexpected(SyncError::DecodeFailed);
+    int count = *count_opt;
+
+    std::vector<SaveInfo> result;
+    result.reserve(count);
+
+    for (int i = 0; i < count; ++i) {
+        auto name = s.DeserializeAt<std::string>(data, pos);
+        auto ts = s.DeserializeAt<unsigned long long>(data, pos);
+        
+        if (!name || !ts) {
+            return std::unexpected(SyncError::DecodeFailed);
+        }
+        result.push_back(SaveInfo{std::move(*name), static_cast<uint64_t>(*ts)});
+    }
+
+    return result;
+}
+
+
 // SyncManager main funcs
 
 std::expected<void, SyncError> SyncManager::Start() {
@@ -386,6 +467,8 @@ std::expected<void, SyncError> SyncManager::SendUpdate(const std::string& key) {
 #else // __EMSCRIPTEN__
 
 #include "SyncManager.hpp"
+#include "Database.hpp"
+#include "../tools/Serializer.hpp"
 
 namespace cse498 {
 
@@ -444,6 +527,79 @@ std::expected<std::pair<SyncMessageType, std::vector<uint8_t>>, SyncError> SyncM
     if (frame.size() < 9 + length) return std::unexpected(SyncError::DecodeFailed);
     std::vector<uint8_t> payload(frame.begin() + 9, frame.begin() + 9 + length);
     return std::pair{type, std::move(payload)};
+}
+
+std::vector<uint8_t> SyncManager::EncodeSavePayload(const std::string& name, Database& db) {
+    Serializer s;
+    std::string name_str = s.Serialize(name);
+
+    auto entries = db.ExportAll();
+    std::string state_str = s.Serialize(static_cast<int>(entries.size()));
+    for (const auto& [key, blob, tag] : entries) {
+        state_str += s.Serialize(key);
+        state_str += s.Serialize(tag);
+        std::string blob_str(blob.begin(), blob.end());
+        state_str += s.Serialize(blob_str);
+    }
+
+    std::vector<uint8_t> result;
+    result.reserve(name_str.size() + state_str.size());
+    result.insert(result.end(), name_str.begin(), name_str.end());
+    result.insert(result.end(), state_str.begin(), state_str.end());
+    return result;
+}
+
+std::expected<std::pair<std::string, std::vector<uint8_t>>, SyncError> SyncManager::DecodeSavePayload(const std::vector<uint8_t>& payload) {
+    Serializer s;
+    std::string data(payload.begin(), payload.end());
+    size_t pos = 0;
+    auto name = s.DeserializeAt<std::string>(data, pos);
+    if (!name) return std::unexpected(SyncError::DecodeFailed);
+    std::vector<uint8_t> state_bytes(payload.begin() + pos, payload.end());
+    return std::pair{std::move(*name), std::move(state_bytes)};
+}
+
+std::vector<uint8_t> SyncManager::EncodeLoadPayload(const std::string& name) {
+    Serializer s;
+    std::string payload_str = s.Serialize(name);
+    return {payload_str.begin(), payload_str.end()};
+}
+
+std::expected<std::string, SyncError> SyncManager::DecodeLoadPayload(const std::vector<uint8_t>& payload) {
+    Serializer s;
+    std::string data(payload.begin(), payload.end());
+    size_t pos = 0;
+    auto name = s.DeserializeAt<std::string>(data, pos);
+    if (!name) return std::unexpected(SyncError::DecodeFailed);
+    return *name;
+}
+
+std::vector<uint8_t> SyncManager::EncodeSaveListPayload(const std::vector<SaveInfo>& saves) {
+    Serializer s;
+    std::string payload_str = s.Serialize(static_cast<int>(saves.size()));
+    for (const auto& info : saves) {
+        payload_str += s.Serialize(info.name);
+        payload_str += s.Serialize(static_cast<unsigned long long>(info.timestamp));
+    }
+    return {payload_str.begin(), payload_str.end()};
+}
+
+std::expected<std::vector<SaveInfo>, SyncError> SyncManager::DecodeSaveListPayload(const std::vector<uint8_t>& payload) {
+    Serializer s;
+    std::string data(payload.begin(), payload.end());
+    size_t pos = 0;
+    auto count_opt = s.DeserializeAt<int>(data, pos);
+    if (!count_opt || *count_opt < 0) return std::unexpected(SyncError::DecodeFailed);
+    int count = *count_opt;
+    std::vector<SaveInfo> result;
+    result.reserve(count);
+    for (int i = 0; i < count; ++i) {
+        auto name = s.DeserializeAt<std::string>(data, pos);
+        auto ts = s.DeserializeAt<unsigned long long>(data, pos);
+        if (!name || !ts) return std::unexpected(SyncError::DecodeFailed);
+        result.push_back(SaveInfo{std::move(*name), static_cast<uint64_t>(*ts)});
+    }
+    return result;
 }
 
 } // namespace cse498
