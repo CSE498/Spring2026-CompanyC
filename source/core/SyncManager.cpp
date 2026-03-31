@@ -35,7 +35,7 @@ struct SyncManager::Impl {
 
 
 static constexpr size_t FRAME_HEADER_SIZE = 9;  // 1 byte type + 8 bytes length
-static constexpr uint8_t MAX_MESSAGE_TYPE = static_cast<uint8_t>(SyncMessageType::SYNC_RESPONSE);
+static constexpr uint8_t MAX_MESSAGE_TYPE = static_cast<uint8_t>(SyncMessageType::SAVE_LIST);
 
 
 //constructor, destructor, move funcs
@@ -430,7 +430,7 @@ std::expected<std::vector<uint8_t>, SyncError> SyncManager::EncodeMessage(SyncMe
 std::expected<std::pair<SyncMessageType, std::vector<uint8_t>>, SyncError> SyncManager::DecodeMessage(const std::vector<uint8_t>& frame) {
     if (frame.size() < 9) return std::unexpected(SyncError::DecodeFailed);
     uint8_t raw_type = frame[0];
-    if (raw_type > 4) return std::unexpected(SyncError::InvalidMessage);
+    if (raw_type > 8) return std::unexpected(SyncError::InvalidMessage);
     auto type = static_cast<SyncMessageType>(raw_type);
     
     uint64_t length = (static_cast<uint64_t>(frame[1]) << 56)

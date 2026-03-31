@@ -21,11 +21,15 @@ class WebSocketServer;
 class WebSocketConnection;
 
 enum class SyncMessageType : uint8_t {
-    FULL_STATE = 0,
-    DELTA = 1,
-    UPDATE = 2,
-    SYNC_REQUEST = 3,
-    SYNC_RESPONSE = 4
+    FULL_STATE     = 0,
+    DELTA          = 1,
+    UPDATE         = 2,
+    SYNC_REQUEST   = 3,
+    SYNC_RESPONSE  = 4,
+    SAVE           = 5,
+    LOAD           = 6,
+    LIST_SAVES     = 7,
+    SAVE_LIST      = 8
 };
 
 enum class SyncError {
@@ -35,6 +39,11 @@ enum class SyncError {
     DecodeFailed,
     InvalidMessage,
     WebSocketError
+};
+
+struct SaveInfo {
+    std::string name;
+    uint64_t timestamp;  
 };
 
 class SyncManager {

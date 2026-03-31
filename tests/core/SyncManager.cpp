@@ -82,6 +82,27 @@ TEST_CASE("SyncManager - Round-trip encode/decode for each message type", "[sync
     }
 }
 
+TEST_CASE("SyncManager - Round-trip encode/decode for save protocol types", "[sync]") {
+    std::vector<uint8_t> payload = {0x01, 0x02};
+
+    auto types = {
+        SyncMessageType::SAVE,
+        SyncMessageType::LOAD,
+        SyncMessageType::LIST_SAVES,
+        SyncMessageType::SAVE_LIST
+    };
+
+    for (auto type : types) {
+        auto frame = SyncManager::EncodeMessage(type, payload);
+        REQUIRE(frame.has_value());
+
+        auto decoded = SyncManager::DecodeMessage(*frame);
+        REQUIRE(decoded.has_value());
+        REQUIRE(decoded->first == type);
+        REQUIRE(decoded->second == payload);
+    }
+}
+
 TEST_CASE("SyncManager - Empty payload round-trips (SYNC_REQUEST)", "[sync]") {
     std::vector<uint8_t> empty_payload;
     auto frame = SyncManager::EncodeMessage(SyncMessageType::SYNC_REQUEST, empty_payload);
