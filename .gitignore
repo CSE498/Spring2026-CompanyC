@@ -36,12 +36,16 @@
 *.exe
 *.out
 *.app
+run_tests
+source/simple
 
 # debug information files
 *.dwo
 
 # Claude Code
 .claude
+docs/superpowers/
+
 
 # IDE files
 .vscode/
