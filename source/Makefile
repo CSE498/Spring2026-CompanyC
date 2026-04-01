@@ -28,15 +28,38 @@ $(IXWS_OBJS): build/ixws/%.o: $(IXWS_DIR)/%.cpp
 # Find all headers
 HEADERS := $(shell find Agents core Interfaces tools Worlds -name '*.hpp')
 
-# List of all available executables
+# Simple executables 
 EXECUTABLES = simple
+
+# SaveServer needs extra .cpp sources for Database + WebSocket stack
+SAVESERVER_SRCS = \
+	core/Database.cpp \
+	core/SyncManager.cpp \
+	tools/WebSocketServer.cpp \
+	tools/WebSocketConnection.cpp \
+	tools/SQLiteConnection.cpp \
+	tools/Serializer.cpp \
+	tools/StringCompressor.cpp \
+	tools/StringDiff.cpp \
+	tools/DataGrid.cpp \
+	tools/Datum.cpp
 
 default: simple
 debug: debug-simple
 opt: opt-simple
 grumpy: grumpy-simple
 
-.PHONY: default clean debug-% opt-% quick-% $(EXECUTABLES)
+.PHONY: default clean debug-% opt-% quick-% $(EXECUTABLES) SaveServer
+
+# SaveServer specific stuff
+SaveServer: SaveServer_main.cpp $(SAVESERVER_SRCS) $(HEADERS) $(SQLITE_OBJ) $(IXWS_OBJS)
+	$(CXX) SaveServer_main.cpp $(SAVESERVER_SRCS) $(SQLITE_OBJ) $(IXWS_OBJS) $(FLAGS_all) -I$(IXWS_DIR)/.. -o $@
+
+debug-SaveServer: $(SAVESERVER_SRCS) $(SQLITE_OBJ) $(IXWS_OBJS)
+	$(CXX) SaveServer_main.cpp $(SAVESERVER_SRCS) $(SQLITE_OBJ) $(IXWS_OBJS) $(FLAGS_debug) -I$(IXWS_DIR)/.. -o SaveServer
+
+opt-SaveServer: $(SAVESERVER_SRCS) $(SQLITE_OBJ) $(IXWS_OBJS)
+	$(CXX) SaveServer_main.cpp $(SAVESERVER_SRCS) $(SQLITE_OBJ) $(IXWS_OBJS) $(FLAGS_opt) -I$(IXWS_DIR)/.. -o SaveServer
 
 # Generic rule to build default version of any executable
 $(EXECUTABLES): %: %_main.cpp $(HEADERS) $(SQLITE_OBJ) $(IXWS_OBJS)
@@ -59,7 +82,7 @@ grumpy-%: $(SQLITE_OBJ) $(IXWS_OBJS)
 	$(CXX) $*_main.cpp $(SQLITE_OBJ) $(IXWS_OBJS) $(FLAGS_grumpy) -o $*
 
 FILES_backup	= *~ *.dSYM
-FILES_generated = *.o $(SQLITE_OBJ) $(EXECUTABLES)
+FILES_generated = *.o $(SQLITE_OBJ) $(EXECUTABLES) SaveServer
 
 clean:
 	rm -rf $(FILES_backup) $(FILES_generated) build/
