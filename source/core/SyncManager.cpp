@@ -12,6 +12,9 @@
 #include "../tools/WebSocketServer.hpp"
 #include "../tools/Serializer.hpp"
 
+#include <filesystem>
+#include <fstream>
+#include <iostream>
 #include <mutex>
 #include <queue>
 
@@ -29,6 +32,7 @@ struct SyncManager::Impl {
 
     std::mutex queueMutex;
     std::queue<std::pair<uint64_t, std::vector<uint8_t>>> incomingMessages;
+    std::string savesDir = "./saves/";
 
     explicit Impl(Database& database) : db(database) {}
 };
@@ -43,6 +47,12 @@ static constexpr uint8_t MAX_MESSAGE_TYPE = static_cast<uint8_t>(SyncMessageType
 SyncManager::SyncManager(Database& db, WebSocketServer& server) : mImpl(std::make_unique<Impl>(db)) {
     mImpl->mode = Impl::Mode::Server;
     mImpl->server = &server;
+}
+
+SyncManager::SyncManager(Database& db, WebSocketServer& server, std::string saves_dir) : mImpl(std::make_unique<Impl>(db)) {
+    mImpl->mode = Impl::Mode::Server;
+    mImpl->server = &server;
+    mImpl->savesDir = std::move(saves_dir);
 }
 
 SyncManager::SyncManager(Database& db, WebSocketConnection& client) : mImpl(std::make_unique<Impl>(db)) {
@@ -258,6 +268,64 @@ void ApplyUpdatePayload(Database& db, const std::vector<uint8_t>& payload) {
     (void)db.SetRawBytes(*key, blob, *tag, /*mark_dirty=*/true);
 }
 
+bool ValidateSaveName(const std::string& name) {
+    if (name.empty()) return false;
+    for (char c : name) {
+        if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_' && c != '-') {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool WriteSaveFile(const std::string& saves_dir, const std::string& name, const std::vector<uint8_t>& data) {
+    std::filesystem::path filepath = std::filesystem::path(saves_dir) / (name + ".save");
+    std::ofstream out(filepath, std::ios::binary | std::ios::trunc);
+
+    if (!out) return false;
+    out.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
+
+    return out.good();
+}
+
+std::vector<uint8_t> ReadSaveFile(const std::string& saves_dir, const std::string& name) {
+    std::filesystem::path filepath = std::filesystem::path(saves_dir) / (name + ".save");
+    std::ifstream in(filepath, std::ios::binary | std::ios::ate);
+
+    if (!in) return {};
+    auto size = in.tellg();
+    if (size <= 0) return {};
+
+    in.seekg(0);
+    std::vector<uint8_t> data(static_cast<size_t>(size));
+    in.read(reinterpret_cast<char*>(data.data()), size);
+    if (!in.good()) return {};
+
+    return data;
+}
+
+std::vector<SaveInfo> ListSaveFiles(const std::string& saves_dir) {
+    std::vector<SaveInfo> result;
+    std::error_code ec;
+
+    for (const auto& entry : std::filesystem::directory_iterator(saves_dir, ec)) {
+        if (ec) break;
+        if (!entry.is_regular_file()) continue;
+        if (entry.path().extension() != ".save") continue;
+
+        std::string name = entry.path().stem().string();
+        auto ftime = entry.last_write_time();
+        auto duration = ftime.time_since_epoch();
+        auto sys_duration = std::chrono::duration_cast<std::chrono::system_clock::duration>(duration);
+        auto sctp = std::chrono::system_clock::time_point(sys_duration);
+
+        uint64_t timestamp = static_cast<uint64_t>(std::chrono::system_clock::to_time_t(sctp));
+
+        result.push_back(SaveInfo{std::move(name), timestamp});
+    }
+    return result;
+}
+
 } // namespace
 
 
@@ -349,6 +417,8 @@ std::expected<void, SyncError> SyncManager::Start() {
     if (mImpl->running) return std::unexpected(SyncError::AlreadyStarted);
 
     if (mImpl->mode == Impl::Mode::Server) {
+        std::filesystem::create_directories(mImpl->savesDir);
+        
         mImpl->server->OnClientConnect([this](uint64_t client_id) {
             auto payload = EncodeFullStatePayload(mImpl->db);
             auto frame = EncodeMessage(SyncMessageType::FULL_STATE, payload);
@@ -411,6 +481,57 @@ void SyncManager::Poll() {
                         (void)mImpl->server->Send(client_id, *frame);
                     }
                 }
+                else if (msg_type == SyncMessageType::SAVE) {
+                    auto decoded_save = DecodeSavePayload(payload);
+                    if (!decoded_save.has_value()) {
+                        std::cout << "[SyncManager] Failed to decode SAVE payload\n";
+
+                    } else {
+                        auto& [name, state_bytes] = *decoded_save;
+                        if (!ValidateSaveName(name)) {
+                            std::cout << "[SyncManager] Rejected invalid save name '" << name << "'\n";
+                        } else if (!WriteSaveFile(mImpl->savesDir, name, state_bytes)) {
+                            std::cout << "[SyncManager] Failed to write save '" << name << "'\n";
+                        } else {
+                            std::cout << "[SyncManager] Saved '" << name << "' (" << state_bytes.size() << " bytes)\n";
+                        }
+                    }
+                }
+                else if (msg_type == SyncMessageType::LOAD) {
+                    auto name_result = DecodeLoadPayload(payload);
+                    if (!name_result.has_value()) {
+                        std::cout << "[SyncManager] Failed to decode LOAD payload\n";
+
+                    } else {
+                        auto& name = *name_result;
+
+                        if (!ValidateSaveName(name)) {
+                            std::cout << "[SyncManager] Rejected invalid load name '" << name << "'\n";
+                        } else {
+                            auto file_bytes = ReadSaveFile(mImpl->savesDir, name);
+                            if (file_bytes.empty()) {
+                                std::cout << "[SyncManager] LOAD requested for unknown save '" << name << "'\n";
+                            } else {
+                                auto frame = EncodeMessage(SyncMessageType::FULL_STATE, file_bytes);
+                                if (frame.has_value()) {
+                                    (void)mImpl->server->Send(client_id, *frame);
+                                    std::cout << "[SyncManager] Loaded '" << name << "' (" << file_bytes.size() << " bytes) for client " << client_id << "\n";
+                                }
+                            }
+                        }
+                    }
+                }
+                else if (msg_type == SyncMessageType::LIST_SAVES) {
+                    auto saves = ListSaveFiles(mImpl->savesDir);
+                    auto list_payload = EncodeSaveListPayload(saves);
+                    auto frame = EncodeMessage(SyncMessageType::SAVE_LIST, list_payload);
+
+                    if (frame.has_value()) {
+                        (void)mImpl->server->Send(client_id, *frame);
+                        std::cout << "[SyncManager] Sent save list (" << saves.size() << " saves) to client " << client_id << "\n";
+                    }
+                }
+
             } else {
                 if (msg_type == SyncMessageType::FULL_STATE || msg_type == SyncMessageType::SYNC_RESPONSE) {
                     ApplyFullStatePayload(mImpl->db, payload);
@@ -475,6 +596,7 @@ namespace cse498 {
 struct SyncManager::Impl {};
 
 SyncManager::SyncManager(Database& db, WebSocketServer&) : mImpl(std::make_unique<Impl>()) { (void)db; }
+SyncManager::SyncManager(Database& db, WebSocketServer&, std::string) : mImpl(std::make_unique<Impl>()) { (void)db; }
 SyncManager::SyncManager(Database& db, WebSocketConnection&) : mImpl(std::make_unique<Impl>()) { (void)db; }
 SyncManager::~SyncManager() = default;
 SyncManager::SyncManager(SyncManager&&) noexcept = default;

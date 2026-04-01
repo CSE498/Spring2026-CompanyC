@@ -51,6 +51,9 @@ public:
     /// Server mode
     SyncManager(Database& db, WebSocketServer& server);
 
+    /// Server mode with custom saves dir
+    SyncManager(Database& db, WebSocketServer& server, std::string saves_dir);
+
     /// Client mode
     SyncManager(Database& db, WebSocketConnection& client);
 
