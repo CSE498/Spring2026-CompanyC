@@ -44,6 +44,17 @@ SAVESERVER_SRCS = \
 	tools/DataGrid.cpp \
 	tools/Datum.cpp
 
+# Group09 demo stuff - in progress i dont think ready to run yet
+GROUP09_SRCS = \
+	core/Database.cpp \
+	core/WorldHelpers.cpp \
+	tools/SQLiteConnection.cpp \
+	tools/Serializer.cpp \
+	tools/StringCompressor.cpp \
+	tools/StringDiff.cpp \
+	tools/DataGrid.cpp \
+	tools/Datum.cpp
+
 default: simple
 debug: debug-simple
 opt: opt-simple
@@ -60,6 +71,13 @@ debug-SaveServer: $(SAVESERVER_SRCS) $(SQLITE_OBJ) $(IXWS_OBJS)
 
 opt-SaveServer: $(SAVESERVER_SRCS) $(SQLITE_OBJ) $(IXWS_OBJS)
 	$(CXX) SaveServer_main.cpp $(SAVESERVER_SRCS) $(SQLITE_OBJ) $(IXWS_OBJS) $(FLAGS_opt) -I$(IXWS_DIR)/.. -o SaveServer
+
+# Group09 demo executable
+Group09: Group09_main.cpp $(GROUP09_SRCS) $(HEADERS) $(SQLITE_OBJ) $(IXWS_OBJS)
+	$(CXX) Group09_main.cpp $(GROUP09_SRCS) $(SQLITE_OBJ) $(IXWS_OBJS) $(FLAGS_all) -I$(IXWS_DIR)/.. -o $@
+
+debug-Group09: $(GROUP09_SRCS) $(SQLITE_OBJ) $(IXWS_OBJS)
+	$(CXX) Group09_main.cpp $(GROUP09_SRCS) $(SQLITE_OBJ) $(IXWS_OBJS) $(FLAGS_debug) -I$(IXWS_DIR)/.. -o Group09
 
 # Generic rule to build default version of any executable
 $(EXECUTABLES): %: %_main.cpp $(HEADERS) $(SQLITE_OBJ) $(IXWS_OBJS)
@@ -82,7 +100,7 @@ grumpy-%: $(SQLITE_OBJ) $(IXWS_OBJS)
 	$(CXX) $*_main.cpp $(SQLITE_OBJ) $(IXWS_OBJS) $(FLAGS_grumpy) -o $*
 
 FILES_backup	= *~ *.dSYM
-FILES_generated = *.o $(SQLITE_OBJ) $(EXECUTABLES) SaveServer
+FILES_generated = *.o $(SQLITE_OBJ) $(EXECUTABLES) SaveServer Group09
 
 clean:
 	rm -rf $(FILES_backup) $(FILES_generated) build/

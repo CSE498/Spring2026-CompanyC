@@ -337,6 +337,80 @@ This makes `FindKeys("player:alice:*")` return all of Alice's data.
 
 ---
 
+## World Serialization
+
+`SaveWorld` and `LoadWorld` (from `WorldHelpers.hpp`) serialize a `WorldBase`'s runtime state into the Database using structured key conventions. This lets you save and restore entire game worlds.
+
+```cpp
+#include "core/WorldHelpers.hpp"
+```
+
+### World key conventions
+
+| Key pattern | Contents |
+|-------------|----------|
+| `world:<name>:meta` | Agent count, item count, run_over flag |
+| `world:<name>:grid` | Grid dimensions + all cell values (row-major) |
+| `world:<name>:agent:<id>` | Agent name, location, symbol |
+| `world:<name>:item:<id>` | Item name, location |
+
+### Basic usage
+
+```cpp
+#include "core/WorldHelpers.hpp"
+#include "../Worlds/MazeWorld.hpp"
+#include "../Agents/PacingAgent.hpp"
+
+// Set up a world
+MazeWorld world;
+auto& agent = world.AddAgent<PacingAgent>("Hero");
+agent.SetLocation(WorldPosition(3.0, 5.0));
+
+// Save to Database
+Database db;
+auto result = SaveWorld(db, "maze", world);
+
+// Later, restore into a fresh world with the same structure
+MazeWorld world2;
+world2.AddAgent<PacingAgent>("placeholder");
+LoadWorld(db, "maze", world2);
+// world2 now has agent named "Hero" at position (3, 5)
+```
+
+`LoadWorld` requires the target world to have the same number of agents and items as the saved world. It restores names, locations, symbols (agents), and grid cell values. It does not construct new entities — it updates the ones already in the world.
+
+### Extending with derived-class fields
+
+`SaveWorld` saves base-class fields only (name, location, symbol). If your group has derived agents or items with extra fields, store them under the same key prefix:
+
+```cpp
+// After calling SaveWorld:
+db.Store("world:maze:agent:0:health", my_agent.GetHealth());
+db.Store("world:maze:agent:0:inventory", my_agent.GetInventory());
+db.Store("world:maze:item:0:durability", my_item.GetDurability());
+```
+
+These extension keys are captured automatically by `SaveGame()`, which exports the entire Database. On load, call `LoadWorld` for base fields, then load your extension keys:
+
+```cpp
+LoadWorld(db, "maze", world);
+auto health = db.Load<int>("world:maze:agent:0:health");
+if (health) my_agent.SetHealth(*health);
+```
+
+### Integration with save server
+
+`SaveWorld` stores data into a `Database`. To persist across machines, use the save server pipeline:
+
+1. `SaveWorld(db, "my_world", world)` — serialize world into Database
+2. `sync.SaveGame("my_save")` — upload entire Database to save server
+3. On another machine: `sync.LoadGame("my_save")` — download into Database
+4. `LoadWorld(db, "my_world", world)` — restore world state
+
+Look at `source/SaveServer_main.cpp` documentation at the top to see how to start up the server.
+
+---
+
 ## Error Handling
 
 Most methods return `std::expected`. Check `.has_value()` before using the result:
