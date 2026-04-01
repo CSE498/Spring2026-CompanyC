@@ -13,12 +13,14 @@
 //   map:           m:<size>:<kv pairs>
 //   unordered_map: u:<size>:<kv pairs>   (added as requested by other teams)
 //   custom:        custom:<type_id>:<len>:<content>;
+//   variant:       t:<active_index>:<serialized_value>
 // Claude assistance used for custom vector and map serialisation
 
 #include <string>
 #include <optional>
 #include <vector>
 #include <map>
+#include <variant>
 #include <type_traits>
 #include <functional>
 #include <unordered_map>
@@ -43,6 +45,10 @@ class Serializer {
     template <typename T> struct is_unordered_map : std::false_type {};
     template <typename K, typename V, typename H, typename E, typename A>
     struct is_unordered_map<std::unordered_map<K, V, H, E, A>> : std::true_type {};
+
+    template <typename T> struct is_variant : std::false_type {};
+    template <typename... Ts>
+    struct is_variant<std::variant<Ts...>> : std::true_type {};
 
     // each registered custom type gets a pair of type-erased functions
     struct TypeEntry {
@@ -125,6 +131,14 @@ public:
         return result;
     }
 
+    template <typename... Ts>
+    std::string Serialize(const std::variant<Ts...>& v) const {
+        std::string prefix = "t:" + std::to_string(v.index()) + ":";
+        return std::visit([this, &prefix](const auto& val) -> std::string {
+            return prefix + this->Serialize(val);
+        }, v);
+    }
+
     // ------ serialize custom types ------
 
     // wraps the inner content with: custom:<type_id>:<length>:<content>;
@@ -165,6 +179,12 @@ public:
     std::optional<std::unordered_map<K, V>> DeserializeUnorderedMap(const std::string& data) const {
         size_t pos = 0;
         return DeserializeUnorderedMapAt<K, V>(data, pos);
+    }
+
+    template <typename... Ts>
+    std::optional<std::variant<Ts...>> DeserializeVariant(const std::string& data) const {
+        size_t pos = 0;
+        return DeserializeVariantAt<std::variant<Ts...>>(data, pos);
     }
 
     // ------ deserialize custom types ------
@@ -261,6 +281,8 @@ public:
             return DeserializeMapAt<typename T::key_type, typename T::mapped_type>(data, pos);
         else if constexpr (is_unordered_map<T>::value)
             return DeserializeUnorderedMapAt<typename T::key_type, typename T::mapped_type>(data, pos);
+        else if constexpr (is_variant<T>::value)
+            return DeserializeVariantAt<T>(data, pos);
         else
             static_assert(!std::is_same_v<T, T>, "Unsupported type for deserialization");
     }
@@ -374,6 +396,66 @@ private:
         }
 
         return result;
+    }
+
+    // --- variant deserialization helpers ---
+
+    // Recursively try each alternative at compile time until I == sizeof...(Ts)
+    template <size_t I, typename Variant, typename T0, typename... Rest>
+    std::optional<Variant> DeserializeVariantAlternative(
+            size_t target, const std::string& data, size_t& pos) const {
+        if (I == target) {
+            auto val = DeserializeAt<T0>(data, pos);
+            if (!val) return std::nullopt;
+            return Variant(std::in_place_index<I>, std::move(*val));
+        }
+        if constexpr (sizeof...(Rest) > 0) {
+            return DeserializeVariantAlternative<I + 1, Variant, Rest...>(target, data, pos);
+        }
+        return std::nullopt;
+    }
+
+    // Parse "t:<index>:" header then dispatch to the right alternative
+    template <typename Variant, typename... Ts>
+    std::optional<Variant> DeserializeVariantAtImpl(
+            const std::string& data, size_t& pos) const {
+        if (pos + TAG_PREFIX_LEN >= data.size()) return std::nullopt;
+        if (data[pos] != 't' || data[pos + 1] != ':') return std::nullopt;
+        size_t saved = pos;
+        pos += TAG_PREFIX_LEN;
+
+        size_t colon = data.find(':', pos);
+        if (colon == std::string::npos) { pos = saved; return std::nullopt; }
+
+        size_t idx = 0;
+        auto [ptr, ec] = std::from_chars(data.data() + pos, data.data() + colon, idx);
+        if (ec != std::errc{} || ptr != data.data() + colon) { pos = saved; return std::nullopt; }
+
+        if (idx >= sizeof...(Ts)) { pos = saved; return std::nullopt; }
+
+        pos = colon + 1;
+
+        auto result = DeserializeVariantAlternative<0, Variant, Ts...>(idx, data, pos);
+        if (!result) { pos = saved; return std::nullopt; }
+        return result;
+    }
+
+    // Unpack variant template args and call Impl
+    template <typename Variant>
+    struct VariantUnpacker;
+
+    template <typename... Ts>
+    struct VariantUnpacker<std::variant<Ts...>> {
+        static std::optional<std::variant<Ts...>> unpack(
+                const Serializer* self, const std::string& data, size_t& pos) {
+            return self->template DeserializeVariantAtImpl<std::variant<Ts...>, Ts...>(data, pos);
+        }
+    };
+
+    template <typename Variant>
+    std::optional<Variant> DeserializeVariantAt(
+            const std::string& data, size_t& pos) const {
+        return VariantUnpacker<Variant>::unpack(this, data, pos);
     }
 };
 

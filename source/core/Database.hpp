@@ -74,6 +74,9 @@ template <> struct is_builtin_serializable<unsigned long> : std::true_type {};
 template <typename T> struct is_builtin_serializable<std::vector<T>> : std::true_type {};
 template <typename K, typename V> struct is_builtin_serializable<std::map<K,V>> : std::true_type {};
 template <typename K, typename V> struct is_builtin_serializable<std::unordered_map<K,V>> : std::true_type {};
+template <typename... Ts>
+struct is_builtin_serializable<std::variant<Ts...>>
+    : std::bool_constant<(is_builtin_serializable<Ts>::value && ...)> {};
 } // namespace detail
 
 /// Error codes for Database operations
