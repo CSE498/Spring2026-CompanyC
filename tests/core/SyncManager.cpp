@@ -1322,3 +1322,110 @@ TEST_CASE("SyncManager - LoadGame populates Database", "[sync]") {
     ws_server.Stop();
     std::filesystem::remove_all(tmp_dir);
 }
+
+
+
+
+TEST_CASE("SyncManager - Full round-trip: save, list, load", "[sync]") {
+    auto tmp_dir = std::filesystem::temp_directory_path() / "sync_test_full_roundtrip";
+    std::filesystem::remove_all(tmp_dir);
+    std::filesystem::create_directories(tmp_dir);
+
+    // start server
+    Database server_db;
+    WebSocketServer ws_server(SYNC_TEST_PORT);
+    REQUIRE(ws_server.Start().has_value());
+
+    SyncManager server_sync(server_db, ws_server, tmp_dir.string());
+    REQUIRE(server_sync.Start().has_value());
+
+    // connect client side
+    Database client_db;
+    WebSocketConnection ws_client;
+    SyncManager client_sync(client_db, ws_client);
+
+    std::vector<SaveInfo> received_list;
+    bool got_list = false;
+    client_sync.OnSaveListReceived([&](const std::vector<SaveInfo>& list) {
+        received_list = list;
+        got_list = true;
+    });
+
+    REQUIRE(client_sync.Start().has_value());
+
+    REQUIRE(ws_client.Connect("ws://127.0.0.1:" + std::to_string(SYNC_TEST_PORT)).has_value());
+
+    REQUIRE(WaitFor([&]() {
+        ws_server.Poll(); server_sync.Poll();
+        ws_client.Poll(); client_sync.Poll();
+        return ws_server.ClientCount() > 0;
+    }));
+
+    for (int i = 0; i < 5; ++i) {
+        ws_server.Poll(); server_sync.Poll();
+        ws_client.Poll(); client_sync.Poll();
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    // store test data in client db
+    REQUIRE(client_db.Store("player:1:health", 100).has_value());
+    REQUIRE(client_db.Store("player:1:name", std::string("Hero")).has_value());
+    REQUIRE(client_db.Store("world:level", 5).has_value());
+    (void)client_db.FlushDirty();
+
+    // Client saves game
+    REQUIRE(client_sync.SaveGame("test_world").has_value());
+
+    // wait for server 
+    REQUIRE(WaitFor([&]() {
+        ws_server.Poll(); server_sync.Poll();
+        ws_client.Poll(); client_sync.Poll();
+        return std::filesystem::exists(tmp_dir / "test_world.save");
+    }));
+
+    // Client clears local Database
+    client_db.Clear();
+    REQUIRE(client_db.Size() == 0);
+
+    // Client requests save list, verify "test_world" appears
+    REQUIRE(client_sync.RequestSaveList().has_value());
+
+    REQUIRE(WaitFor([&]() {
+        ws_server.Poll(); server_sync.Poll();
+        ws_client.Poll(); client_sync.Poll();
+        return got_list;
+    }));
+
+    REQUIRE(received_list.size() == 1);
+    REQUIRE(received_list[0].name == "test_world");
+    auto now = static_cast<uint64_t>(std::time(nullptr));
+    REQUIRE(received_list[0].timestamp >= now - 60);
+    REQUIRE(received_list[0].timestamp <= now + 60);
+
+    // Client loads game
+    REQUIRE(client_sync.LoadGame("test_world").has_value());
+
+
+    REQUIRE(WaitFor([&]() {
+        ws_server.Poll(); server_sync.Poll();
+        ws_client.Poll(); client_sync.Poll();
+        return client_db.Size() == 3;
+    }));
+
+    auto health = client_db.Load<int>("player:1:health");
+    REQUIRE(health.has_value());
+    REQUIRE(*health == 100);
+
+    auto player_name = client_db.Load<std::string>("player:1:name");
+    REQUIRE(player_name.has_value());
+    REQUIRE(*player_name == "Hero");
+
+    auto level = client_db.Load<int>("world:level");
+    REQUIRE(level.has_value());
+    REQUIRE(*level == 5);
+
+    server_sync.Stop();
+    client_sync.Stop();
+    ws_server.Stop();
+    std::filesystem::remove_all(tmp_dir);
+}
