@@ -539,6 +539,7 @@ std::string Database::DeriveTypeTag(const std::string& serialized) {
         case 'm': return "map";
         case 'u': return "unordered_map";
         case 'l': return "long long";
+        case 't': return "variant";
         default: break;
     }
 
