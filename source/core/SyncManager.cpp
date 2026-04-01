@@ -33,6 +33,7 @@ struct SyncManager::Impl {
     std::mutex queueMutex;
     std::queue<std::pair<uint64_t, std::vector<uint8_t>>> incomingMessages;
     std::string savesDir = "./saves/";
+    std::function<void(const std::vector<SaveInfo>&)> onSaveListCallback;
 
     explicit Impl(Database& database) : db(database) {}
 };
@@ -535,8 +536,16 @@ void SyncManager::Poll() {
             } else {
                 if (msg_type == SyncMessageType::FULL_STATE || msg_type == SyncMessageType::SYNC_RESPONSE) {
                     ApplyFullStatePayload(mImpl->db, payload);
+                    
                 } else if (msg_type == SyncMessageType::DELTA) {
                     ApplyDeltaPayload(mImpl->db, payload);
+
+                } else if (msg_type == SyncMessageType::SAVE_LIST) {
+                    auto list = DecodeSaveListPayload(payload);
+
+                    if (list.has_value() && mImpl->onSaveListCallback) {
+                        mImpl->onSaveListCallback(*list);
+                    }
                 }
             }
         }
@@ -583,6 +592,55 @@ std::expected<void, SyncError> SyncManager::SendUpdate(const std::string& key) {
     return {};
 }
 
+std::expected<void, SyncError> SyncManager::SaveGame(const std::string& name) {
+    if (!mImpl || !mImpl->running) return std::unexpected(SyncError::NotStarted);
+    if (mImpl->mode != Impl::Mode::Client) return std::unexpected(SyncError::NotStarted);
+    if (!ValidateSaveName(name)) return std::unexpected(SyncError::EncodeFailed);
+
+    auto payload = EncodeSavePayload(name, mImpl->db);
+    auto frame = EncodeMessage(SyncMessageType::SAVE, payload);
+    if (!frame.has_value()) return std::unexpected(SyncError::EncodeFailed);
+
+    auto result = mImpl->client->Send(*frame);
+    if (!result.has_value()) return std::unexpected(SyncError::WebSocketError);
+
+    return {};
+}
+
+std::expected<void, SyncError> SyncManager::LoadGame(const std::string& name) {
+    if (!mImpl || !mImpl->running) return std::unexpected(SyncError::NotStarted);
+    if (mImpl->mode != Impl::Mode::Client) return std::unexpected(SyncError::NotStarted);
+    if (!ValidateSaveName(name)) return std::unexpected(SyncError::EncodeFailed);
+
+    auto payload = EncodeLoadPayload(name);
+    auto frame = EncodeMessage(SyncMessageType::LOAD, payload);
+    if (!frame.has_value()) return std::unexpected(SyncError::EncodeFailed);
+
+    auto result = mImpl->client->Send(*frame);
+    if (!result.has_value()) return std::unexpected(SyncError::WebSocketError);
+
+    return {};
+}
+
+std::expected<void, SyncError> SyncManager::RequestSaveList() {
+    if (!mImpl || !mImpl->running) return std::unexpected(SyncError::NotStarted);
+    if (mImpl->mode != Impl::Mode::Client) return std::unexpected(SyncError::NotStarted);
+
+    auto frame = EncodeMessage(SyncMessageType::LIST_SAVES, {});
+    if (!frame.has_value()) return std::unexpected(SyncError::EncodeFailed);
+
+    auto result = mImpl->client->Send(*frame);
+    if (!result.has_value()) return std::unexpected(SyncError::WebSocketError);
+
+    return {};
+}
+
+void SyncManager::OnSaveListReceived(std::function<void(const std::vector<SaveInfo>&)> callback) {
+    if (mImpl) {
+        mImpl->onSaveListCallback = std::move(callback);
+    }
+}
+
 } // namespace cse498
 
 #else // __EMSCRIPTEN__
@@ -612,6 +670,16 @@ bool SyncManager::IsServer() const { return false; }
 std::expected<void, SyncError> SyncManager::SendUpdate(const std::string&) {
     return std::unexpected(SyncError::NotStarted);
 }
+std::expected<void, SyncError> SyncManager::SaveGame(const std::string&) {
+    return std::unexpected(SyncError::NotStarted);
+}
+std::expected<void, SyncError> SyncManager::LoadGame(const std::string&) {
+    return std::unexpected(SyncError::NotStarted);
+}
+std::expected<void, SyncError> SyncManager::RequestSaveList() {
+    return std::unexpected(SyncError::NotStarted);
+}
+void SyncManager::OnSaveListReceived(std::function<void(const std::vector<SaveInfo>&)>) {}
 
 std::expected<std::vector<uint8_t>, SyncError> SyncManager::EncodeMessage(SyncMessageType type, const std::vector<uint8_t>& payload) {
     uint64_t length = static_cast<uint64_t>(payload.size());

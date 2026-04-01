@@ -75,6 +75,18 @@ public:
     /// Client only, send a local key change to the server
     [[nodiscard]] std::expected<void, SyncError> SendUpdate(const std::string& key);
 
+    /// Client only, save full Database server as name
+    [[nodiscard]] std::expected<void, SyncError> SaveGame(const std::string& name);
+
+    /// Client only, request named save from server
+    [[nodiscard]] std::expected<void, SyncError> LoadGame(const std::string& name);
+
+    /// Client only, list of available saves 
+    [[nodiscard]] std::expected<void, SyncError> RequestSaveList();
+
+    /// Register callback for save list responses
+    void OnSaveListReceived(std::function<void(const std::vector<SaveInfo>&)> callback);
+
     /// Encode a message frame: [msg_type:uint8][payload_length:uint64 BE][payload]
     [[nodiscard]] static std::expected<std::vector<uint8_t>, SyncError> EncodeMessage(SyncMessageType type, const std::vector<uint8_t>& payload);
 
