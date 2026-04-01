@@ -13,6 +13,7 @@
 
 #include <thread>
 #include <chrono>
+#include <filesystem>
 
 using namespace cse498;
 
@@ -696,4 +697,342 @@ TEST_CASE("SyncManager - Vertical slice: sync counter between server and client"
     server_sync.Stop();
     client_sync.Stop();
     ws_server.Stop();
+}
+
+// ============================================================================
+// Server Mode — Save File I/O (Phase 4c)
+// ============================================================================
+
+TEST_CASE("SyncManager - List empty saves directory", "[sync]") {
+    auto tmp_dir = std::filesystem::temp_directory_path() / "sync_test_empty_list";
+    std::filesystem::remove_all(tmp_dir);
+    std::filesystem::create_directories(tmp_dir);
+
+    Database server_db;
+    WebSocketServer ws_server(SYNC_TEST_PORT);
+    REQUIRE(ws_server.Start().has_value());
+
+    SyncManager server_sync(server_db, ws_server, tmp_dir.string());
+    REQUIRE(server_sync.Start().has_value());
+
+    // Raw client — no client_sync (SAVE_LIST dispatch is Phase 4d)
+    WebSocketConnection ws_client;
+
+    std::vector<SaveInfo> received_list;
+    bool got_list = false;
+    ws_client.OnMessage([&](const std::vector<uint8_t>& data) {
+        auto decoded = SyncManager::DecodeMessage(data);
+        if (decoded.has_value() && decoded->first == SyncMessageType::SAVE_LIST) {
+            auto list = SyncManager::DecodeSaveListPayload(decoded->second);
+            if (list.has_value()) {
+                received_list = std::move(*list);
+                got_list = true;
+            }
+        }
+    });
+
+    REQUIRE(ws_client.Connect("ws://127.0.0.1:" + std::to_string(SYNC_TEST_PORT)).has_value());
+
+    REQUIRE(WaitFor([&]() {
+        ws_server.Poll(); server_sync.Poll();
+        ws_client.Poll();
+        return ws_server.ClientCount() > 0;
+    }));
+
+    auto frame = SyncManager::EncodeMessage(SyncMessageType::LIST_SAVES, {});
+    REQUIRE(frame.has_value());
+    REQUIRE(ws_client.Send(*frame).has_value());
+
+    REQUIRE(WaitFor([&]() {
+        ws_server.Poll(); server_sync.Poll();
+        ws_client.Poll();
+        return got_list;
+    }));
+
+    REQUIRE(received_list.empty());
+
+    server_sync.Stop();
+    ws_server.Stop();
+    std::filesystem::remove_all(tmp_dir);
+}
+
+TEST_CASE("SyncManager - Save then list", "[sync]") {
+    auto tmp_dir = std::filesystem::temp_directory_path() / "sync_test_save_then_list";
+    std::filesystem::remove_all(tmp_dir);
+    std::filesystem::create_directories(tmp_dir);
+
+    Database server_db;
+    WebSocketServer ws_server(SYNC_TEST_PORT);
+    REQUIRE(ws_server.Start().has_value());
+
+    SyncManager server_sync(server_db, ws_server, tmp_dir.string());
+    REQUIRE(server_sync.Start().has_value());
+
+    Database client_db;
+    REQUIRE(client_db.Store("player:1:health", 100).has_value());
+    REQUIRE(client_db.Store("player:1:name", std::string("Alice")).has_value());
+    (void)client_db.FlushDirty();
+
+    auto save_payload = SyncManager::EncodeSavePayload("my_world", client_db);
+    auto save_frame = SyncManager::EncodeMessage(SyncMessageType::SAVE, save_payload);
+    REQUIRE(save_frame.has_value());
+
+    WebSocketConnection ws_client;
+
+    std::vector<SaveInfo> received_list;
+    bool got_list = false;
+    ws_client.OnMessage([&](const std::vector<uint8_t>& data) {
+        auto decoded = SyncManager::DecodeMessage(data);
+        if (decoded.has_value() && decoded->first == SyncMessageType::SAVE_LIST) {
+            auto list = SyncManager::DecodeSaveListPayload(decoded->second);
+            if (list.has_value()) {
+                received_list = std::move(*list);
+                got_list = true;
+            }
+        }
+    });
+
+    REQUIRE(ws_client.Connect("ws://127.0.0.1:" + std::to_string(SYNC_TEST_PORT)).has_value());
+
+    REQUIRE(WaitFor([&]() {
+        ws_server.Poll(); server_sync.Poll();
+        ws_client.Poll();
+        return ws_server.ClientCount() > 0;
+    }));
+
+    REQUIRE(ws_client.Send(*save_frame).has_value());
+
+    REQUIRE(WaitFor([&]() {
+        ws_server.Poll(); server_sync.Poll();
+        ws_client.Poll();
+        return std::filesystem::exists(tmp_dir / "my_world.save");
+    }));
+
+    auto list_frame = SyncManager::EncodeMessage(SyncMessageType::LIST_SAVES, {});
+    REQUIRE(list_frame.has_value());
+    REQUIRE(ws_client.Send(*list_frame).has_value());
+
+    REQUIRE(WaitFor([&]() {
+        ws_server.Poll(); server_sync.Poll();
+        ws_client.Poll();
+        return got_list;
+    }));
+
+    REQUIRE(received_list.size() == 1);
+    REQUIRE(received_list[0].name == "my_world");
+    auto now = static_cast<uint64_t>(std::time(nullptr));
+    REQUIRE(received_list[0].timestamp >= now - 60);
+    REQUIRE(received_list[0].timestamp <= now + 60);
+
+    server_sync.Stop();
+    ws_server.Stop();
+    std::filesystem::remove_all(tmp_dir);
+}
+
+TEST_CASE("SyncManager - Save then load", "[sync]") {
+    auto tmp_dir = std::filesystem::temp_directory_path() / "sync_test_save_then_load";
+    std::filesystem::remove_all(tmp_dir);
+    std::filesystem::create_directories(tmp_dir);
+
+    Database server_db;
+    WebSocketServer ws_server(SYNC_TEST_PORT);
+    REQUIRE(ws_server.Start().has_value());
+
+    SyncManager server_sync(server_db, ws_server, tmp_dir.string());
+    REQUIRE(server_sync.Start().has_value());
+
+    Database client_db;
+    WebSocketConnection ws_client;
+    SyncManager client_sync(client_db, ws_client);
+    REQUIRE(client_sync.Start().has_value());
+
+    REQUIRE(ws_client.Connect("ws://127.0.0.1:" + std::to_string(SYNC_TEST_PORT)).has_value());
+
+    REQUIRE(WaitFor([&]() {
+        ws_server.Poll(); server_sync.Poll();
+        ws_client.Poll(); client_sync.Poll();
+        return ws_server.ClientCount() > 0;
+    }));
+    for (int i = 0; i < 5; ++i) {
+        ws_server.Poll(); server_sync.Poll();
+        ws_client.Poll(); client_sync.Poll();
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    REQUIRE(client_db.Store("player:1:health", 100).has_value());
+    REQUIRE(client_db.Store("player:1:name", std::string("Alice")).has_value());
+    (void)client_db.FlushDirty();
+
+    auto save_payload = SyncManager::EncodeSavePayload("load_test", client_db);
+    auto save_frame = SyncManager::EncodeMessage(SyncMessageType::SAVE, save_payload);
+    REQUIRE(save_frame.has_value());
+    REQUIRE(ws_client.Send(*save_frame).has_value());
+
+    REQUIRE(WaitFor([&]() {
+        ws_server.Poll(); server_sync.Poll();
+        ws_client.Poll(); client_sync.Poll();
+        return std::filesystem::exists(tmp_dir / "load_test.save");
+    }));
+
+    client_db.Clear();
+    REQUIRE(client_db.Size() == 0);
+
+    auto load_payload = SyncManager::EncodeLoadPayload("load_test");
+    auto load_frame = SyncManager::EncodeMessage(SyncMessageType::LOAD, load_payload);
+    REQUIRE(load_frame.has_value());
+    REQUIRE(ws_client.Send(*load_frame).has_value());
+
+    REQUIRE(WaitFor([&]() {
+        ws_server.Poll(); server_sync.Poll();
+        ws_client.Poll(); client_sync.Poll();
+        return client_db.Size() == 2;
+    }));
+
+    auto health = client_db.Load<int>("player:1:health");
+    REQUIRE(health.has_value());
+    REQUIRE(*health == 100);
+
+    auto name = client_db.Load<std::string>("player:1:name");
+    REQUIRE(name.has_value());
+    REQUIRE(*name == "Alice");
+
+    server_sync.Stop();
+    client_sync.Stop();
+    ws_server.Stop();
+    std::filesystem::remove_all(tmp_dir);
+}
+
+TEST_CASE("SyncManager - Overwrite existing save", "[sync]") {
+    auto tmp_dir = std::filesystem::temp_directory_path() / "sync_test_overwrite";
+    std::filesystem::remove_all(tmp_dir);
+    std::filesystem::create_directories(tmp_dir);
+
+    Database server_db;
+    WebSocketServer ws_server(SYNC_TEST_PORT);
+    REQUIRE(ws_server.Start().has_value());
+
+    SyncManager server_sync(server_db, ws_server, tmp_dir.string());
+    REQUIRE(server_sync.Start().has_value());
+
+    Database client_db;
+    WebSocketConnection ws_client;
+    SyncManager client_sync(client_db, ws_client);
+    REQUIRE(client_sync.Start().has_value());
+
+    REQUIRE(ws_client.Connect("ws://127.0.0.1:" + std::to_string(SYNC_TEST_PORT)).has_value());
+
+    REQUIRE(WaitFor([&]() {
+        ws_server.Poll(); server_sync.Poll();
+        ws_client.Poll(); client_sync.Poll();
+        return ws_server.ClientCount() > 0;
+    }));
+    for (int i = 0; i < 5; ++i) {
+        ws_server.Poll(); server_sync.Poll();
+        ws_client.Poll(); client_sync.Poll();
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    REQUIRE(client_db.Store("score", 100).has_value());
+    (void)client_db.FlushDirty();
+
+    auto save1_payload = SyncManager::EncodeSavePayload("world_a", client_db);
+    auto save1_frame = SyncManager::EncodeMessage(SyncMessageType::SAVE, save1_payload);
+    REQUIRE(save1_frame.has_value());
+    REQUIRE(ws_client.Send(*save1_frame).has_value());
+
+    REQUIRE(WaitFor([&]() {
+        ws_server.Poll(); server_sync.Poll();
+        ws_client.Poll(); client_sync.Poll();
+        return std::filesystem::exists(tmp_dir / "world_a.save");
+    }));
+
+    REQUIRE(client_db.Update("score", 999).has_value());
+    (void)client_db.FlushDirty();
+
+    auto save2_payload = SyncManager::EncodeSavePayload("world_a", client_db);
+    auto save2_frame = SyncManager::EncodeMessage(SyncMessageType::SAVE, save2_payload);
+    REQUIRE(save2_frame.has_value());
+    REQUIRE(ws_client.Send(*save2_frame).has_value());
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    for (int i = 0; i < 20; ++i) {
+        ws_server.Poll(); server_sync.Poll();
+        ws_client.Poll(); client_sync.Poll();
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    client_db.Clear();
+    REQUIRE(client_db.Size() == 0);
+
+    auto load_payload = SyncManager::EncodeLoadPayload("world_a");
+    auto load_frame = SyncManager::EncodeMessage(SyncMessageType::LOAD, load_payload);
+    REQUIRE(load_frame.has_value());
+    REQUIRE(ws_client.Send(*load_frame).has_value());
+
+    REQUIRE(WaitFor([&]() {
+        ws_server.Poll(); server_sync.Poll();
+        ws_client.Poll(); client_sync.Poll();
+        return client_db.Size() > 0;
+    }));
+
+    auto val = client_db.Load<int>("score");
+    REQUIRE(val.has_value());
+    REQUIRE(*val == 999);
+
+    server_sync.Stop();
+    client_sync.Stop();
+    ws_server.Stop();
+    std::filesystem::remove_all(tmp_dir);
+}
+
+TEST_CASE("SyncManager - Invalid save name rejected", "[sync]") {
+    auto tmp_dir = std::filesystem::temp_directory_path() / "sync_test_invalid_name";
+    std::filesystem::remove_all(tmp_dir);
+    std::filesystem::create_directories(tmp_dir);
+
+    Database server_db;
+    WebSocketServer ws_server(SYNC_TEST_PORT);
+    REQUIRE(ws_server.Start().has_value());
+
+    SyncManager server_sync(server_db, ws_server, tmp_dir.string());
+    REQUIRE(server_sync.Start().has_value());
+
+    Database client_db;
+    REQUIRE(client_db.Store("key", 1).has_value());
+    (void)client_db.FlushDirty();
+
+    auto evil_payload = SyncManager::EncodeSavePayload("../evil", client_db);
+    auto evil_frame = SyncManager::EncodeMessage(SyncMessageType::SAVE, evil_payload);
+    REQUIRE(evil_frame.has_value());
+
+    WebSocketConnection ws_client;
+    REQUIRE(ws_client.Connect("ws://127.0.0.1:" + std::to_string(SYNC_TEST_PORT)).has_value());
+
+    REQUIRE(WaitFor([&]() {
+        ws_server.Poll(); server_sync.Poll();
+        ws_client.Poll();
+        return ws_server.ClientCount() > 0;
+    }));
+
+    REQUIRE(ws_client.Send(*evil_frame).has_value());
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    for (int i = 0; i < 20; ++i) {
+        ws_server.Poll(); server_sync.Poll();
+        ws_client.Poll();
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    bool dir_empty = true;
+    for (const auto& entry : std::filesystem::directory_iterator(tmp_dir)) {
+        (void)entry;
+        dir_empty = false;
+    }
+    REQUIRE(dir_empty);
+
+    REQUIRE_FALSE(std::filesystem::exists(tmp_dir.parent_path() / "evil.save"));
+
+    server_sync.Stop();
+    ws_server.Stop();
+    std::filesystem::remove_all(tmp_dir);
 }
