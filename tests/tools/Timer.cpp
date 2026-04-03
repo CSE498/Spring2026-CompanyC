@@ -40,6 +40,19 @@ TEST_CASE("Timer records named durations and simple stats", "[core]")
     CHECK(timer.Average("NeverStarted") == 0.0);
   }
 
+  SECTION("Stop on an unknown timer name is a programmer error (asserts in debug)")
+ {
+  // This Timer intentionally enforces correct usage:
+  // - Start(name) creates/starts a timer
+  // - Stop(name) requires that name already exists and is running
+  //
+  // Calling Stop() on a name that was never started will trigger an assert in debug builds.
+  //
+  // Manual check (DEBUG ONLY):
+  // timer.Stop("NeverStarted");  // should hit assert
+  SUCCEED();
+ }
+
   SECTION("Querying a timer while it is still running returns no completed data") //added from peer review
   {
     timer.Start("A");

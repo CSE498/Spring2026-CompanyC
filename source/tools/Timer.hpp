@@ -21,24 +21,24 @@ public:
     double maxSeconds = 0.0;   //slowest completed dur
   };
 
-  Timer() = default;
-  ~Timer() = default;
-  Timer(const Timer&) = delete;
-  Timer& operator=(const Timer&) = delete;
-  Timer(Timer&&) noexcept = default;
-  Timer& operator=(Timer&&) noexcept = default;
+    Timer() = default;
+    ~Timer() = default;
+    Timer(const Timer&) = delete;
+    Timer& operator=(const Timer&) = delete;
+    Timer(Timer&&) noexcept = default;
+    Timer& operator=(Timer&&) noexcept = default;
 
-  void Start(const std::string& name);
-  void Stop(const std::string& name);
-  void Reset(const std::string& name);
-  void ResetAll();
+  void Start(const std::string& name);// start (or create) a named timer
+  void Stop(const std::string& name);// stop a running timer + record duration/statistics
+  void Reset(const std::string& name); // remove one timer + its stored stats
+  void ResetAll(); // clear all timers + stats
 
-  bool HasData(const std::string& name) const;
-  double Last(const std::string& name) const;
-  double Min(const std::string& name) const;
-  double Max(const std::string& name) const;
-  double Average(const std::string& name) const;
-  std::size_t Count(const std::string& name) const;
+  bool HasData(const std::string& name) const;// true if timer has >= 1 completed measurement
+  double Last(const std::string& name) const; // most recent duration (0.0 if none)
+  double Min(const std::string& name) const; // fastest duration (0.0 if none)
+  double Max(const std::string& name) const;  // slowest duration (0.0 if none)
+  double Average(const std::string& name) const; // avg duration over runs (0.0 if none)
+  std::size_t Count(const std::string& name) const; // number of completed runs (0 if none)
 
   // optional helper API to make Timer easier to integrate later on... may change based on company discussion/preference.
   Stats GetStats(const std::string& name) const;
