@@ -352,8 +352,38 @@ double TendencyAgent::ScoreExplore(const std::string& action,
 double TendencyAgent::ScoreCollect(const std::string& action,
                                    const WorldGrid&   grid) const {
   if (!IsMoveAction(action)) return 0.0;
-  return StepsOntoGoal(action, grid) ? 10.0 : 0.0;
-}
+
+  const WorldPosition cur = GetLocation().AsWorldPosition();
+  int best_dist = INT_MAX;
+  int best_x = -1, best_y = -1;
+  const int scan_radius = 20;
+
+  for (int dy = -scan_radius; dy <= scan_radius; ++dy) {
+    for (int dx = -scan_radius; dx <= scan_radius; ++dx) {
+      int nx = static_cast<int>(cur.X()) + dx;
+      int ny = static_cast<int>(cur.Y()) + dy;
+      WorldPosition candidate(nx, ny);
+      if (!grid.IsValid(candidate)) continue;
+      if (!IsGoalCell(grid[candidate], grid)) continue;
+      int dist = std::abs(dx) + std::abs(dy);
+      if (dist < best_dist) {
+        best_dist = dist;
+        best_x = nx;
+        best_y = ny;
+      }
+    }
+  }
+
+  if (best_dist == INT_MAX) return 0.0;
+
+  WorldPosition next = NextPos(action);
+  int cur_dist  = std::abs(static_cast<int>(cur.X())  - best_x)
+                + std::abs(static_cast<int>(cur.Y())  - best_y);
+  int next_dist = std::abs(static_cast<int>(next.X()) - best_x)
+                + std::abs(static_cast<int>(next.Y()) - best_y);
+
+  return static_cast<double>(cur_dist - next_dist) * 5.0;
+} 
 
 // Strongly rewards the exact build action matching the current goal when all conditions
 // are valid (correct goal, correct tile, affordable); otherwise heavily penalizes it.
