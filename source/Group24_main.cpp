@@ -1,3 +1,5 @@
+// Group24_main.cpp
+
 #include <map>
 #include <memory>
 #include <sstream>
@@ -8,6 +10,7 @@
 #include "tools/StubWorldAdapter.hpp"
 #include "tools/WebCanvas.hpp"
 #include "tools/WebTextbox.hpp"
+#include "tools/WebLayout.hpp"
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -25,6 +28,7 @@ constexpr const char* kHudHostElementId = "group24_hud_host";
 constexpr const char* kLogHostElementId = "group24_log_host";
 constexpr const char* kSidebarFontStack = "system-ui, Arial, sans-serif";
 
+std::unique_ptr<cse498::WebLayout> g_layout;
 std::unique_ptr<cse498::WebCanvas> g_canvas;
 std::unique_ptr<cse498::IWorldUiAdapter> g_world;
 cse498::WebTextbox g_hud_text;
@@ -45,76 +49,85 @@ enum ActionCode {
 
 #ifdef __EMSCRIPTEN__
 EM_JS(void, Group24EnsureUi, (), {
-  if (document.getElementById('group24_root')) return;
-
-  var style = document.createElement('style');
-  style.textContent = [
-    '#group24_root{font-family:system-ui,Arial,sans-serif;padding:12px;color:#111827;}',
-    '#group24_topbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}',
-    '#group24_main{display:flex;gap:12px;align-items:flex-start;}',
-    '#group24_canvas_host{min-width:500px;}',
-    '#group24_sidebar{width:320px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:10px;padding:12px;}',
-    '#group24_actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px;}',
-    '#group24_actions button,#group24_topbar button,#group24_topbar select{padding:8px 10px;border:1px solid #9ca3af;border-radius:8px;background:white;}',
-    '#group24_hud_host,#group24_log_host{white-space:pre-wrap;background:white;border:1px solid #d1d5db;border-radius:8px;padding:10px;margin-top:10px;overflow:visible;min-height:3em;}',
-    '#group24_title{font-size:20px;font-weight:700;margin-right:8px;}',
-    '#group24_canvas{border:1px solid #374151;border-radius:8px;background:#ffffff;}'
-  ].join('');
-  document.head.appendChild(style);
-
-  var root = document.createElement('div');
-  root.id = 'group24_root';
-  root.innerHTML = [
-    '<div id="group24_topbar">',
-      '<span id="group24_title">Group 24 Stub Demo</span>',
-      '<label for="group24_world_select">World:</label>',
-      '<select id="group24_world_select"><option value="stub">Stub World</option></select>',
-      '<button id="g24btn-1">Start</button>',
-      '<button id="g24btn-2">Reset</button>',
-      '<button id="g24btn-3">Save</button>',
-      '<button id="g24btn-4">Load</button>',
-      '<span id="group24_mode_tick"></span>',
-    '</div>',
-    '<div id="group24_main">',
-      '<div id="group24_canvas_host"></div>',
-      '<div id="group24_sidebar">',
-        '<div><strong>Available Actions</strong></div>',
-        '<div id="group24_actions">',
-          '<button id="g24btn-5">Up</button>',
-          '<button id="g24btn-6">Down</button>',
-          '<button id="g24btn-7">Left</button>',
-          '<button id="g24btn-8">Right</button>',
-          '<button id="g24btn-9">Collect</button>',
-          '<button id="g24btn-10">Build</button>',
-        '</div>',
-        '<div id="group24_hud_host"></div>',
-        '<div id="group24_log_host"></div>',
-      '</div>',
-    '</div>'
-  ].join('');
-
-  document.body.innerHTML = '';
-  document.body.appendChild(root);
-
-  for (var code = 1; code <= 10; ++code) {
-    (function(c) {
-      var btn = document.getElementById('g24btn-' + c);
-      if (!btn) return;
-      btn.addEventListener('click', function() {
-        Module.ccall('Group24HandleAction', null, ['number'], [c]);
-      });
-    })(code);
+  if (!window.__group24_style_loaded) {
+    var style = document.createElement('style');
+    style.textContent = [
+      '#group24_root{font-family:system-ui,Arial,sans-serif;padding:12px;color:#111827;}',
+      '#group24_topbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}',
+      '#group24_main{display:flex;gap:12px;align-items:flex-start;}',
+      '#group24_canvas_host{min-width:500px;}',
+      '#group24_sidebar{width:320px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:10px;padding:12px;}',
+      '#group24_actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px;}',
+      '#group24_actions button,#group24_topbar button,#group24_topbar select{padding:8px 10px;border:1px solid #9ca3af;border-radius:8px;background:white;}',
+      '#group24_hud_host,#group24_log_host{white-space:pre-wrap;background:white;border:1px solid #d1d5db;border-radius:8px;padding:10px;margin-top:10px;overflow:visible;min-height:3em;}',
+      '#group24_title{font-size:20px;font-weight:700;margin-right:8px;}',
+      '#group24_canvas{border:1px solid #374151;border-radius:8px;background:#ffffff;}'
+    ].join('');
+    document.head.appendChild(style);
+    window.__group24_style_loaded = true;
   }
 
-  document.addEventListener('keydown', function(ev) {
-    var key = ev.key.toLowerCase();
-    var map = { 'w': 5, 'arrowup': 5, 's': 6, 'arrowdown': 6,
-                'a': 7, 'arrowleft': 7, 'd': 8, 'arrowright': 8,
-                'e': 9, 'b': 10, 'r': 2, 'enter': 1 };
-    if (!(key in map)) return;
-    ev.preventDefault();
-    Module.ccall('Group24HandleAction', null, ['number'], [map[key]]);
+  if (!window.__group24_keybound) {
+    document.addEventListener('keydown', function(ev) {
+      var key = ev.key.toLowerCase();
+      var map = { 'w': 5, 'arrowup': 5, 's': 6, 'arrowdown': 6,
+                  'a': 7, 'arrowleft': 7, 'd': 8, 'arrowright': 8,
+                  'e': 9, 'b': 10, 'r': 2, 'enter': 1 };
+      if (!(key in map)) return;
+      ev.preventDefault();
+      Module.ccall('Group24HandleAction', null, ['number'], [map[key]]);
+    });
+    window.__group24_keybound = true;
+  }
+});
+
+EM_JS(void, Group24PopulateUiControls, (), {
+  var actions = document.getElementById('group24_actions');
+  var sidebar = document.getElementById('group24_sidebar');
+
+  if (!actions || !sidebar) return;
+
+  // Hook topbar buttons created by WebLayout.
+  [1, 2, 3, 4].forEach(function(code) {
+    var btn = document.getElementById('g24btn-' + code);
+    if (!btn || btn.__group24_bound) return;
+    btn.addEventListener('click', function() {
+      Module.ccall('Group24HandleAction', null, ['number'], [code]);
+    });
+    btn.__group24_bound = true;
   });
+
+  // Add sidebar label if missing.
+  if (!document.getElementById('group24_actions_label')) {
+    var labelWrap = document.createElement('div');
+    labelWrap.id = 'group24_actions_label';
+    labelWrap.innerHTML = '<strong>Available Actions</strong>';
+    sidebar.insertBefore(labelWrap, actions);
+  }
+
+  // Fill action buttons only if missing.
+  if (!document.getElementById('g24btn-5')) {
+    var actionButtons = [
+      [5, 'Up'],
+      [6, 'Down'],
+      [7, 'Left'],
+      [8, 'Right'],
+      [9, 'Collect'],
+      [10, 'Build']
+    ];
+
+    actionButtons.forEach(function(entry) {
+      var code = entry[0];
+      var text = entry[1];
+      var btn = document.createElement('button');
+      btn.id = 'g24btn-' + code;
+      btn.textContent = text;
+      btn.addEventListener('click', function() {
+        Module.ccall('Group24HandleAction', null, ['number'], [code]);
+      });
+      actions.appendChild(btn);
+    });
+  }
 });
 
 EM_JS(void, Group24SetModeTick, (const char* text_ptr), {
@@ -130,6 +143,7 @@ EM_JS(void, Group24SetActionEnabled, (int code, int enabled), {
 });
 #else
 void Group24EnsureUi() {}
+void Group24PopulateUiControls() {}
 void Group24SetModeTick(const char*) {}
 void Group24SetActionEnabled(int, int) {}
 #endif
@@ -205,7 +219,7 @@ void RenderWorld() {
       // Default empty cell
       g_canvas->DrawCell(col, row, kCellPx, kCellPx,
                          "#f9fafb", "", "#000000");
-});
+  });
 
   for (const auto& entity : g_world->GetEntities()) {
     const float center_x = static_cast<float>(entity.x * kCellPx + kCellPx / 2);
@@ -252,6 +266,12 @@ void RenderWorld() {
 
 void InitializeDemo() {
   Group24EnsureUi();
+
+  // Topbar controls now created in C++ instead of JS
+  g_layout = std::make_unique<cse498::WebLayout>();
+  g_layout->createGroup24Shell();
+  Group24PopulateUiControls();
+
   g_world.reset(new cse498::StubWorldAdapter());
   g_canvas.reset(new cse498::WebCanvas("group24_canvas", kCanvasWidthPx,
                                        kCanvasHeightPx));
