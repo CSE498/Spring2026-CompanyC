@@ -1,4 +1,9 @@
 // Group24_main.cpp
+//
+// Entry point and game loop for the Group 24 demo. Wires together WebCanvas
+// (rendering), WebLayout (shell/controls), WebTextbox (HUD/log sidebar), and
+// StubWorldAdapter (game logic). The exported C function Group24HandleAction
+// is called by both JavaScript button/keyboard events and the C++ main().
 
 #include <map>
 #include <memory>
@@ -27,6 +32,13 @@ constexpr int kCellPx = kCanvasWidthPx / kGridSize;
 constexpr const char* kHudHostElementId = "group24_hud_host";
 constexpr const char* kLogHostElementId = "group24_log_host";
 constexpr const char* kSidebarFontStack = "system-ui, Arial, sans-serif";
+
+// Cell and grid rendering colors.
+constexpr const char* kColorCellFallback  = "#e5e7eb";  // fill when no legend entry matched
+constexpr const char* kColorCellText      = "#111827";  // glyph text on cells
+constexpr const char* kColorCellEmpty     = "#f9fafb";  // background for blank cells
+constexpr const char* kColorGridLine      = "#d1d5db";  // grid stroke
+constexpr const char* kColorEntityText    = "#ffffff";  // glyph text on entities
 
 std::unique_ptr<cse498::WebLayout> g_layout;
 std::unique_ptr<cse498::WebCanvas> g_canvas;
@@ -178,6 +190,8 @@ int CodeForActionId(const std::string& action_id) {
   return 0;
 }
 
+// Clears the canvas, draws all world cells and entities via the adapter, then
+// updates the HUD textbox and action button enabled states.
 void RenderWorld() {
   if (!g_canvas || !g_world) {
     return;
@@ -202,11 +216,11 @@ void RenderWorld() {
           const cse498::LegendEntry* entry =
               (it != legend_by_id.end()) ? &it->second : nullptr;
 
-          const std::string fill = entry ? entry->fill_css : "#e5e7eb";
+          const std::string fill = entry ? entry->fill_css : kColorCellFallback;
           const std::string glyph = entry ? entry->glyph : "?";
 
           g_canvas->DrawCell(col, row, kCellPx, kCellPx,
-                             fill, glyph, "#111827");
+                             fill, glyph, kColorCellText);
 
           if (cell.selected) {
             g_canvas->HighlightCell(col, row, kCellPx, kCellPx);
@@ -218,18 +232,18 @@ void RenderWorld() {
 
       // Default empty cell
       g_canvas->DrawCell(col, row, kCellPx, kCellPx,
-                         "#f9fafb", "", "#000000");
+                         kColorCellEmpty, "", kColorCellText);
   });
 
   for (const auto& entity : g_world->GetEntities()) {
     const float center_x = static_cast<float>(entity.x * kCellPx + kCellPx / 2);
     const float center_y = static_cast<float>(entity.y * kCellPx + kCellPx / 2);
     g_canvas->DrawEntity(center_x, center_y, 14.0f, entity.fill_css,
-                         entity.glyph, "#ffffff");
+                         entity.glyph, kColorEntityText);
   }
 
   for (int i = 0; i <= kGridSize; ++i) {
-    g_canvas->SetStrokeColor("#d1d5db");
+    g_canvas->SetStrokeColor(kColorGridLine);
     g_canvas->SetLineWidth(1.0f);
     const float p = static_cast<float>(i * kCellPx);
     g_canvas->DrawLine(p, 0.0f, p, static_cast<float>(kCanvasHeightPx));

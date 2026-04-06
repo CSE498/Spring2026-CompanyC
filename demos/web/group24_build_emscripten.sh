@@ -29,6 +29,7 @@ em++ -std=c++20 -O0 -g -Wall -Wextra -Wpedantic -lembind \
   ./source/tools/StubWorldAdapter.cpp \
   ./source/tools/WebCanvas.cpp \
   ./source/tools/WebTextbox.cpp \
+  ./source/tools/WebLayout.cpp \
   -sWASM=1 \
   -sEXPORTED_FUNCTIONS="['_main','_Group24HandleAction']" \
   -sEXPORTED_RUNTIME_METHODS="['ccall','cwrap']" \

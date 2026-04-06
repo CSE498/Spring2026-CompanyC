@@ -2,8 +2,19 @@
  * @file WebButton.hpp
  * @author Tess Gonda
  *
- * This class provides a simple interface for creating and managing interactive buttons
- * in a web-based UI.
+ * WebButton wraps an HTML <button> element (under Emscripten) or produces
+ * console output stubs (native builds) so the same C++ code works in both
+ * environments.
+ *
+ * Basic usage:
+ * @code
+ *   cse498::WebButton btn("Click Me", []() {
+ *       std::cout << "Button clicked!\n";
+ *   });
+ *   btn.SetSize(120, 40);
+ *   btn.SetBackgroundColor("#4f46e5");
+ *   btn.AppendTo("my-container");   // attaches to <div id="my-container">
+ * @endcode
  */
 
 #pragma once
@@ -106,7 +117,7 @@ public:
     [[nodiscard]] const std::string& GetLabel() const;
 
     /**
-     * @brief Set the click handler — accepts any callable compatible with void()
+     * @brief Set the click handler, accepts any callable compatible with void()
      * @tparam Callable Lambda, function pointer, or functor with signature void()
      * @param callable The callable to invoke on click
      */
@@ -204,16 +215,40 @@ public:
     [[nodiscard]] const std::string& GetBackgroundColor() const;
 
     /**
+     * @brief Get current text color
+     * @return CSS color string
+     */
+    [[nodiscard]] const std::string& GetTextColor() const;
+
+    /**
+     * @brief Get current border color
+     * @return CSS color string
+     */
+    [[nodiscard]] const std::string& GetBorderColor() const;
+
+    /**
      * @brief Set border width
      * @param width Border width in pixels (must be non-negative)
      */
     void SetBorderWidth(int width);
 
     /**
+     * @brief Get current border width
+     * @return Border width in pixels
+     */
+    [[nodiscard]] int GetBorderWidth() const;
+
+    /**
      * @brief Set border radius for rounded corners
      * @param radius Corner radius in pixels (must be non-negative)
      */
     void SetBorderRadius(int radius);
+
+    /**
+     * @brief Get current border radius
+     * @return Corner radius in pixels
+     */
+    [[nodiscard]] int GetBorderRadius() const;
 
     /**
      * @brief Set all border properties at once
