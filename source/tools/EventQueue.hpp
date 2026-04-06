@@ -229,7 +229,6 @@ namespace cse498
         [[nodiscard]] bool Empty() const
         {
             return mHeap.empty(); 
-
         }
 
         /**
