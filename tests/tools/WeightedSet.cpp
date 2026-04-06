@@ -12,6 +12,8 @@
 #include <random>
 #include <string>
 #include <utility>
+#include <cmath>
+#include <vector>
 
 using cse498::WeightedSet;
 
@@ -53,6 +55,77 @@ TEST_CASE("WeightedSet basic insert/erase/find/size/clear/total_weight", "[Weigh
     REQUIRE(s.empty());
     REQUIRE(s.size() == 0);
     REQUIRE(s.total_weight() == 0.0);
+}
+
+TEST_CASE("WeightedSet sampling correctness across many boundaries", "[WeightedSet][sampling][boundaries]") {
+    // weights chosen to produce clear cumulative boundaries that sum to 1.0
+    WeightedSet<int> s;
+    REQUIRE(s.insert(1, 0.1));
+    REQUIRE(s.insert(2, 0.2));
+    REQUIRE(s.insert(3, 0.3));
+    REQUIRE(s.insert(4, 0.4));
+    REQUIRE(s.total_weight() == Approx(1.0).epsilon(1e-12));
+
+    // cumulative ranges: [0,0.1] -> 1, (0.1,0.3] -> 2, (0.3,0.6] -> 3, (0.6,1.0] -> 4
+    auto it = s.sample_by_weight(0.0);
+    REQUIRE(it != s.end()); REQUIRE(it->first == 1);
+
+    it = s.sample_by_weight(0.099999999999);
+    REQUIRE(it != s.end()); REQUIRE(it->first == 1);
+
+    it = s.sample_by_weight(0.1);
+    REQUIRE(it != s.end()); REQUIRE(it->first == 1);
+
+    it = s.sample_by_weight(0.100000000001);
+    REQUIRE(it != s.end()); REQUIRE(it->first == 2);
+
+    it = s.sample_by_weight(0.3);
+    REQUIRE(it != s.end()); REQUIRE(it->first == 2);
+
+    it = s.sample_by_weight(0.300000000001);
+    REQUIRE(it != s.end()); REQUIRE(it->first == 3);
+
+    it = s.sample_by_weight(0.6);
+    REQUIRE(it != s.end()); REQUIRE(it->first == 3);
+
+    it = s.sample_by_weight(0.600000000001);
+    REQUIRE(it != s.end()); REQUIRE(it->first == 4);
+
+    it = s.sample_by_weight(1.0);
+    REQUIRE(it != s.end()); REQUIRE(it->first == 4);
+}
+
+TEST_CASE("WeightedSet floating point precision (nextafter) boundaries", "[WeightedSet][sampling][fp]") {
+    WeightedSet<int> s;
+    REQUIRE(s.insert(1, 0.1));
+    REQUIRE(s.insert(2, 0.2));
+
+    // exact boundary at 0.1: sampling at 0.1 should return first; the next representable
+    // double after 0.1 should map to the second element.
+    double boundary = 0.1;
+    auto it = s.sample_by_weight(boundary);
+    REQUIRE(it != s.end()); REQUIRE(it->first == 1);
+
+    double just_above = std::nextafter(boundary, std::numeric_limits<double>::infinity());
+    it = s.sample_by_weight(just_above);
+    REQUIRE(it != s.end()); REQUIRE(it->first == 2);
+}
+
+TEST_CASE("WeightedSet empty set sampling and mutations are safe", "[WeightedSet][empty]") {
+    WeightedSet<int> s;
+    REQUIRE(s.empty());
+    REQUIRE(s.size() == 0);
+
+    // sampling from an empty set should return end()
+    std::mt19937 rng(42);
+    auto it = s.sample_random(rng);
+    REQUIRE(it == s.end());
+
+    it = s.sample_by_weight(0.0);
+    REQUIRE(it == s.end());
+
+    // trying to set weight on a non-existent element should fail
+    REQUIRE(!s.set_weight(1, 1.0));
 }
 
 TEST_CASE("WeightedSet set_weight updates total weight and sampling ranges", "[WeightedSet][sampling]") {

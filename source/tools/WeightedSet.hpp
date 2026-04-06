@@ -64,7 +64,7 @@ public:
         if (it != m_map.end()) {
             return false; // duplicate
         }
-        auto p = m_map.emplace(value, weight);
+        m_map.emplace(value, weight);
         m_total += weight;
         return true;
     }
@@ -113,8 +113,11 @@ public:
     // Returns an iterator to the selected element. If the set is empty or the weight is out
     // of range, an assertion will fail.
     const_iterator sample_by_weight(weight_type cumulative) const {
-        assert(!empty() && "sample_by_weight called on empty WeightedSet");
-        assert(cumulative >= 0.0 && cumulative <= m_total && "cumulative out of range");
+        // If empty, return end() rather than asserting so callers can handle gracefully.
+        if (empty()) return m_map.cend();
+
+        // Out of range cumulative values are considered invalid; return end().
+        if (cumulative < 0.0 || cumulative > m_total) return m_map.cend();
 
         weight_type acc = 0.0;
         for (auto it = m_map.cbegin(); it != m_map.cend(); ++it) {
@@ -132,14 +135,14 @@ public:
     // Convenience: sample using a random number generator. Produces a uniform real in [0, total_weight()).
     template <std::uniform_random_bit_generator URBG>
     const_iterator sample_random(URBG& rng) const {
-        assert(!empty() && "sample_random called on empty WeightedSet");
+        if (empty()) return m_map.cend();
 
         // If every element has weight 0, there's no meaningful "random by weight" to do.
         // In that degenerate case, just return the first element.
         if (m_total == 0.0) return m_map.cbegin();
 
         // Use a distribution over [0, m_total). Clamp in case floating-point quirks
-        // ever produce a value slightly above m_total (which sample_by_weight asserts against).
+        // ever produce a value slightly above m_total.
         std::uniform_real_distribution<weight_type> dist(0.0, m_total);
         weight_type x = dist(rng);
         if (x > m_total) x = m_total;
