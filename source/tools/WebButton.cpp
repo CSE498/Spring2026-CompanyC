@@ -40,7 +40,7 @@ WebButton::WebButton(const std::string& label)
 #ifdef __EMSCRIPTEN__
     CreateDOMElement();
 #else
-    std::cout << "[WebButton] Created: " << element_id << " - '" << label << "'" << std::endl;
+    std::cout << "[WebButton] Initialized (not yet in DOM): " << element_id << " - '" << label << "'" << std::endl;
 #endif
 }
 
@@ -80,6 +80,7 @@ WebButton::WebButton(WebButton&& other) noexcept
 #else
     std::cout << "[WebButton] Moved: " << element_id << std::endl;
 #endif
+    other.element_id.clear();
 }
 
 // Move assignment
@@ -109,6 +110,7 @@ WebButton& WebButton::operator=(WebButton&& other) noexcept {
 #else
         std::cout << "[WebButton] Move-assigned: " << element_id << std::endl;
 #endif
+        other.element_id.clear();
     }
     return *this;
 }
@@ -119,7 +121,7 @@ void WebButton::CreateDOMElement() {
     dom_element = document.call<emscripten::val>("createElement", std::string("button"));
 
     dom_element.set("id", element_id);
-    dom_element.set("innerHTML", label);
+    dom_element.set("textContent", label);
 
     button_registry[element_id] = this;
 
@@ -180,7 +182,7 @@ void WebButton::SetLabel(const std::string& new_label) {
     label = new_label;
 #ifdef __EMSCRIPTEN__
     if (!dom_element.isNull()) {
-        dom_element.set("innerHTML", label);
+        dom_element.set("textContent", label);
     }
 #else
     std::cout << "[WebButton] " << element_id << " label changed to: '" << label << "'" << std::endl;
@@ -208,13 +210,7 @@ void WebButton::Click() {
 #endif
 
     if (on_click_callback) {
-        try {
-            on_click_callback();
-        } catch (const std::exception& e) {
-            std::cerr << "[WebButton] Exception in callback: " << e.what() << std::endl;
-        } catch (...) {
-            std::cerr << "[WebButton] Unknown exception in callback" << std::endl;
-        }
+        on_click_callback();
     }
 }
 
@@ -334,6 +330,14 @@ const std::string& WebButton::GetBackgroundColor() const {
     return bg_color;
 }
 
+const std::string& WebButton::GetTextColor() const {
+    return text_color;
+}
+
+const std::string& WebButton::GetBorderColor() const {
+    return border_color;
+}
+
 //
 // Styling (Borders)
 //
@@ -356,6 +360,14 @@ void WebButton::SetBorderRadius(int r) {
 #else
     std::cout << "[WebButton] " << element_id << " border radius: " << border_radius << std::endl;
 #endif
+}
+
+int WebButton::GetBorderWidth() const {
+    return border_width;
+}
+
+int WebButton::GetBorderRadius() const {
+    return border_radius;
 }
 
 void WebButton::SetBorder(int w, const std::string& color, int r) {

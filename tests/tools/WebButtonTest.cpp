@@ -6,7 +6,6 @@
 
 #include "../../../third-party/Catch/single_include/catch2/catch.hpp"
 #include "../../../source/tools/WebButton.hpp"
-#include <stdexcept>
 
 using cse498::WebButton;
 
@@ -159,21 +158,22 @@ TEST_CASE("WebButton - Styling", "[WebButton]") {
     SECTION("Text and border colors can be set") {
         btn.SetTextColor("#FFFFFF");
         btn.SetBorderColor("#000000");
-        // No getters, verify no crash
-        REQUIRE(true);
+        REQUIRE(btn.GetTextColor() == "#FFFFFF");
+        REQUIRE(btn.GetBorderColor() == "#000000");
     }
-    
+
     SECTION("Border properties") {
         btn.SetBorderWidth(5);
         btn.SetBorderRadius(10);
-        // No getters, verify no crash
-        REQUIRE(true);
+        REQUIRE(btn.GetBorderWidth() == 5);
+        REQUIRE(btn.GetBorderRadius() == 10);
     }
-    
+
     SECTION("SetBorder convenience method") {
         btn.SetBorder(3, "#123456", 8);
-        // No getters, verify no crash
-        REQUIRE(true);
+        REQUIRE(btn.GetBorderWidth() == 3);
+        REQUIRE(btn.GetBorderColor() == "#123456");
+        REQUIRE(btn.GetBorderRadius() == 8);
     }
 }
 
@@ -203,17 +203,6 @@ TEST_CASE("WebButton - ToString Debug Output", "[WebButton]") {
     REQUIRE(str.find("pressed=true") != std::string::npos);
 }
 
-TEST_CASE("WebButton - Callback Exception Handling", "[WebButton]") {
-    WebButton btn("Exception Test");
-    
-    // Callback that throws, should be caught internally
-    btn.SetOnClick([]() {
-        throw std::runtime_error("Test exception");
-    });
-    
-    // Should not crash or propagate exception
-    REQUIRE_NOTHROW(btn.Click());
-}
 
 TEST_CASE("WebButton - Move Semantics", "[WebButton]") {
     SECTION("Move constructor") {
