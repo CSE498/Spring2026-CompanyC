@@ -43,6 +43,9 @@
 # Emscripten build outputs
 # webtextbox_demo.js
 # webtextbox_demo.wasm
+group24_demo.html
+group24_demo.js
+group24_demo.wasm
 
 # Test binaries
 webtextbox_tests
