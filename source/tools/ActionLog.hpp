@@ -30,7 +30,7 @@ namespace cse498
     
   public:
     /// Constructor
-    ActionLog()  {std::chrono::steady_clock::now();}
+    ActionLog() = default;
     
     /**
      * @brief Records the given action for the given agent
@@ -38,7 +38,7 @@ namespace cse498
      * @param agent the agent the action belongs to
      * @param action the action the agent is performing
      */
-    void recordAction(const AgentBase& agent, const size_t& action) {
+    void recordAction(const AgentBase& agent, size_t action) {
       size_t id = agent.GetID();
 
       std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
@@ -51,7 +51,7 @@ namespace cse498
      * 
      * @return The unordered map holding all the actions
      */
-    const std::unordered_map<size_t, std::vector<ActionEntry>>& getActions() const {
+    [[nodiscard]] const std::unordered_map<size_t, std::vector<ActionEntry>>& getActions() const {
       return agentActions;
     }
     
@@ -61,14 +61,16 @@ namespace cse498
      * @param agent the agent whose actions is requested
      * @return The vector of all the agents actions
      */
-    std::vector<ActionEntry> getActionsByAgent(const AgentBase& agent) const {
+    [[nodiscard]] const std::vector<ActionEntry>& getActionsByAgent(const AgentBase& agent) const {
       size_t id = agent.GetID();
       auto it = agentActions.find(id);
       
       if (it != agentActions.end()) {
         return it->second;
       }
-      return {};
+
+      static const std::vector<ActionEntry> empty;
+      return empty;
     }
 
     /**
