@@ -27,17 +27,20 @@
 #include <cstddef> // For size_t
 #include <utility> // For std::move
 #include <optional> // For std::optional
+#include <algorithm> // For push_heap and pop_heap
+#include <cassert> // For assert statements
 
 namespace cse498
 {
     /*
     * Class for an Event
     */
+    template<typename T>
     class Event
     {
     private:
         // Event data
-        std::string mData;
+        T mData;
 
         // Priority of the event
         int mPriority = 0;
@@ -56,28 +59,30 @@ namespace cse498
          * @param data The event data
          * @param priority The priority of the event
          */
-        Event(std::string data, int priority)
+        Event(T data, int priority)
             : mData(std::move(data)), mPriority(priority) {}
 
         // Event Getters
-        const std::string& GetData() const { return mData; }
+        const T& GetData() const { return mData; }
 
         int GetPriority() const { return mPriority; }
 
         std::size_t GetTiebreaker() const { return mTiebreaker; }
 
         // Allow EventQueue to access private members of Event
+        template<typename U>
         friend class EventQueue;
     };
 
     /*
     * Class for an EventQueue
     */
+    template<typename T>
     class EventQueue 
     {
     private:
         // Heap container holding all events
-        std::vector<Event> mHeap;
+        std::vector<Event<T>> mHeap;
         
         // Insertion index
         std::size_t mInsertionIndex = 0;
@@ -95,7 +100,7 @@ namespace cse498
          */ 
         struct Comparator
         {
-            constexpr bool operator()(const Event& a, const Event& b) const
+            constexpr bool operator()(const Event<T>& a, const Event<T>& b) const
             {
                 if (a.mPriority == b.mPriority)
                     return a.mTiebreaker > b.mTiebreaker;
@@ -129,7 +134,18 @@ namespace cse498
          * @param event The event to be added
          * @return This will return false if the event could not be added to the EventQueue and true otherwise.
          */
-        [[nodiscard]] bool Push(Event event);
+        [[nodiscard]] bool Push(Event<T> event)
+        {
+            event.mTiebreaker = mInsertionIndex++;
+
+            mHeap.push_back(std::move(event));
+            std::push_heap(mHeap.begin(), mHeap.end(), Comparator{});
+
+            assert(std::is_heap(mHeap.begin(), mHeap.end(), Comparator{}) 
+                    && "EventQueue: Heap property broken");
+
+            return true;
+        }
 
         /**
          * Push an event onto the EventQueue.
@@ -140,7 +156,10 @@ namespace cse498
          * @param priority The priority of the event
          * @return This will return false if the event could not be added to the EventQueue and true otherwise.
          */
-        [[nodiscard]] bool Push(const std::string& data, int priority);
+        [[nodiscard]] bool Push(const T& data, int priority)
+        {
+            return Push(Event<T>(data, priority));
+        }
 
         /**
          * Removes the top event from the EventQueue.
@@ -155,20 +174,37 @@ namespace cse498
          * is empty and true otherwise.
          * 
          */
-        [[nodiscard]] bool Pop();
+        [[nodiscard]] bool Pop()
+        {
+            if (Empty())
+                return false;
+
+            std::pop_heap(mHeap.begin(), mHeap.end(), Comparator{});
+            mHeap.pop_back();
+
+            assert(std::is_heap(mHeap.begin(), mHeap.end(), Comparator{}) 
+                    && "EventQueue: Heap property broken");
+
+            return true;
+        }
 
         /** 
          * Return the top event in the EventQueue.
          * 
-         * This function returns a reference to the top event in the heap, which is the event 
-         * with the highest priority (lowest priority value). If the EventQueue is empty, it returns 
-         * std::nullopt otherwise it returns the top event wrapped in a std::optional.
+         * This function returns a pointer to the top event in the EventQueue, which 
+         * is the event with the lowest priority value.
          * 
         * Precondition: The EventQueue should not be empty. 
          * 
-         * @return The top event wrapped in a std::optional, or std::nullopt if the EventQueue is empty.
+         * @return A pointer to the top event in the EventQueue. This will return nullptr if the EventQueue is empty.
          */
-        [[nodiscard]] std::optional<Event> Top() const;
+        [[nodiscard]] const Event<T>* Top() const
+        { 
+            if (Empty())
+                return nullptr;
+
+            return &mHeap.front(); 
+        }
 
         /**
          * Return the current size of the EventQueue.
@@ -178,7 +214,10 @@ namespace cse498
          * 
          * @return The number of events currently in the EventQueue.
          */
-        [[nodiscard]] std::size_t Size() const;
+        [[nodiscard]] std::size_t Size() const
+        {
+            return mHeap.size(); 
+        }
 
         /** 
          * Whether the EventQueue is empty or not.
@@ -187,13 +226,21 @@ namespace cse498
          * 
          * @return This will return true if the EventQueue is empty and false otherwise.
          */
-        [[nodiscard]] bool Empty() const;
+        [[nodiscard]] bool Empty() const
+        {
+            return mHeap.empty(); 
+
+        }
 
         /**
          * Clear all events from the EventQueue.
          * 
          * This function clears the EventQueue by clearing the underlying vector and resetting the insertion index.
          */
-        void Clear();
+        void Clear()
+        {
+            mHeap.clear();
+            mInsertionIndex = 0;
+        }
     };
 }
