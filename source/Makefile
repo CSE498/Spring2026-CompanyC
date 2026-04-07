@@ -10,6 +10,13 @@ FLAGS_grumpy  = $(FLAGS_all) -Wconversion -Weffc++  # Some extra picky warnings
 CXX  = c++
 EMCC = em++
 
+# --- SQLite (Group 9 - Database persistence) ---
+SQLITE_DIR = ../third-party/sqlite
+SQLITE_OBJ = sqlite3.o
+
+$(SQLITE_OBJ): $(SQLITE_DIR)/sqlite3.c
+	cc -O2 -DSQLITE_THREADSAFE=1 -c $< -o $@
+
 # Find all headers
 HEADERS := $(shell find Agents core Interfaces tools Worlds -name '*.hpp')
 
@@ -54,27 +61,27 @@ server:
 .PHONY: default clean web web-opt web-debug server debug-% opt-% quick-% $(EXECUTABLES)
 
 # Generic rule to build default version of any executable
-$(EXECUTABLES): %: %_main.cpp $(HEADERS)
-	$(CXX) $@_main.cpp $(FLAGS_all) -o $@
+$(EXECUTABLES): %: %_main.cpp $(HEADERS) $(SQLITE_OBJ)
+	$(CXX) $@_main.cpp $(SQLITE_OBJ) $(FLAGS_all) -o $@
 
 # Generic rule to build debug version of any executable
-debug-%: 
-	$(CXX) $*_main.cpp $(FLAGS_debug) -o $*
+debug-%: $(SQLITE_OBJ)
+	$(CXX) $*_main.cpp $(SQLITE_OBJ) $(FLAGS_debug) -o $*
 
 # Generic rule to build opt version of any executable
-opt-%: 
-	$(CXX) $*_main.cpp $(FLAGS_opt) -o $*
+opt-%: $(SQLITE_OBJ)
+	$(CXX) $*_main.cpp $(SQLITE_OBJ) $(FLAGS_opt) -o $*
 
 # Generic rule to build quick version of any executable
-quick-%: 
-	$(CXX) $*_main.cpp $(FLAGS_quick) -o $*
+quick-%: $(SQLITE_OBJ)
+	$(CXX) $*_main.cpp $(SQLITE_OBJ) $(FLAGS_quick) -o $*
 
 # Generic rule to build quick version of any executable
-grumpy-%: 
-	$(CXX) $*_main.cpp $(FLAGS_grumpy) -o $*
+grumpy-%: $(SQLITE_OBJ)
+	$(CXX) $*_main.cpp $(SQLITE_OBJ) $(FLAGS_grumpy) -o $*
 
 FILES_backup	= *~ *.dSYM
-FILES_generated = *.o $(EXECUTABLES)
+FILES_generated = *.o $(SQLITE_OBJ) $(EXECUTABLES)
 
 clean:
 	rm -rf $(FILES_backup) $(FILES_generated)
