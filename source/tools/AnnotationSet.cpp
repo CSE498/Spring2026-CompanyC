@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cctype>
 #include <utility>
+#include <span>
 
 namespace cse498 {
 
@@ -22,7 +23,7 @@ constexpr TagManager::ObjectId ToTagManagerId(int object_id) noexcept {
 ///default to a blank list
 /// @param obj object's id
 /// @param in_tags tags taken in
-AnnotationSet::AnnotationSet(int obj, TagSet in_tags)
+AnnotationSet::AnnotationSet(int obj, const TagSet &in_tags)
     : object_id_(obj) {
   for (std::string tag : in_tags) {
     tag = NormalizeTag_(std::move(tag));
@@ -34,16 +35,18 @@ AnnotationSet::AnnotationSet(int obj, TagSet in_tags)
 
 /// @brief adds a tag to the stored tags
 /// @param tag tag to be added
-void AnnotationSet::AddTag(std::string tag) {
+bool AnnotationSet::AddTag(std::string tag) {
   tag = NormalizeTag_(std::move(tag));
   if (tag.empty()) {
-    return;
+    return false;
   }
 
   const bool inserted = tags_.insert(tag).second;
   if (inserted && tag_manager_ != nullptr) {
     tag_manager_->AddTag(ToTagManagerId(object_id_), tag);
+    return true;
   }
+  return false;
 }
 
 
@@ -76,16 +79,17 @@ bool AnnotationSet::FindTag(const std::string& tag) const {
 /// @brief Checks if any of the tags in the given list are stored in the set
 /// @param search_tags list of tags needing to be checked
 /// @return bool representing if any are found
-bool AnnotationSet::FindAnyTag(const std::vector<std::string>& search_tags) const {
-  return std::any_of(search_tags.begin(), search_tags.end(),
+bool AnnotationSet::FindAnyTag(std::span<const std::string> search_tags) const {
+  return std::ranges::any_of(search_tags,
     [this](const auto& tag) { return FindTag(tag); });
 }
+
 
 /// @brief Checks if all tags in the given list are stored in the set
 /// @param search_tags list of tags that need to be matched
 /// @return a bool representing if all are in the set or not
-bool AnnotationSet::FindAllTags(const std::vector<std::string>& search_tags) const {
-  return std::all_of(search_tags.begin(), search_tags.end(),
+bool AnnotationSet::FindAllTags(const std::vector<std::string> search_tags) const {
+  return std::ranges::all_of(search_tags.begin(), search_tags.end(),
     [this](const auto& tag) { return FindTag(tag); });
 }
 
@@ -121,9 +125,7 @@ int AnnotationSet::Size() const noexcept {
 /// @param tag tag given
 /// @return the normalized tag
 std::string AnnotationSet::NormalizeTag_(std::string tag) {
-  tag.erase(std::remove_if(tag.begin(), tag.end(),
-    [](unsigned char ch) { return std::isspace(ch) != 0; }),
-    tag.end());
+  std::erase_if(tag, [](unsigned char ch) { return std::isspace(ch) != 0; });
   return tag;
 }
 

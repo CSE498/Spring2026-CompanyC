@@ -3,6 +3,7 @@
 #include <set>
 #include <string>
 #include <vector>
+#include <span>
 namespace cse498 {
 
 class TagManager;
@@ -12,9 +13,9 @@ public:
   using TagSet = std::set<std::string>;
 
   AnnotationSet() = delete;
-  AnnotationSet(int obj, TagSet tags = {});
+  explicit AnnotationSet(int obj, const TagSet& tags = {});
 
-  void AddTag(std::string);
+  bool AddTag(std::string);
   template <typename ...T>
   void AddTags(T&&... tags){
     (AddTag(std::string(std::forward<T>(tags))), ...);
@@ -28,8 +29,8 @@ public:
   };
 
   [[nodiscard]] bool FindTag(const std::string& tag) const;
-  [[nodiscard]] bool FindAnyTag(const std::vector<std::string>& search_tags) const;
-  [[nodiscard]] bool FindAllTags(const std::vector<std::string>& search_tags) const;
+  [[nodiscard]] bool FindAnyTag(std::span<const std::string> search_tags) const;
+  [[nodiscard]] bool FindAllTags(const std::vector<std::string> search_tags) const;
 
   void DeleteAllTags();
 
