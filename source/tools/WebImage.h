@@ -218,6 +218,20 @@ class WebImage final {
   CSE498_NODISCARD std::int32_t GetHandle() const noexcept;
 
  private:
+  // ---------------------------------------------------------------------------
+  // Stable defaults and bounds
+  //
+  // These constants are kept near the top of the class to make default behavior
+  // easy to find and to avoid scattering visual defaults across the file.
+  // ---------------------------------------------------------------------------
+  static constexpr double kAutoSizePx = 0.0;
+  static constexpr double kDefaultLeftPx = 0.0;
+  static constexpr double kDefaultTopPx = 0.0;
+  static constexpr double kDefaultOpacity = 1.0;
+  static constexpr int kDefaultZIndex = 0;
+  static constexpr double kMinOpacity = 0.0;
+  static constexpr double kMaxOpacity = 1.0;
+
   /// Move all state from another WebImage into this one.
   void MoveFrom_(WebImage&& other) noexcept;
 
@@ -271,14 +285,6 @@ class WebImage final {
     }
     std::forward<Callback>(callback)(handle_);
   }
-
-  static constexpr double kAutoSizePx = 0.0;
-  static constexpr double kDefaultLeftPx = 0.0;
-  static constexpr double kDefaultTopPx = 0.0;
-  static constexpr double kDefaultOpacity = 1.0;
-  static constexpr int kDefaultZIndex = 0;
-  static constexpr double kMinOpacity = 0.0;
-  static constexpr double kMaxOpacity = 1.0;
 
   std::int32_t handle_ = 0;
   bool created_ = false;

@@ -6,7 +6,7 @@
  * SPDX-License-Identifier: MIT
  **/
 
-#include "WebImage.h"
+#include "tools/WebImage.h"
 
 #ifdef __EMSCRIPTEN__
   #include <emscripten.h>
