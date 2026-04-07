@@ -75,7 +75,7 @@ EM_JS(void, Group24EnsureUi, (), {
       '#group24_hud_host,#group24_log_host{white-space:pre-wrap;background:white;border:1px solid #d1d5db;border-radius:8px;padding:10px;margin-top:10px;overflow:visible;min-height:3em;}',
       '#group24_title{font-size:20px;font-weight:700;margin-right:8px;}',
       '#group24_canvas{border:1px solid #374151;border-radius:8px;background:#ffffff;}'
-    ].join('');
+    ].join("");
     document.head.appendChild(style);
     window.__group24_style_loaded = true;
   }
@@ -146,7 +146,7 @@ EM_JS(void, Group24PopulateUiControls, (), {
 EM_JS(void, Group24SetModeTick, (const char* text_ptr), {
   var el = document.getElementById('group24_mode_tick');
   if (!el) return;
-  el.textContent = text_ptr ? UTF8ToString(text_ptr) : '';
+  el.textContent = text_ptr ? UTF8ToString(text_ptr) : "";
 });
 
 EM_JS(void, Group24SetActionEnabled, (int code, int enabled), {
