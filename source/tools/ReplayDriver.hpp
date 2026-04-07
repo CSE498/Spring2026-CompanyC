@@ -15,9 +15,9 @@ namespace cse498
 { 
 
     struct ReplayEvent {
-        size_t agent_id;
-        size_t actionType;
-        std::chrono::steady_clock::time_point timeStamp;
+        size_t agent_id; // Identifies the agent that performed the action
+        size_t actionType; // Actual action type that corresponds to action ID in WorldBase
+        std::chrono::steady_clock::time_point timeStamp; // Timestamp of when the action occurred
     };
 
     class ReplayDriver {
@@ -39,6 +39,8 @@ namespace cse498
         */
         void sendAction(const ReplayEvent& event) {
 
+            assert(event.agent_id < mWorld.GetNumAgents());
+
             AgentBase& agent = mWorld.GetAgent(event.agent_id);
 
             const int result = mWorld.DoAction(agent, event.actionType); // Send action to agent 
@@ -47,7 +49,13 @@ namespace cse498
     
     public:
 
-        ReplayDriver(WorldBase& world) : mWorld(world) {}
+        /**
+        * @brief Constructs a ReplayDriver with a reference to the world.
+        *
+        * @param world Reference to a valid WorldBase instance.
+        * @pre The provided world reference must remain valid for the lifetime of ReplayDriver.
+        */
+        explicit ReplayDriver(WorldBase& world) : mWorld(world) {}
 
         ReplayDriver(const ReplayDriver &) = delete;
 
@@ -111,10 +119,7 @@ namespace cse498
 
        // Status for if replay is done
         [[nodiscard]] bool isFinished() const {
-            if(mNext < mEvents.size()) {
-                return false;
-            }   
-            return true;
+            return mNext >= mEvents.size();
         }
 
        // Status for if replay is running

@@ -174,7 +174,7 @@ TEST_CASE("Empty log handling", "[core]")
     }
 }
 
-TEST_CASE("ReplayDriver resetReplay resets progress but keps event if not cleared", "[core]")
+TEST_CASE("ReplayDriver resetReplay resets progress but keeps event if not cleared", "[core]")
 {
     // Ensures resetReplay correctly resets replay state and allows replay again
     cse498::ActionLog actionLog;
@@ -204,4 +204,25 @@ TEST_CASE("ReplayDriver resetReplay resets progress but keps event if not cleare
     replayDriver.startReplay(actionLog);
     replayDriver.update();
     REQUIRE(pacer.GetLocation().AsWorldPosition() == curr_position.Right());
+}
+
+TEST_CASE("ReplayDriver handles invalid actionType safely", "[core]")
+{
+    cse498::ActionLog actionLog;
+    cse498::MazeWorld world;
+    cse498::ReplayDriver replayDriver(world);
+
+    auto& pacer = world.AddAgent<cse498::PacingAgent>("Pacer 1");
+    const auto start = pacer.GetLocation().AsWorldPosition();
+
+    // Use an invalid action
+    constexpr size_t invalidAction = 999;
+
+    actionLog.recordAction(pacer, invalidAction);
+
+    replayDriver.startReplay(actionLog);
+    replayDriver.update();
+
+    // Expect no movement
+    REQUIRE(pacer.GetLocation().AsWorldPosition() == start);
 }

@@ -140,7 +140,6 @@ namespace cse498 {
         int result = DoAction(*agent_ptr, action_id);
         if (result){
           mActionLog.recordAction(*agent_ptr, action_id);
-          mActionLog.actionEnd(*agent_ptr);
         }
         agent_ptr->SetActionResult(result);
       }

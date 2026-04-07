@@ -43,6 +43,10 @@ TEST_CASE("Test adding agents into the ActionLog", "[core]")
     // Call actionEnd on an agent not in the map
     actionLog.actionEnd(pacer2);
     
+
+    // Call actionEnd on an agent without any actions
+    actionLog.actionEnd(guard1);
+
     // Move guard1 left
     cur_position = guard1.GetLocation().AsWorldPosition();
     guard1.SetLocation(cur_position.Left());
