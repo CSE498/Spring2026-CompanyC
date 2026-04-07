@@ -49,5 +49,6 @@
 
 # JetBrains IDE
 .idea
-#clange
+
+#clang
 .clangd
