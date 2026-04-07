@@ -436,12 +436,15 @@ namespace cse498 {
       DiscardNpcResponseFuture();
     }
 
+    // Injects a completed NPC reply. Use the callback path for agent-managed async
+    // requests; if one is in flight, its stored future is discarded as stale.
     void ReceiveNpcLine(const std::string & text)
     {
       DiscardNpcResponseFuture();
       HandleNpcReply(text);
     }
 
+    // Installs the async NPC request hook. Resolve to "" on failure.
     static void SetNpcRequestCallback(NpcRequestCallback callback)
     {
       npc_request_callback = callback;
