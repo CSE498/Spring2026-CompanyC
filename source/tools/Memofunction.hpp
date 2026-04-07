@@ -10,7 +10,7 @@
 
 #include <unordered_map>
 #include <functional>
-#include <queue>
+#include <list>
 #include <type_traits>
 #include <ostream>
 #include <cstddef>
@@ -28,13 +28,15 @@ namespace cse498
 
     private:
         static constexpr std::size_t DEFAULT_CAPACITY = 3;
-
-        std::unordered_map<Key, result_type> cache; // container
+        using order_iterator = typename std::list<Key>::iterator;
+        using cache_entry = std::pair<result_type, order_iterator>;
+        std::unordered_map<Key, cache_entry> cache;
+        //std::unordered_map<Key, result_type> cache; // container
         Func mfunc;                                 /// saves function
         std::size_t capacity = DEFAULT_CAPACITY;    // just 3 slots for now
-        std::queue<Key> eviction_queue;             // helps in FIFO system
         std::size_t hit_count = 0;                  /// hit counter
         std::size_t miss_count = 0;                 /// miss counter
+        std::list<Key> eviction_order;              // front = oldest, back = newest
 
     public:
         /**
@@ -68,27 +70,32 @@ namespace cse498
             if (it != cache.end())
             {
                 ++hit_count;
-                return it->second; // cache hit
+                return it->second.first; // cache hit(value)
             }
             ++miss_count;
+
+            result_type result = mfunc(x);
+
             if (capacity == 0)
             {
-                return mfunc(x);
+                return result;
             }
 
             if (cache.size() >= capacity)
             {
-                if (!eviction_queue.empty())
+                if (!eviction_order.empty())
                 {
-                    Key oldest = eviction_queue.front();
-                    eviction_queue.pop();
+                    const Key &oldest = eviction_order.front();
                     cache.erase(oldest);
+                    eviction_order.pop_front();
                 }
             }
 
-            result_type result = mfunc(x);
-            cache.emplace(x, result);
-            eviction_queue.push(x);
+            eviction_order.push_back(x);
+            auto order_it = eviction_order.end();
+            --order_it;
+
+            cache.emplace(x, std::make_pair(result, order_it));
             return result;
         }
 
@@ -99,8 +106,7 @@ namespace cse498
         void clear()
         {
             cache.clear();
-            std::queue<Key> empty;
-            eviction_queue.swap(empty);
+            eviction_order.clear();
         }
 
         /**
@@ -122,11 +128,11 @@ namespace cse498
                 return;
             }
 
-            while (cache.size() > capacity && !eviction_queue.empty())
+            while (cache.size() > capacity && !eviction_order.empty())
             {
-                Key oldest = eviction_queue.front();
-                eviction_queue.pop();
+                const Key &oldest = eviction_order.front();
                 cache.erase(oldest);
+                eviction_order.pop_front();
             }
         }
 
