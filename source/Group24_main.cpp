@@ -4,6 +4,7 @@
 // (rendering), WebLayout (shell/controls), WebTextbox (HUD/log sidebar), and
 // StubWorldAdapter (game logic). The exported C function Group24HandleAction
 // is called by both JavaScript button/keyboard events and the C++ main().
+//This file uses ChatGPT to help produce functionality, it is then reviewed.
 
 #include <map>
 #include <memory>

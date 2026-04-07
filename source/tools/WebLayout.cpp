@@ -1,4 +1,5 @@
 // WebLayout.cpp
+//This class uses ChatGPT to help produce functionality, it is then reviewed. 
 #include "WebLayout.hpp"
 
 namespace cse498
