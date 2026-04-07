@@ -15,6 +15,7 @@ namespace cse498 {
 
   class SmartAgent : public AgentBase {
   protected:
+    // SmartAgent may discard a stale request during ClearPlan() / ReceiveNpcLine()
     using NpcRequestCallback = std::future<std::string> (*)(const SmartAgent &, const std::string &);
     static constexpr size_t max_buffered_actions = 2;
     static constexpr size_t max_requested_moves = 4;
@@ -362,6 +363,12 @@ namespace cse498 {
       [[maybe_unused]] const bool consumed_reply = TryConsumeReadyNpcReply();
     }
 
+    void DiscardNpcResponseFuture() noexcept
+    {
+      has_npc_response_future = false;
+      npc_response_future = {};
+    }
+
     [[nodiscard]] size_t PopNextAction() noexcept
     {
       const size_t next_action = buffered_actions[0];
@@ -426,14 +433,12 @@ namespace cse498 {
       buffered_action_count = 0;
       requested_move_count = 0;
       npc_request_in_flight = false;
-      has_npc_response_future = false;
-      npc_response_future = {};
+      DiscardNpcResponseFuture();
     }
 
     void ReceiveNpcLine(const std::string & text)
     {
-      has_npc_response_future = false;
-      npc_response_future = {};
+      DiscardNpcResponseFuture();
       HandleNpcReply(text);
     }
 
