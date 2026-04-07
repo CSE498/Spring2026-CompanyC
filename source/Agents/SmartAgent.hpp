@@ -444,6 +444,7 @@ namespace cse498 {
       HandleNpcReply(text);
     }
 
+    // Installs the async NPC request hook. Resolve to "" on failure.
     static void SetNpcRequestCallback(NpcRequestCallback callback)
     {
       npc_request_callback = callback;
