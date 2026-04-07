@@ -60,14 +60,18 @@ public:
         action_ids[name] = id;
     }
 
-    bool HasAction(const std::string& name) const override {
+    bool HasAction(const std::string& name) const {
         return action_ids.find(name) != action_ids.end();
     }
 
-    size_t GetActionID(const std::string& name) const override {
+    size_t GetActionID(const std::string& name) const {
         auto it = action_ids.find(name);
         REQUIRE(it != action_ids.end());
         return it->second;
+    }
+
+    int DoAction(cse498::AgentBase&, size_t) override {
+        return 1;
     }
 
 private:
