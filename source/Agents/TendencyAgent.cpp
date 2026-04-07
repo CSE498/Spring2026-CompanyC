@@ -38,9 +38,9 @@ namespace cse498 {
 
 // Verifies that the required core actions (movement and collect) are available before the agent can operate
 bool TendencyAgent::Initialize() {
-  return HasAction("up") && HasAction("down")
-      && HasAction("left") && HasAction("right")
-      && HasAction("collect");
+  return SupportsAction("up") && SupportsAction("down")
+    && SupportsAction("left") && SupportsAction("right")
+    && SupportsAction("collect");
 }
 /**
  * Receives feedback and events from the world and updates the agent’s memory.
@@ -102,7 +102,7 @@ size_t TendencyAgent::SelectAction(const WorldGrid& grid) {
   };
 
   for (const std::string& action : kAllActions) {
-    if (!HasAction(action)) continue;
+    if (!SupportsAction(action)) continue;
     const double s = ScoreAction(action, grid);
     if (s > best_score) {
       best_score  = s;
@@ -121,7 +121,7 @@ size_t TendencyAgent::SelectAction(const WorldGrid& grid) {
   //    the framework doesn't use Notify — keep whichever suits your world.
   // (Removed to avoid double-counting when Notify is active.)
 
-  return GetActionID(best_action);
+  return LookupActionID(best_action);
 }
 
 /**
@@ -237,7 +237,7 @@ size_t TendencyAgent::SelectAction(const WorldGrid& grid) {
  */
 void TendencyAgent::ChooseGoal() {
   // Hard override: build the townhall whenever possible.
-  if (CanAfford(Goal::BuildTownhall) && HasAction("build_townhall")) {
+  if (CanAfford(Goal::BuildTownhall) && SupportsAction("build_townhall")) {
     current_goal = Goal::BuildTownhall;
     return;
   }
@@ -251,16 +251,16 @@ void TendencyAgent::ChooseGoal() {
   };
 
   // --- Build candidates (only when affordable) ---
-  if (CanAfford(Goal::BuildLumberyard) && HasAction("build_lumberyard"))
+  if (CanAfford(Goal::BuildLumberyard) && SupportsAction("build_lumberyard"))
     consider(Goal::BuildLumberyard, tendencies.build * tendencies.lumberyard_desire);
 
-  if (CanAfford(Goal::BuildQuarry) && HasAction("build_quarry"))
+  if (CanAfford(Goal::BuildQuarry) && SupportsAction("build_quarry"))
     consider(Goal::BuildQuarry,     tendencies.build * tendencies.quarry_desire);
 
-  if (CanAfford(Goal::BuildFarm) && HasAction("build_farm"))
+  if (CanAfford(Goal::BuildFarm) && SupportsAction("build_farm"))
     consider(Goal::BuildFarm,       tendencies.build * tendencies.farm_desire);
 
-  if (CanAfford(Goal::BuildSpawner) && HasAction("build_spawner"))
+  if (CanAfford(Goal::BuildSpawner) && SupportsAction("build_spawner"))
     consider(Goal::BuildSpawner,    tendencies.build * tendencies.spawner_desire);
 
   // --- Collect candidates (always eligible) ---
@@ -612,6 +612,14 @@ int TendencyAgent::FailCount(const std::string& action) const {
   if (action == "left")  return mem.fail_left;
   if (action == "right") return mem.fail_right;
   return 0;
+}
+
+bool TendencyAgent::SupportsAction(const std::string& name) const {
+  return HasAction(name);
+}
+
+size_t TendencyAgent::LookupActionID(const std::string& name) const {
+  return GetActionID(name);
 }
 
 } // namespace cse498

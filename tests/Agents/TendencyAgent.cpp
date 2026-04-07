@@ -81,8 +81,8 @@ private:
 
 class TestableTendencyAgent : public TendencyAgent {
 public:
-    TestableTendencyAgent(size_t id, const std::string& name, WorldBase& world)
-        : TendencyAgent(id, name, world) {}
+    TestableTendencyAgent(size_t id, const std::string& name, TestWorld& world)
+        : TendencyAgent(id, name, world), test_world(world) {}
 
     using TendencyAgent::CanAfford;
     using TendencyAgent::ChooseGoal;
@@ -94,6 +94,18 @@ public:
     using TendencyAgent::Goal;
     using TendencyAgent::mem;
     using TendencyAgent::current_goal;
+    
+protected:
+    bool SupportsAction(const std::string& name) const override {
+        return test_world.HasAction(name);
+    }
+
+    size_t LookupActionID(const std::string& name) const override {
+        return test_world.GetActionID(name);
+    }
+
+private:
+    TestWorld& test_world;
 };
 
 TEST_CASE("TendencyAgent Initialize succeeds when required actions exist", "[agent][tendency]")
@@ -366,3 +378,4 @@ TEST_CASE("TendencyAgent ScoreAvoidance penalizes failed directions", "[agent][t
     CHECK(agent.ScoreAvoidance("down") == Approx(0.0));
     CHECK(agent.ScoreAvoidance("right") == Approx(-2.25));
 }
+

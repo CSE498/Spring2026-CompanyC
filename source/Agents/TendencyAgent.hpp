@@ -286,6 +286,10 @@ protected:
   //Returns how many times a movement direction has failed (used for avoidance scoring)
   int FailCount(const std::string& action) const;
 
+  virtual bool SupportsAction(const std::string& name) const;
+  
+  virtual size_t LookupActionID(const std::string& name) const;
+
 
 };
 
