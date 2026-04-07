@@ -469,6 +469,7 @@ namespace cse498 {
       return 0;
     }
 
+    // Replaces the current goal and clears any buffered or in-flight plan state.
     void Notify(const std::string & message, const std::string & msg_type="none") override
     {
       last_notification_message = message;
