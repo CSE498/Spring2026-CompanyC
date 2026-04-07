@@ -320,6 +320,9 @@ TEST_CASE("UnregisterCleanup-TagManager", "[TagManager][cleanup]") {
   CHECK(tm.Count("b") == 1);
 
   tm.UnregisterObject(1);
+  
+  const auto* removed_tags = tm.TryGetTags(1);
+  CHECK(removed_tags == nullptr);
 
   CHECK(tm.IsRegistered(1) == false);
   CHECK(tm.IsRegistered(2) == true);
