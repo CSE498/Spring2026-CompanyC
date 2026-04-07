@@ -1,3 +1,5 @@
+.DEFAULT_GOAL := default
+
 FLAGS_version = -std=c++23
 FLAGS_warn    = -Wall -Wextra -Wcast-align -Wnon-virtual-dtor -Woverloaded-virtual -pedantic
 FLAGS_all     = $(FLAGS_version) $(FLAGS_warn)
