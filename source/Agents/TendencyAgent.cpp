@@ -1,4 +1,5 @@
 #include "TendencyAgent.hpp"
+#include <climits>
 
 /**
  * TendencyAgent pipeline overview:
