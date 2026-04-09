@@ -12,7 +12,7 @@
  * correctness and suitability for the project.
  */
 
-#include "WebImage.h"
+#include "WebImage.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -24,20 +24,6 @@
 #endif
 
 namespace cse498 {
-
-// -----------------------------------------------------------------------------
-// Out-of-class constexpr definitions
-// -----------------------------------------------------------------------------
-// Some older MinGW/GCC toolchains still require definitions for class-scoped
-// constexpr members when they are odr-used.
-constexpr double WebImage::kDefaultLeftPx;
-constexpr double WebImage::kDefaultTopPx;
-constexpr double WebImage::kAutoSizePx;
-constexpr double WebImage::kMinOpacity;
-constexpr double WebImage::kMaxOpacity;
-constexpr double WebImage::kDefaultOpacity;
-constexpr int WebImage::kDefaultZIndex;
-  
 
 // -----------------------------------------------------------------------------
 // Helper bridge functions
@@ -342,11 +328,7 @@ void WebImage::MoveFrom_(WebImage&& other) noexcept {
 }
 
 double WebImage::Clamp01_(double value) noexcept {
-#if defined(__cpp_lib_clamp) && (__cpp_lib_clamp >= 201603L)
   return std::clamp(value, kMinOpacity, kMaxOpacity);
-#else
-  return std::max(kMinOpacity, std::min(kMaxOpacity, value));
-#endif
 }
 
 void WebImage::EnsureCreated() {

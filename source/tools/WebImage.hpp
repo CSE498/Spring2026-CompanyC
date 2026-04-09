@@ -9,23 +9,6 @@
 namespace cse498 {
 
 /**
- * Compatibility macro for nodiscard.
- *
- * Some toolchains used in the course environment warn if [[nodiscard]]
- * is applied even when compiling with -std=c++17. We therefore only enable
- * the attribute when the compiler clearly reports support for it.
- */
-#if defined(__has_cpp_attribute)
-#  if __has_cpp_attribute(nodiscard) && (__cplusplus >= 201703L)
-#    define CSE498_NODISCARD [[nodiscard]]
-#  else
-#    define CSE498_NODISCARD
-#  endif
-#else
-#  define CSE498_NODISCARD
-#endif
-
-/**
  * @class WebImage
  * @brief Manage an HTML <img> element from C++ code.
  * @author Sadwal Patel
@@ -86,13 +69,13 @@ class WebImage final {
   void SetSource(std::string src);
 
   /// Get the current image source string.
-  CSE498_NODISCARD const std::string& GetSource() const noexcept;
+  [[nodiscard]] const std::string& GetSource() const noexcept;
 
   /// Set alternative text for the image.
   void SetAltText(std::string alt_text);
 
   /// Get the current alternative text.
-  CSE498_NODISCARD const std::string& GetAltText() const noexcept;
+  [[nodiscard]] const std::string& GetAltText() const noexcept;
 
   /**
    * Set the CSS left/top position in pixels.
@@ -102,10 +85,10 @@ class WebImage final {
   void SetPositionPx(double left_px, double top_px);
 
   /// Get the current left position in pixels.
-  CSE498_NODISCARD double GetLeftPx() const noexcept;
+  [[nodiscard]] double GetLeftPx() const noexcept;
 
   /// Get the current top position in pixels.
-  CSE498_NODISCARD double GetTopPx() const noexcept;
+  [[nodiscard]] double GetTopPx() const noexcept;
 
   /**
    * Set the CSS width/height in pixels.
@@ -122,16 +105,16 @@ class WebImage final {
   void SetSizePx(double width_px, double height_px);
 
   /// Get the stored width in pixels. A value of 0 means "auto".
-  CSE498_NODISCARD double GetWidthPx() const noexcept;
+  [[nodiscard]] double GetWidthPx() const noexcept;
 
   /// Get the stored height in pixels. A value of 0 means "auto".
-  CSE498_NODISCARD double GetHeightPx() const noexcept;
+  [[nodiscard]] double GetHeightPx() const noexcept;
 
   /// Show or hide the image.
   void SetVisible(bool visible);
 
   /// Return true if the image should currently be visible.
-  CSE498_NODISCARD bool IsVisible() const noexcept;
+  [[nodiscard]] bool IsVisible() const noexcept;
 
   /**
    * Set the image opacity.
@@ -140,13 +123,13 @@ class WebImage final {
   void SetOpacity(double opacity_0_to_1);
 
   /// Get the current opacity in the range [0, 1].
-  CSE498_NODISCARD double GetOpacity() const noexcept;
+  [[nodiscard]] double GetOpacity() const noexcept;
 
   /// Set the CSS z-index.
   void SetZIndex(int z_index);
 
   /// Get the current z-index.
-  CSE498_NODISCARD int GetZIndex() const noexcept;
+  [[nodiscard]] int GetZIndex() const noexcept;
 
   /**
    * Set the parent DOM element id.
@@ -155,7 +138,7 @@ class WebImage final {
   void SetParentElementId(std::string parent_id);
 
   /// Get the current parent element id string.
-  CSE498_NODISCARD const std::string& GetParentElementId() const noexcept;
+  [[nodiscard]] const std::string& GetParentElementId() const noexcept;
 
   /**
    * Set the DOM id attribute of the underlying image element.
@@ -164,7 +147,7 @@ class WebImage final {
   void SetElementId(std::string element_id);
 
   /// Get the current DOM element id string.
-  CSE498_NODISCARD const std::string& GetElementId() const noexcept;
+  [[nodiscard]] const std::string& GetElementId() const noexcept;
 
   /// Add a CSS class if it is non-empty and not already present.
   void AddCssClass(const std::string& css_class);
@@ -173,7 +156,7 @@ class WebImage final {
   void RemoveCssClass(const std::string& css_class);
 
   /// Return true if the image currently tracks the given CSS class.
-  CSE498_NODISCARD bool HasCssClass(const std::string& css_class) const;
+  [[nodiscard]] bool HasCssClass(const std::string& css_class) const;
 
   /// Set a style property to the provided value.
   void SetStyle(const std::string& property, const std::string& value);
@@ -207,7 +190,7 @@ class WebImage final {
   void Destroy();
 
   /// Return true if the underlying element/handle currently exists.
-  CSE498_NODISCARD bool IsCreated() const noexcept;
+  [[nodiscard]] bool IsCreated() const noexcept;
 
   /**
    * Return the underlying handle.
@@ -215,7 +198,7 @@ class WebImage final {
    * Under Emscripten, this is a JavaScript-side identifier.
    * Under native compilation, this is a stable test-friendly id.
    */
-  CSE498_NODISCARD std::int32_t GetHandle() const noexcept;
+  [[nodiscard]] std::int32_t GetHandle() const noexcept;
 
  private:
   // ---------------------------------------------------------------------------
@@ -306,6 +289,5 @@ class WebImage final {
   std::unordered_map<std::string, std::string> styles_;
 };
 
-#undef CSE498_NODISCARD
 
 }  // namespace cse498
