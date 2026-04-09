@@ -65,6 +65,10 @@ WorldPath PathGenerator::GenerateShortestPath(
 {
     WorldPath path;
 
+    if (!world_view.has_value()) {
+        return path;
+    }
+
     const WorldView& w = world_view->get();
 
     if (!w.IsWalkable(start) || !w.IsWalkable(goal))
@@ -88,7 +92,7 @@ WorldPath PathGenerator::GenerateShortestPath(
         StateGridPosition current = q.front();
         q.pop();
 
-        if (current == goal)
+        if (current.GetX() == goal.GetX() && current.GetY() == goal.GetY())
         {
             found = true;
             break;
@@ -114,7 +118,7 @@ WorldPath PathGenerator::GenerateShortestPath(
 
     StateGridPosition p = goal;
 
-    while (!(p == parent[p]))
+    while (!(p.GetX() == parent[p].GetX() && p.GetY() == parent[p].GetY()))
     {
         points.push_back(ToDoublePoint(p));
         p = parent[p];
@@ -227,7 +231,7 @@ WorldPath PathGenerator::GenerateExplorePath(
     std::vector<Point> points;
     StateGridPosition p = *target;
 
-    while (!(p == parent[p])) {
+    while (!(p.GetX() == parent[p].GetX() && p.GetY() == parent[p].GetY())) {
         points.push_back(ToDoublePoint(p));
         p = parent[p];
     }
