@@ -25,7 +25,7 @@
 #include <iostream>
 #include <utility>
 
-#include "tools/WebImage.h"
+#include "tools/WebImage.hpp"
 #include "tools/WebAssetKeys.hpp"
 
 using cse498::WebImage;

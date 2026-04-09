@@ -31,15 +31,17 @@ opt: opt-simple
 grumpy: grumpy-simple
 
 # ── Web / Emscripten build ────────────────────────────────────────────────────
-WEB_SOURCES = Group24_main.cpp \
+WEB_SOURCES = web_main.cpp \
+              Interfaces/WebApp.cpp \
               tools/WebLayout.cpp \
               tools/WebCanvas.cpp \
               tools/WebTextbox.cpp \
-              tools/StubWorldAdapter.cpp
+              tools/WebInterface.cpp \
+              Worlds/StubWorld.cpp
 
 FLAGS_web_base = -std=c++23 -I. \
                  -sWASM=1 \
-                 -sEXPORTED_FUNCTIONS=_main,_Group24HandleAction \
+                 -sEXPORTED_FUNCTIONS=_main,_HandleAction \
                  -sEXPORTED_RUNTIME_METHODS=ccall,cwrap \
                  -lembind
 
