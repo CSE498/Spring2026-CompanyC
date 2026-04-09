@@ -15,7 +15,7 @@
 #include "AppUI.hpp"
 
 #include "tools/WebButton.hpp"
-#include "tools/WebImage.h"
+#include "tools/WebImage.hpp"
 #include "tools/WebTextbox.hpp"
 #include "tools/WebCanvas.hpp"
 

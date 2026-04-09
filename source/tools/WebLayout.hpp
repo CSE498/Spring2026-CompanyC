@@ -1,7 +1,7 @@
 // WebLayout.hpp
 /****************
  * A class to manage the HTML DOM through C++ code.
- * Minimal layout shell support for Group 24 UI.
+ * Minimal layout shell support for the CSE 498 web UI.
  * @author Abigail MacKersie
  ****************/
 
@@ -133,9 +133,9 @@ public:
     void removeAllChildren(Node* parent);
 
     /*
-        Group 24 app shell
+        App shell
     */
-    void createGroup24Shell();
+    void createShell();
 };
 
 } // namespace cse498

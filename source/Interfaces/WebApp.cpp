@@ -26,9 +26,9 @@ namespace {
 constexpr int kCanvasWidthPx  = 480;
 constexpr int kCanvasHeightPx = 480;
 
-// DOM host ids and shared font stack (match #group24_root typography).
-constexpr const char* kHudHostElementId = "group24_hud_host";
-constexpr const char* kLogHostElementId = "group24_log_host";
+// DOM host ids and shared font stack (match #cse498_root typography).
+constexpr const char* kHudHostElementId = "cse498_hud_host";
+constexpr const char* kLogHostElementId = "cse498_log_host";
 constexpr const char* kSidebarFontStack = "system-ui, Arial, sans-serif";
 
 // Cell and grid rendering colors.
@@ -43,25 +43,25 @@ constexpr const char* kColorEntityText   = "#ffffff";  // glyph text on entities
 // ---------------------------------------------------------------------------
 
 EM_JS(void, WebAppEnsureUi, (), {
-  if (!window.__group24_style_loaded) {
+  if (!window.__cse498_style_loaded) {
     var style = document.createElement('style');
     style.textContent = [
-      '#group24_root{font-family:system-ui,Arial,sans-serif;padding:12px;color:#111827;}',
-      '#group24_topbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}',
-      '#group24_main{display:flex;gap:12px;align-items:flex-start;}',
-      '#group24_canvas_host{min-width:500px;}',
-      '#group24_sidebar{width:320px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:10px;padding:12px;}',
-      '#group24_actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px;}',
-      '#group24_actions button,#group24_topbar button,#group24_topbar select{padding:8px 10px;border:1px solid #9ca3af;border-radius:8px;background:white;}',
-      '#group24_hud_host,#group24_log_host{white-space:pre-wrap;background:white;border:1px solid #d1d5db;border-radius:8px;padding:10px;margin-top:10px;overflow:visible;min-height:3em;}',
-      '#group24_title{font-size:20px;font-weight:700;margin-right:8px;}',
-      '#group24_canvas{border:1px solid #374151;border-radius:8px;background:#ffffff;}'
+      '#cse498_root{font-family:system-ui,Arial,sans-serif;padding:12px;color:#111827;}',
+      '#cse498_topbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}',
+      '#cse498_main{display:flex;gap:12px;align-items:flex-start;}',
+      '#cse498_canvas_host{min-width:500px;}',
+      '#cse498_sidebar{width:320px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:10px;padding:12px;}',
+      '#cse498_actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px;}',
+      '#cse498_actions button,#cse498_topbar button,#cse498_topbar select{padding:8px 10px;border:1px solid #9ca3af;border-radius:8px;background:white;}',
+      '#cse498_hud_host,#cse498_log_host{white-space:pre-wrap;background:white;border:1px solid #d1d5db;border-radius:8px;padding:10px;margin-top:10px;overflow:visible;min-height:3em;}',
+      '#cse498_title{font-size:20px;font-weight:700;margin-right:8px;}',
+      '#cse498_canvas{border:1px solid #374151;border-radius:8px;background:#ffffff;}'
     ].join("");
     document.head.appendChild(style);
-    window.__group24_style_loaded = true;
+    window.__cse498_style_loaded = true;
   }
 
-  if (!window.__group24_keybound) {
+  if (!window.__cse498_keybound) {
     document.addEventListener('keydown', function(ev) {
       var key = ev.key.toLowerCase();
       // Codes must match the ActionCode enum in WebApp.hpp.
@@ -72,38 +72,38 @@ EM_JS(void, WebAppEnsureUi, (), {
       ev.preventDefault();
       Module.ccall('HandleAction', null, ['number'], [map[key]]);
     });
-    window.__group24_keybound = true;
+    window.__cse498_keybound = true;
   }
 });
 
 EM_JS(void, WebAppPopulateUiControls, (), {
-  var actions = document.getElementById('group24_actions');
-  var sidebar = document.getElementById('group24_sidebar');
+  var actions = document.getElementById('cse498_actions');
+  var sidebar = document.getElementById('cse498_sidebar');
 
   if (!actions || !sidebar) return;
 
   // Hook topbar buttons created by WebLayout.
   // Codes 1-4 must match the ActionCode enum in WebApp.hpp.
   [1, 2, 3, 4].forEach(function(code) {
-    var btn = document.getElementById('g24btn-' + code);
-    if (!btn || btn.__group24_bound) return;
+    var btn = document.getElementById('cse498btn-' + code);
+    if (!btn || btn.__cse498_bound) return;
     btn.addEventListener('click', function() {
       Module.ccall('HandleAction', null, ['number'], [code]);
     });
-    btn.__group24_bound = true;
+    btn.__cse498_bound = true;
   });
 
   // Add sidebar label if missing.
-  if (!document.getElementById('group24_actions_label')) {
+  if (!document.getElementById('cse498_actions_label')) {
     var labelWrap = document.createElement('div');
-    labelWrap.id = 'group24_actions_label';
+    labelWrap.id = 'cse498_actions_label';
     labelWrap.innerHTML = '<strong>Available Actions</strong>';
     sidebar.insertBefore(labelWrap, actions);
   }
 
   // Fill action buttons only if missing.
   // Codes must match the ActionCode enum in WebApp.hpp.
-  if (!document.getElementById('g24btn-5')) {
+  if (!document.getElementById('cse498btn-5')) {
     var actionButtons = [
       [5, 'Up'],
       [6, 'Down'],
@@ -117,7 +117,7 @@ EM_JS(void, WebAppPopulateUiControls, (), {
       var code = entry[0];
       var text = entry[1];
       var btn = document.createElement('button');
-      btn.id = 'g24btn-' + code;
+      btn.id = 'cse498btn-' + code;
       btn.textContent = text;
       btn.addEventListener('click', function() {
         Module.ccall('HandleAction', null, ['number'], [code]);
@@ -128,13 +128,13 @@ EM_JS(void, WebAppPopulateUiControls, (), {
 });
 
 EM_JS(void, WebAppSetModeTick, (const char* text_ptr), {
-  var el = document.getElementById('group24_mode_tick');
+  var el = document.getElementById('cse498_mode_tick');
   if (!el) return;
   el.textContent = text_ptr ? UTF8ToString(text_ptr) : "";
 });
 
 EM_JS(void, WebAppSetActionEnabled, (int code, int enabled), {
-  var btn = document.getElementById('g24btn-' + code);
+  var btn = document.getElementById('cse498btn-' + code);
   if (!btn) return;
   btn.disabled = !enabled;
 });
@@ -149,12 +149,12 @@ WebApp::WebApp() {
   WebAppEnsureUi();
 
   layout_ = std::make_unique<cse498::WebLayout>();
-  layout_->createGroup24Shell();
+  layout_->createShell();
   WebAppPopulateUiControls();
 
-  canvas_ = std::make_unique<cse498::WebCanvas>("group24_canvas",
+  canvas_ = std::make_unique<cse498::WebCanvas>("cse498_canvas",
                                                 kCanvasWidthPx, kCanvasHeightPx);
-  canvas_->AppendTo("group24_canvas_host");
+  canvas_->AppendTo("cse498_canvas_host");
   canvas_->SetClickHandler([this](int pixel_x, int pixel_y) {
     if (!interface_) return;
     const int cell_w = kCanvasWidthPx  / interface_->GetGridWidth();

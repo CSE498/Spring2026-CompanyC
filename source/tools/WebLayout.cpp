@@ -1,5 +1,5 @@
 // WebLayout.cpp
-//This class uses ChatGPT to help produce functionality, it is then reviewed. 
+//This class uses ChatGPT to help produce functionality, it is then reviewed.
 #include "WebLayout.hpp"
 
 namespace cse498
@@ -183,7 +183,7 @@ void WebLayout::removeAllChildren(Node* parent)
     parent->children.clear();
 }
 
-void WebLayout::createGroup24Shell()
+void WebLayout::createShell()
 {
     emscripten::val doc = emscripten::val::global("document");
     if (doc.isNull() || doc.isUndefined())
@@ -214,48 +214,48 @@ void WebLayout::createGroup24Shell()
     mRoot->children.emplace_back(std::move(bodyNode));
 
     // Root shell
-    Node* root = createElement(bodyRaw, "div", "group24_root");
-    Node* topbar = createElement(root, "div", "group24_topbar");
-    Node* main = createElement(root, "div", "group24_main");
+    Node* root = createElement(bodyRaw, "div", "cse498_root");
+    Node* topbar = createElement(root, "div", "cse498_topbar");
+    Node* main = createElement(root, "div", "cse498_main");
 
     // Main layout containers
-    createElement(main, "div", "group24_canvas_host");
-    Node* sidebar = createElement(main, "div", "group24_sidebar");
+    createElement(main, "div", "cse498_canvas_host");
+    Node* sidebar = createElement(main, "div", "cse498_sidebar");
 
     // Topbar title
-    Node* title = createElement(topbar, "span", "group24_title");
-    title->element.set("textContent", std::string("Group 24 Stub Demo"));
+    Node* title = createElement(topbar, "span", "cse498_title");
+    title->element.set("textContent", std::string("CSE 498"));
 
     // Mode / tick
-    createElement(topbar, "span", "group24_mode_tick");
+    createElement(topbar, "span", "cse498_mode_tick");
 
     // World label + select
     Node* worldLabel = createElement(topbar, "label");
-    worldLabel->element.set("htmlFor", std::string("group24_world_select"));
+    worldLabel->element.set("htmlFor", std::string("cse498_world_select"));
     worldLabel->element.set("textContent", std::string("World:"));
 
-    Node* worldSelect = createElement(topbar, "select", "group24_world_select");
+    Node* worldSelect = createElement(topbar, "select", "cse498_world_select");
     Node* worldOption = createElement(worldSelect, "option");
     worldOption->element.set("value", std::string("stub"));
     worldOption->element.set("textContent", std::string("Stub World"));
 
     // Topbar buttons
-    Node* startBtn = createElement(topbar, "button", "g24btn-1");
+    Node* startBtn = createElement(topbar, "button", "cse498btn-1");
     startBtn->element.set("textContent", std::string("Start"));
 
-    Node* resetBtn = createElement(topbar, "button", "g24btn-2");
+    Node* resetBtn = createElement(topbar, "button", "cse498btn-2");
     resetBtn->element.set("textContent", std::string("Reset"));
 
-    Node* saveBtn = createElement(topbar, "button", "g24btn-3");
+    Node* saveBtn = createElement(topbar, "button", "cse498btn-3");
     saveBtn->element.set("textContent", std::string("Save"));
 
-    Node* loadBtn = createElement(topbar, "button", "g24btn-4");
+    Node* loadBtn = createElement(topbar, "button", "cse498btn-4");
     loadBtn->element.set("textContent", std::string("Load"));
 
     // Sidebar containers
-    createElement(sidebar, "div", "group24_actions");
-    createElement(sidebar, "div", "group24_hud_host");
-    createElement(sidebar, "div", "group24_log_host");
+    createElement(sidebar, "div", "cse498_actions");
+    createElement(sidebar, "div", "cse498_hud_host");
+    createElement(sidebar, "div", "cse498_log_host");
 }
 
 } // namespace cse498
