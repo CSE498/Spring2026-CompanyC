@@ -15,6 +15,14 @@
 
 namespace cse498 {
 
+enum class Direction {
+    Up,
+    Down,
+    Left,
+    Right,
+    None
+};
+
 namespace {
 
 bool IsInBounds(const WorldGrid& grid, const WorldPosition& p) {
@@ -22,16 +30,26 @@ bool IsInBounds(const WorldGrid& grid, const WorldPosition& p) {
            p.CellY() < grid.GetHeight();
 }
 
-std::string StepToDirection(const Point& a, const Point& b) {
+Direction StepToDirection(const Point& a, const Point& b) {
     const int dx = static_cast<int>(b.x - a.x);
     const int dy = static_cast<int>(b.y - a.y);
 
-    if (dx == 0 && dy == -1) return "up";
-    if (dx == 0 && dy == 1)  return "down";
-    if (dx == -1 && dy == 0) return "left";
-    if (dx == 1 && dy == 0)  return "right";
+    if (dx == 0 && dy == -1) return Direction::Up;
+    if (dx == 0 && dy == 1)  return Direction::Down;
+    if (dx == -1 && dy == 0) return Direction::Left;
+    if (dx == 1 && dy == 0)  return Direction::Right;
 
-    return "";
+    return Direction::None;
+}
+// Convert the Enum back to a string for the Blackboard
+std::string DirectionToString(Direction dir) {
+    switch(dir) {
+        case Direction::Up:    return "up";
+        case Direction::Down:  return "down";
+        case Direction::Left:  return "left";
+        case Direction::Right: return "right";
+        default:               return "";
+    }
 }
 
 } // namespace
@@ -246,7 +264,9 @@ void ClassicAgent::Sense( WorldGrid& grid) {
     if (path.size() >= 2) {
         const Point& a = path[0];
         const Point& b = path[1];
-        explore_move = StepToDirection(a, b);
+
+        Direction dir = StepToDirection(a,b);
+        explore_move = DirectionToString(dir);
     }
 
     if (!explore_move.empty()) {
