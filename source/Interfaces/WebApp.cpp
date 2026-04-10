@@ -10,6 +10,7 @@
 
 #include <emscripten.h>
 
+#include <cstdlib>
 #include <map>
 #include <sstream>
 #include <string>
@@ -139,7 +140,25 @@ EM_JS(void, WebAppSetActionEnabled, (int code, int enabled), {
   btn.disabled = !enabled;
 });
 
+// Read a URL query parameter.  Returns a malloc'd C string or null.
+EM_JS(char*, GetUrlParam_impl, (const char* name), {
+  var params = new URLSearchParams(window.location.search);
+  var val = params.get(UTF8ToString(name));
+  if (!val) return 0;
+  var len = lengthBytesUTF8(val) + 1;
+  var ptr = _malloc(len);
+  stringToUTF8(val, ptr, len);
+  return ptr;
+});
+
 }  // namespace
+
+std::string GetUrlParam(const std::string& name, const std::string& default_value) {
+  char* raw = GetUrlParam_impl(name.c_str());
+  std::string value = raw ? raw : default_value;
+  std::free(raw);
+  return value;
+}
 
 // ---------------------------------------------------------------------------
 // WebApp method definitions
@@ -288,12 +307,13 @@ void WebApp::RenderWorld() {
       }
   });
 
+  const float entity_radius = 0.4f * static_cast<float>(std::min(cell_w, cell_h));
   for (const auto& entity : interface_->GetEntities()) {
     const float center_x =
         static_cast<float>(entity.x * cell_w + cell_w / 2);
     const float center_y =
         static_cast<float>(entity.y * cell_h + cell_h / 2);
-    canvas_->DrawEntity(center_x, center_y, 14.0f, entity.fill_css,
+    canvas_->DrawEntity(center_x, center_y, entity_radius, entity.fill_css,
                         entity.glyph, kColorEntityText);
   }
 
