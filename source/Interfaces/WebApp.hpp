@@ -24,6 +24,12 @@
 #include "core/WorldBase.hpp"
 #include "core/WorldPosition.hpp"
 
+/// Read a URL query parameter by name.  Returns the parameter value, or
+/// default_value if the parameter is absent.  Available to any main driver
+/// that includes WebApp.hpp.
+std::string GetUrlParam(const std::string& name,
+                        const std::string& default_value = "");
+
 class WebApp {
  public:
   /// Build the UI shell (canvas, layout, textboxes).

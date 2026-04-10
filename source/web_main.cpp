@@ -7,10 +7,12 @@
 // SetCellVisual / RegisterActionMeta configuration below.
 
 #include <emscripten.h>
+#include <cstdlib>
 
 #include "Interfaces/WebApp.hpp"
 
 #include "Agents/PacingAgent.hpp"
+#include "Worlds/InteractionHeavyWorld.hpp"
 #include "Worlds/MazeWorld.hpp"
 #include "Worlds/StubWorld.hpp"
 
@@ -19,25 +21,38 @@ using namespace cse498;
 int main() {
   g_app = std::make_unique<WebApp>();
 
-  std::string world = "maze";
+  std::string world = GetUrlParam("world");
 
-  if (world == "maze") {
+  if (world == "interaction") {
+    using world_t = cse498::InteractionHeavyWorld;
+    using agent_t = cse498::PacingAgent;
+    auto & world = g_app->Initialize<world_t>();
+    world.AddAgent<agent_t>("Pacer 1").SetLocation(WorldPosition{3,1});
+    world.AddAgent<agent_t>("Pacer 2").SetLocation(WorldPosition{6,1});
+    world.AddAgent<agent_t>("Guard 1").SetHorizontal().SetLocation(WorldPosition{7,7});
+    world.AddAgent<agent_t>("Guard 2").SetHorizontal().ToggleDirection().SetLocation(WorldPosition{8,8});
+  } else if (world == "maze") {
     using agent_t = cse498::PacingAgent;
     auto & world = g_app->Initialize<cse498::MazeWorld>();
     world.AddAgent<agent_t>("Pacer 1").SetLocation(WorldPosition{3,1});
     world.AddAgent<agent_t>("Pacer 2").SetLocation(WorldPosition{6,1});
     world.AddAgent<agent_t>("Guard 1").SetHorizontal().SetLocation(WorldPosition{7,7});
     world.AddAgent<agent_t>("Guard 2").SetHorizontal().ToggleDirection().SetLocation(WorldPosition{8,8});
-  } else {
+  } else { // world == "stub"
     g_app->Initialize<cse498::StubWorld>();
   }
 
-  g_app->SetCellVisual("grass", "#8fd17f", ".");
-  g_app->SetCellVisual("tree",  "#3f8f3f", "T");
-  g_app->SetCellVisual("stone", "#9ca3af", "S");
-  g_app->SetCellVisual("wheat", "#f4d35e", "W");
-  g_app->SetCellVisual("wall",  "#374151", "#");
-  g_app->SetCellVisual("built", "#8b5cf6", "B");
+  g_app->SetCellVisual("grass",       "#8fd17f", ".");
+  g_app->SetCellVisual("wall",        "#0c1523", "#");
+  g_app->SetCellVisual("built",       "#8b5cf6", "B");
+  g_app->SetCellVisual("diamond_ore", "#eae2fb", "D");
+  g_app->SetCellVisual("exit",        "#a12989", "E");
+  g_app->SetCellVisual("gold_ore",    "#e1e827", "G");
+  g_app->SetCellVisual("iron_ore",    "#525252", "I");
+  g_app->SetCellVisual("boulder",     "#6e4f08", "O");
+  g_app->SetCellVisual("stone",       "#9ca3af", "S");
+  g_app->SetCellVisual("tree",        "#3f8f3f", "T");
+  g_app->SetCellVisual("wheat",       "#f4d35e", "W");
 
   using Meta = cse498::WebInterface::ActionMeta;
   g_app->RegisterActionMeta("start",   Meta{"Start",   "Enter", false});
