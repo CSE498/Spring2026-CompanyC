@@ -75,6 +75,27 @@ namespace cse498
       return symbol_map;
     }
 
+    // -- Serialize and Deserialize functions --
+    // Mechanisms to efficiently save and load the exact state of the grid.
+    // File format is width and height followed by all
+    // values in the grid on each line thereafter.
+
+    std::string GetTypeName() const { return "cse498::WorldGrid"; }
+
+    /// Write the current state of this grid into the provided stream.
+    void Serialize(std::ostream & os) const {
+      os << width << " " << height;
+      for (size_t state : cells) os << ' ' << state;
+      os << std::endl;
+    }
+
+    /// Read the state of the grid out of the provided stream. 
+    void Deserialize(std::istream & is) {
+      is >> width >> height;
+      cells.resize(width * height);
+      for (size_t & state : cells) is >> state;
+    }
+  
   public:
     WorldGrid(size_t width, size_t height, size_t default_type = 0)
         : width(width), height(height), cells(width * height, default_type)
@@ -110,14 +131,14 @@ namespace cse498
     }
 
     /// @return The grid state at the provided x and y coordinates
-    [[nodiscard]] size_t operator()(size_t x, size_t y) const
+    [[nodiscard]] size_t operator[](size_t x, size_t y) const
     {
       assert(IsValid(x, y));
       return cells[ToIndex(x, y)];
     }
 
     /// @return A reference to the grid state at the provided x and y coordinates
-    [[nodiscard]] size_t &operator()(size_t x, size_t y)
+    [[nodiscard]] size_t &operator[](size_t x, size_t y)
     {
       assert(IsValid(x, y));
       return cells[ToIndex(x, y)];
