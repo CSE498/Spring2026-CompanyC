@@ -1,3 +1,5 @@
+.DEFAULT_GOAL := default
+
 FLAGS_version = -std=c++23
 FLAGS_warn    = -Wall -Wextra -Wcast-align -Wnon-virtual-dtor -Woverloaded-virtual -pedantic
 FLAGS_all     = $(FLAGS_version) $(FLAGS_warn)
@@ -7,7 +9,8 @@ FLAGS_opt     = $(FLAGS_all) -O3 -DNDEBUG           # Fastest possible executabl
 FLAGS_quick   = $(FLAGS_all) -DNDEBUG               # Fastest possible compilation
 FLAGS_grumpy  = $(FLAGS_all) -Wconversion -Weffc++  # Some extra picky warnings
 
-CXX = c++
+CXX  = c++
+EMCC = em++
 
 # --- SQLite (Group 9 - Database persistence) ---
 SQLITE_DIR = ../third-party/sqlite
@@ -27,7 +30,39 @@ debug: debug-simple
 opt: opt-simple
 grumpy: grumpy-simple
 
-.PHONY: default clean debug-% opt-% quick-% $(EXECUTABLES)
+# ── Web / Emscripten build ────────────────────────────────────────────────────
+WEB_SOURCES = web_main.cpp \
+              Interfaces/WebApp.cpp \
+              tools/WebLayout.cpp \
+              tools/WebCanvas.cpp \
+              tools/WebTextbox.cpp \
+              tools/WebInterface.cpp \
+              Worlds/StubWorld.cpp
+
+FLAGS_web_base = -std=c++23 -I. \
+                 -sWASM=1 \
+                 -sEXPORTED_FUNCTIONS=_main,_HandleAction \
+                 -sEXPORTED_RUNTIME_METHODS=ccall,cwrap \
+                 -lembind
+
+FLAGS_web_opt   = $(FLAGS_web_base) -O3 -DNDEBUG
+FLAGS_web_debug = $(FLAGS_web_base) -O0 -g
+
+WEB_OUT_DIR = ../web
+
+web web-opt: $(WEB_SOURCES)
+	@mkdir -p $(WEB_OUT_DIR)
+	$(EMCC) $(WEB_SOURCES) $(FLAGS_web_opt) -o $(WEB_OUT_DIR)/demo.html
+
+web-debug: $(WEB_SOURCES)
+	@mkdir -p $(WEB_OUT_DIR)
+	$(EMCC) $(WEB_SOURCES) $(FLAGS_web_debug) -o $(WEB_OUT_DIR)/demo.html
+# ─────────────────────────────────────────────────────────────────────────────
+
+server:
+	cd $(WEB_OUT_DIR) && python3 -m http.server 8080
+
+.PHONY: default clean web web-opt web-debug server debug-% opt-% quick-% $(EXECUTABLES)
 
 # Generic rule to build default version of any executable
 $(EXECUTABLES): %: %_main.cpp $(HEADERS) $(SQLITE_OBJ)
