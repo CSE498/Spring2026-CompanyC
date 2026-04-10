@@ -1,0 +1,8 @@
+Remove-Item -Force webimage_demo.js, webimage_demo.wasm -ErrorAction SilentlyContinue
+em++ -std=c++17 -O0 -g -Wall -Wextra -Wpedantic -Werror `
+  -I.\source `
+  .\source\tools\WebImage.cpp .\source\tools\webimage_smoke_demo.cpp `
+  -sWASM=1 `
+  -sEXPORTED_FUNCTIONS="['_RunWebImageSmokeDemo']" `
+  -sEXPORTED_RUNTIME_METHODS="['ccall','cwrap']" `
+  -o webimage_demo.js
