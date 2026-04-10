@@ -1,6 +1,7 @@
 #include "PathGenerator.hpp"
 
 #include <algorithm>
+#include <ranges>
 
 namespace cse498 {
 
@@ -98,11 +99,14 @@ WorldPath PathGenerator::GenerateShortestPath(
             break;
         }
 
-        for (const auto& next : GetNeighbors(current))
-        {
-            if (!w.IsWalkable(next))
-                continue;
+        auto is_walkable = [&](const StateGridPosition& p){
+            return w.IsWalkable(p);
+        };
 
+        auto neighbors = GetNeighbors(current);
+        auto filtered_neighbors = std::views::filter(neighbors, is_walkable);
+        for (const auto& next : filtered_neighbors)
+        {
             if (parent.find(next) == parent.end())
             {
                 parent[next] = current;
@@ -179,7 +183,9 @@ WorldPath PathGenerator::GenerateExplorePath(
     auto IsFrontier = [&](const StateGridPosition& p) -> bool {
         if (!IsKnownWalkable(p)) return false;
 
-        for (const auto& neighbor : GetNeighbors(p)) {
+        auto neighbors = GetNeighbors(p);
+        auto frontier_filter = std::views::filter(neighbors, IsKnownWalkable);
+        for (const auto& neighbor : frontier_filter) {
             if (!IsDiscovered(neighbor)) {
                 return true;
             }
@@ -215,8 +221,9 @@ WorldPath PathGenerator::GenerateExplorePath(
             break;
         }
 
-        for (const auto& next : GetNeighbors(current)) {
-            if (!IsKnownWalkable(next)) continue;
+        auto neighbors = GetNeighbors(current);
+        auto bfs_filter = std::views::filter(neighbors, IsKnownWalkable);
+        for (const auto& next : bfs_filter) {
             if (parent.find(next) != parent.end()) continue;
 
             parent[next] = current;
