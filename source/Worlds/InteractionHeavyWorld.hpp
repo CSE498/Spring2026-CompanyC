@@ -106,8 +106,8 @@ namespace cse498
                     {
                         x = x_dist(gen);
                         y = y_dist(gen);
-                    } while (main_grid(x, y) != mWallID);
-                    main_grid(x, y) = resource_id;
+                    } while (main_grid[x, y] != mWallID);
+                    main_grid[x, y] = resource_id;
                 }
             };
 
