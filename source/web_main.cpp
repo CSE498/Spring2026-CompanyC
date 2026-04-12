@@ -12,18 +12,52 @@
 #include "Interfaces/WebApp.hpp"
 
 #include "Agents/PacingAgent.hpp"
+#include "Worlds/DynamicWorld.hpp"
 #include "Worlds/InteractionHeavyWorld.hpp"
 #include "Worlds/MazeWorld.hpp"
 #include "Worlds/StubWorld.hpp"
 
 using namespace cse498;
 
+// Minimal agent that always returns a fixed action ID for controlled testing.
+class StubAgent : public cse498::AgentBase {
+public:
+
+  StubAgent(size_t id, const std::string & name, const cse498::WorldBase & world)
+    : AgentBase(id, name, world) { }
+
+  size_t SelectAction(const cse498::WorldGrid &) override { 
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    std::uniform_int_distribution<int> choice(0, this->action_map.size()-1);
+
+    return choice(gen); 
+  }
+};
+
 int main() {
   g_app = std::make_unique<WebApp>();
 
   std::string world = GetUrlParam("world");
 
-  if (world == "interaction") {
+  if (world == "dynamic") {
+    constexpr int basicAgentCount= 15; 
+
+    using world_t = cse498::DynamicWorld;
+    auto & world = g_app->Initialize<world_t>();
+    world.AddAgent<StubAgent>("Leader").SetLocation(Location{{0, 0}});
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> x_pos(0, world.GetWidth() - 1);
+    std::uniform_int_distribution<int> y_pos(0, world.GetHeight() - 1);
+ 
+    for (int i = 0; i < basicAgentCount; i++) {
+        std::string name = "Basic Agent " + std::to_string(i+1);
+        world.AddAgent<StubAgent>(name).SetLocation(cse498::WorldPosition{x_pos(gen), y_pos(gen)});
+    }
+  } else if (world == "interaction") {
     using world_t = cse498::InteractionHeavyWorld;
     using agent_t = cse498::PacingAgent;
     auto & world = g_app->Initialize<world_t>();
