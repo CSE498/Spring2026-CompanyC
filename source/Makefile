@@ -37,6 +37,7 @@ WEB_SOURCES = web_main.cpp \
               tools/WebCanvas.cpp \
               tools/WebTextbox.cpp \
               tools/WebInterface.cpp \
+              Worlds/DynamicWorld.cpp \
               Worlds/StubWorld.cpp
 
 FLAGS_web_base = -std=c++23 -I. \
