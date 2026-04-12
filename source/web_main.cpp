@@ -11,7 +11,9 @@
 
 #include "Interfaces/WebApp.hpp"
 
+#include "Agents/ClassicAgent.hpp"
 #include "Agents/PacingAgent.hpp"
+
 #include "Worlds/DynamicWorld.hpp"
 #include "Worlds/InteractionHeavyWorld.hpp"
 #include "Worlds/MazeWorld.hpp"
@@ -26,7 +28,7 @@ public:
   StubAgent(size_t id, const std::string & name, const cse498::WorldBase & world)
     : AgentBase(id, name, world) { }
 
-  size_t SelectAction(const cse498::WorldGrid &) override { 
+  size_t SelectAction(cse498::WorldGrid &) override { 
     std::random_device rd;
     std::mt19937 gen(rd());
 
@@ -39,9 +41,14 @@ public:
 int main() {
   g_app = std::make_unique<WebApp>();
 
-  std::string world = GetUrlParam("world");
+  std::string run_mode = GetUrlParam("world");
 
-  if (world == "dynamic") {
+  if (run_mode == "classic_agent") {
+    using world_t = cse498::MazeWorld;
+    auto & world = g_app->Initialize<world_t>();
+    world.AddAgent<ClassicAgent>("Classic 1").SetLocation(WorldPosition{3,1});
+  }
+  else if (run_mode == "dynamic") {
     constexpr int basicAgentCount= 15; 
 
     using world_t = cse498::DynamicWorld;
@@ -57,7 +64,7 @@ int main() {
         std::string name = "Basic Agent " + std::to_string(i+1);
         world.AddAgent<StubAgent>(name).SetLocation(cse498::WorldPosition{x_pos(gen), y_pos(gen)});
     }
-  } else if (world == "interaction") {
+  } else if (run_mode == "interaction") {
     using world_t = cse498::InteractionHeavyWorld;
     using agent_t = cse498::PacingAgent;
     auto & world = g_app->Initialize<world_t>();
@@ -65,14 +72,14 @@ int main() {
     world.AddAgent<agent_t>("Pacer 2").SetLocation(WorldPosition{6,1});
     world.AddAgent<agent_t>("Guard 1").SetHorizontal().SetLocation(WorldPosition{7,7});
     world.AddAgent<agent_t>("Guard 2").SetHorizontal().ToggleDirection().SetLocation(WorldPosition{8,8});
-  } else if (world == "maze") {
+  } else if (run_mode == "maze") {
     using agent_t = cse498::PacingAgent;
     auto & world = g_app->Initialize<cse498::MazeWorld>();
     world.AddAgent<agent_t>("Pacer 1").SetLocation(WorldPosition{3,1});
     world.AddAgent<agent_t>("Pacer 2").SetLocation(WorldPosition{6,1});
     world.AddAgent<agent_t>("Guard 1").SetHorizontal().SetLocation(WorldPosition{7,7});
     world.AddAgent<agent_t>("Guard 2").SetHorizontal().ToggleDirection().SetLocation(WorldPosition{8,8});
-  } else { // world == "stub"
+  } else { // run_mode == "stub"
     g_app->Initialize<cse498::StubWorld>();
   }
 

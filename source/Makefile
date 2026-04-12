@@ -23,22 +23,31 @@ $(SQLITE_OBJ): $(SQLITE_DIR)/sqlite3.c
 HEADERS := $(shell find Agents core Interfaces tools Worlds -name '*.hpp')
 
 # List of all available executables
-EXECUTABLES = simple
+EXECUTABLES = agent
 
-default: simple
-debug: debug-simple
-opt: opt-simple
-grumpy: grumpy-simple
+default: agent
+debug: debug-agent
+opt: opt-agent
+grumpy: grumpy-agent
+
+# Sources shared by all build targets (native and web)
+BASE_SOURCES = tools/BehaviorTree.cpp   \
+               tools/CompositeNodes.cpp \
+               tools/LeafNodes.cpp      \
+               tools/PathGenerator.cpp  \
+               tools/WorldPath.cpp      \
+               Agents/ClassicAgent.cpp  \
+               Worlds/DynamicWorld.cpp
 
 # ── Web / Emscripten build ────────────────────────────────────────────────────
-WEB_SOURCES = web_main.cpp \
-              Interfaces/WebApp.cpp \
-              tools/WebLayout.cpp \
-              tools/WebCanvas.cpp \
-              tools/WebTextbox.cpp \
-              tools/WebInterface.cpp \
-              Worlds/DynamicWorld.cpp \
-              Worlds/StubWorld.cpp
+WEB_SOURCES = web_main.cpp            \
+              Interfaces/WebApp.cpp   \
+               tools/WebLayout.cpp    \
+               tools/WebCanvas.cpp    \
+               tools/WebTextbox.cpp   \
+               tools/WebInterface.cpp \
+               Worlds/StubWorld.cpp   \
+              $(BASE_SOURCES)
 
 FLAGS_web_base = -std=c++23 -I. \
                  -sWASM=1 \
@@ -67,27 +76,26 @@ server:
 
 # Generic rule to build default version of any executable
 $(EXECUTABLES): %: %_main.cpp $(HEADERS) $(SQLITE_OBJ)
-	$(CXX) $@_main.cpp $(SQLITE_OBJ) $(FLAGS_all) -o $@
+	$(CXX) $@_main.cpp $(BASE_SOURCES) $(SQLITE_OBJ) $(FLAGS_all) -I. -o $@
 
 # Generic rule to build debug version of any executable
 debug-%: $(SQLITE_OBJ)
-	$(CXX) $*_main.cpp $(SQLITE_OBJ) $(FLAGS_debug) -o $*
+	$(CXX) $*_main.cpp $(BASE_SOURCES) $(SQLITE_OBJ) $(FLAGS_debug) -I. -o $*
 
 # Generic rule to build opt version of any executable
 opt-%: $(SQLITE_OBJ)
-	$(CXX) $*_main.cpp $(SQLITE_OBJ) $(FLAGS_opt) -o $*
+	$(CXX) $*_main.cpp $(BASE_SOURCES) $(SQLITE_OBJ) $(FLAGS_opt) -I. -o $*
 
 # Generic rule to build quick version of any executable
 quick-%: $(SQLITE_OBJ)
-	$(CXX) $*_main.cpp $(SQLITE_OBJ) $(FLAGS_quick) -o $*
+	$(CXX) $*_main.cpp $(BASE_SOURCES) $(SQLITE_OBJ) $(FLAGS_quick) -I. -o $*
 
-# Generic rule to build quick version of any executable
+# Generic rule to build grumpy version of any executable
 grumpy-%: $(SQLITE_OBJ)
-	$(CXX) $*_main.cpp $(SQLITE_OBJ) $(FLAGS_grumpy) -o $*
+	$(CXX) $*_main.cpp $(BASE_SOURCES) $(SQLITE_OBJ) $(FLAGS_grumpy) -I. -o $*
 
 FILES_backup	= *~ *.dSYM
 FILES_generated = *.o $(SQLITE_OBJ) $(EXECUTABLES)
 
 clean:
 	rm -rf $(FILES_backup) $(FILES_generated)
-
