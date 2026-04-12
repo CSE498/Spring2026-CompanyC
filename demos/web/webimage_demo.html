@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>WebImage Smoke Demo</title>
+    <style>
+      #root { position: relative; width: 900px; height: 550px; border: 2px dashed #999; margin: 20px; }
+      .demo-border { outline: 3px solid hotpink; }
+    </style>
+  </head>
+  <body>
+    <h3>WebImage Smoke Demo</h3>
+    <div id="root"></div>
+
+    <script>
+      var Module = {
+        onRuntimeInitialized: function () {
+          Module._RunWebImageSmokeDemo();
+        }
+      };
+    </script>
+    <script src="webimage_demo.js"></script>
+  </body>
+</html>
