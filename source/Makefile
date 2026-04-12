@@ -27,18 +27,27 @@ EXECUTABLES = agent
 
 default: agent
 debug: debug-agent
-opt: opt-agentj
+opt: opt-agent
 grumpy: grumpy-agent
 
+# Sources shared by all build targets (native and web)
+BASE_SOURCES = tools/BehaviorTree.cpp   \
+               tools/CompositeNodes.cpp \
+               tools/LeafNodes.cpp      \
+               tools/PathGenerator.cpp  \
+               tools/WorldPath.cpp      \
+               Agents/ClassicAgent.cpp  \
+               Worlds/DynamicWorld.cpp
+
 # ── Web / Emscripten build ────────────────────────────────────────────────────
-WEB_SOURCES = web_main.cpp \
-              Interfaces/WebApp.cpp \
-              tools/WebLayout.cpp \
-              tools/WebCanvas.cpp \
-              tools/WebTextbox.cpp \
-              tools/WebInterface.cpp \
-              Worlds/DynamicWorld.cpp \
-              Worlds/StubWorld.cpp
+WEB_SOURCES = web_main.cpp            \
+              Interfaces/WebApp.cpp   \
+               tools/WebLayout.cpp    \
+               tools/WebCanvas.cpp    \
+               tools/WebTextbox.cpp   \
+               tools/WebInterface.cpp \
+               Worlds/StubWorld.cpp   \
+              $(BASE_SOURCES)
 
 FLAGS_web_base = -std=c++23 -I. \
                  -sWASM=1 \
@@ -67,78 +76,26 @@ server:
 
 # Generic rule to build default version of any executable
 $(EXECUTABLES): %: %_main.cpp $(HEADERS) $(SQLITE_OBJ)
-	$(CXX) $@_main.cpp $(SQLITE_OBJ) $(FLAGS_all) -o $@
+	$(CXX) $@_main.cpp $(BASE_SOURCES) $(SQLITE_OBJ) $(FLAGS_all) -I. -o $@
 
 # Generic rule to build debug version of any executable
 debug-%: $(SQLITE_OBJ)
-	$(CXX) $*_main.cpp $(SQLITE_OBJ) $(FLAGS_debug) -o $*
+	$(CXX) $*_main.cpp $(BASE_SOURCES) $(SQLITE_OBJ) $(FLAGS_debug) -I. -o $*
 
 # Generic rule to build opt version of any executable
 opt-%: $(SQLITE_OBJ)
-	$(CXX) $*_main.cpp $(SQLITE_OBJ) $(FLAGS_opt) -o $*
+	$(CXX) $*_main.cpp $(BASE_SOURCES) $(SQLITE_OBJ) $(FLAGS_opt) -I. -o $*
 
 # Generic rule to build quick version of any executable
 quick-%: $(SQLITE_OBJ)
-	$(CXX) $*_main.cpp $(SQLITE_OBJ) $(FLAGS_quick) -o $*
+	$(CXX) $*_main.cpp $(BASE_SOURCES) $(SQLITE_OBJ) $(FLAGS_quick) -I. -o $*
 
-# Generic rule to build quick version of any executable
+# Generic rule to build grumpy version of any executable
 grumpy-%: $(SQLITE_OBJ)
-	$(CXX) $*_main.cpp $(SQLITE_OBJ) $(FLAGS_grumpy) -o $*
+	$(CXX) $*_main.cpp $(BASE_SOURCES) $(SQLITE_OBJ) $(FLAGS_grumpy) -I. -o $*
 
 FILES_backup	= *~ *.dSYM
 FILES_generated = *.o $(SQLITE_OBJ) $(EXECUTABLES)
-
-clean:
-	rm -rf $(FILES_backup) $(FILES_generated)
-
-FLAGS_version = -std=c++23
-FLAGS_warn    = -Wall -Wextra -Wcast-align -Wnon-virtual-dtor -Woverloaded-virtual -pedantic
-FLAGS_all     = $(FLAGS_version) $(FLAGS_warn)
-
-FLAGS_debug   = $(FLAGS_all) -g
-FLAGS_opt     = $(FLAGS_all) -O3 -DNDEBUG
-FLAGS_quick   = $(FLAGS_all) -DNDEBUG
-FLAGS_grumpy  = $(FLAGS_all) -Wconversion -Weffc++
-
-CXX = c++
-
-# Find all headers and source files
-HEADERS := $(shell find Agents core Interfaces tools Worlds web -name '*.hpp')
-SOURCES := $(filter-out tools/OutputManagerDemo.cpp, \
-           $(shell find Agents core Interfaces tools Worlds web -name '*.cpp'))
-
-# List of all available executables
-EXECUTABLES = agent
-
-default: agent
-debug: debug-agent
-opt: opt-agent
-grumpy: grumpy-agent
-
-.PHONY: default clean debug-% opt-% quick-% grumpy-% $(EXECUTABLES)
-
-# Default build
-$(EXECUTABLES): %: %_main.cpp $(SOURCES) $(HEADERS)
-	$(CXX) $(FLAGS_all) $@_main.cpp $(SOURCES) -I. -o $@
-
-# Debug build
-debug-%:
-	$(CXX) $(FLAGS_debug) $*_main.cpp $(SOURCES) -I. -o $*
-
-# Optimized build
-opt-%:
-	$(CXX) $(FLAGS_opt) $*_main.cpp $(SOURCES) -I. -o $*
-
-# Quick build
-quick-%:
-	$(CXX) $(FLAGS_quick) $*_main.cpp $(SOURCES) -I. -o $*
-
-# Grumpy build
-grumpy-%:
-	$(CXX) $(FLAGS_grumpy) $*_main.cpp $(SOURCES) -I. -o $*
-
-FILES_backup    = *~ *.dSYM
-FILES_generated = *.o $(EXECUTABLES)
 
 clean:
 	rm -rf $(FILES_backup) $(FILES_generated)
