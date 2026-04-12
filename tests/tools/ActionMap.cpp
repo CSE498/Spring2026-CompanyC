@@ -14,8 +14,8 @@ TEST_CASE("ActionMap - Basic Functionality", "[ActionMap]") {
   // Define a simple function that flips the flag
   auto simpleAction = [&]() { wasCalled = true; };
 
-  REQUIRE(am.AddFunction<>("TestFunc", std::function<void()>(simpleAction)) ==
-          true);
+  REQUIRE(am.AddFunction<>("TestFunc", std::function<void()>(simpleAction))
+              .has_value());
 
   SECTION("Trigger executes the stored function") {
     auto result = am.Trigger("TestFunc");
@@ -37,8 +37,12 @@ TEST_CASE("ActionMap - Multiple Registrations", "[ActionMap]") {
   bool saveCalled = false;
   bool loadCalled = false;
 
-  am.AddFunction<>("Save", std::function<void()>([&]() { saveCalled = true; }));
-  am.AddFunction<>("Load", std::function<void()>([&]() { loadCalled = true; }));
+  REQUIRE(am.AddFunction<>("Save",
+                           std::function<void()>([&]() { saveCalled = true; }))
+              .has_value());
+  REQUIRE(am.AddFunction<>("Load",
+                           std::function<void()>([&]() { loadCalled = true; }))
+              .has_value());
 
   SECTION("Triggering one does not affect the other") {
     auto result = am.Trigger("Save");
@@ -53,12 +57,14 @@ TEST_CASE("ActionMap - Duplicate Registration Fails", "[ActionMap]") {
   int value = 0;
 
   // First version sets value to 1
-  REQUIRE(am.AddFunction<>(
-              "Update", std::function<void()>([&]() { value = 1; })) == true);
+  REQUIRE(
+      am.AddFunction<>("Update", std::function<void()>([&]() { value = 1; }))
+          .has_value());
 
   // Second version sets value to 2
-  REQUIRE(am.AddFunction<>(
-              "Update", std::function<void()>([&]() { value = 2; })) == false);
+  REQUIRE_FALSE(
+      am.AddFunction<>("Update", std::function<void()>([&]() { value = 2; }))
+          .has_value());
 
   SECTION("The map does not overwrite existing logic") {
     auto result = am.Trigger("Update");
@@ -71,9 +77,13 @@ TEST_CASE("ActionMap - ReplaceFunction Overwrites", "[ActionMap]") {
   cse498::ActionMap am;
   int value = 0;
 
-  am.AddFunction<>("Update", std::function<void()>([&]() { value = 1; }));
+  REQUIRE(
+      am.AddFunction<>("Update", std::function<void()>([&]() { value = 1; }))
+          .has_value());
 
-  am.ReplaceFunction<>("Update", std::function<void()>([&]() { value = 2; }));
+  REQUIRE(am.ReplaceFunction<>("Update",
+                               std::function<void()>([&]() { value = 2; }))
+              .has_value());
 
   SECTION("ReplaceFunction updates the stored function") {
     auto result = am.Trigger("Update");
@@ -85,7 +95,8 @@ TEST_CASE("ActionMap - ReplaceFunction Overwrites", "[ActionMap]") {
 TEST_CASE("ActionMap - RemoveFunction", "[ActionMap]") {
   cse498::ActionMap am;
 
-  am.AddFunction<>("DeleteMe", std::function<void()>([]() {}));
+  REQUIRE(
+      am.AddFunction<>("DeleteMe", std::function<void()>([]() {})).has_value());
 
   REQUIRE(am.HasFunction("DeleteMe") == true);
 
@@ -98,8 +109,8 @@ TEST_CASE("ActionMap - RemoveFunction", "[ActionMap]") {
 TEST_CASE("ActionMap - Clear and Count", "[ActionMap]") {
   cse498::ActionMap am;
 
-  am.AddFunction<>("A", std::function<void()>([]() {}));
-  am.AddFunction<>("B", std::function<void()>([]() {}));
+  REQUIRE(am.AddFunction<>("A", std::function<void()>([]() {})).has_value());
+  REQUIRE(am.AddFunction<>("B", std::function<void()>([]() {})).has_value());
 
   REQUIRE(am.Count() == 2);
 
@@ -111,9 +122,10 @@ TEST_CASE("ActionMap - Clear and Count", "[ActionMap]") {
 TEST_CASE("ActionMap - GetFunctionNames Sorted", "[ActionMap]") {
   cse498::ActionMap am;
 
-  am.AddFunction<>("Zeta", std::function<void()>([]() {}));
-  am.AddFunction<>("Alpha", std::function<void()>([]() {}));
-  am.AddFunction<>("Beta", std::function<void()>([]() {}));
+  REQUIRE(am.AddFunction<>("Zeta", std::function<void()>([]() {})).has_value());
+  REQUIRE(
+      am.AddFunction<>("Alpha", std::function<void()>([]() {})).has_value());
+  REQUIRE(am.AddFunction<>("Beta", std::function<void()>([]() {})).has_value());
 
   auto names = am.GetFunctionNames();
 
@@ -127,8 +139,9 @@ TEST_CASE("ActionMap - Functions With Arguments", "[ActionMap]") {
   cse498::ActionMap am;
   int result = 0;
 
-  am.AddFunction<int>("Add",
-                      std::function<void(int)>([&](int x) { result += x; }));
+  REQUIRE(am.AddFunction<int>(
+                "Add", std::function<void(int)>([&](int x) { result += x; }))
+              .has_value());
 
   SECTION("Trigger with correct argument type") {
     auto resultExpected = am.Trigger("Add", 5);
