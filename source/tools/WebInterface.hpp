@@ -46,7 +46,7 @@ class WebInterface : public InterfaceBase {
   // -- AgentBase overrides --
 
   /// Returns the pending action ID and resets it to 0 (no action).
-  [[nodiscard]] size_t SelectAction(const WorldGrid& grid) override;
+  [[nodiscard]] size_t SelectAction(WorldGrid& grid) override;
 
   /// Called by the world to deliver status messages and resource/mode updates.
   /// @param message  Notification payload (format depends on msg_type).

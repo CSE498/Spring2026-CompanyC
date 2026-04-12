@@ -12,7 +12,7 @@ WebInterface::WebInterface(size_t id, const std::string& name,
                            const WorldBase& in_world)
     : InterfaceBase(id, name, in_world) {}
 
-size_t WebInterface::SelectAction(const WorldGrid& /*grid*/) {
+size_t WebInterface::SelectAction(WorldGrid& /*grid*/) {
   const size_t result = pending_action_;
   pending_action_ = 0;
   return result;
