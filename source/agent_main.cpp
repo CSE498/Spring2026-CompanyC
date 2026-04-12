@@ -17,6 +17,4 @@ int main()
   MazeWorld world;
   world.AddAgent<ClassicAgent>("Classic 1").SetLocation(WorldPosition{3,1});
   world.AddAgent<TrashInterface>("Interface").SetSymbol('@').SetLocation(WorldPosition{1,1});
-
-  world.Run();
 }

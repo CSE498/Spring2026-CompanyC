@@ -5,7 +5,7 @@
  * Unit tests for the Memofunction template.
  * Written with help from ChatGPT and other sources.
  */
-
+#define CATCH_CONFIG_MAIN
 #include "../../third-party/Catch/single_include/catch2/catch.hpp"
 
 #include "../../source/tools/Memofunction.hpp"
@@ -27,6 +27,13 @@ static int Square(int x)
 static std::string RepeatStar(const std::string &s)
 {
     return s + "*";
+}
+static int g_call_count = 0;
+
+static int CountedIdentity(int x)
+{
+    ++g_call_count;
+    return x;
 }
 namespace cse498
 {
@@ -123,5 +130,51 @@ namespace cse498
         auto r3 = memo(std::string("yo"));
         REQUIRE(r3 == "yo*");
         REQUIRE(memo.size() == 2);
+        
+    }
+    TEST_CASE("Test cache size stays bounded after many FIFO evictions", "[Memofunction]")
+    {
+        g_call_count = 0;
+        Memofunction<int, decltype(&CountedIdentity)> memo(CountedIdentity, 2);
+
+        for (int i = 1; i <= 20; ++i)
+        {
+            REQUIRE(memo(i) == i);
+            REQUIRE(memo.size() <= 2);
+        }
+
+        REQUIRE(memo.size() == 2);
+
+        // Last two inserted should still be cached
+        REQUIRE(memo(19) == 19);
+        REQUIRE(memo(20) == 20);
+
+        // No new computations should happen for hits
+        REQUIRE(g_call_count == 20);
+    }
+
+    TEST_CASE("Test repeated FIFO cycling keeps live entries valid", "[Memofunction]")
+    {
+        g_call_count = 0;
+        Memofunction<int, decltype(&CountedIdentity)> memo(CountedIdentity, 2);
+
+        REQUIRE(memo(1) == 1);
+        REQUIRE(memo(2) == 2);
+        REQUIRE(memo.size() == 2);
+        REQUIRE(g_call_count == 2);
+
+        REQUIRE(memo(3) == 3); // evicts 1
+        REQUIRE(memo.size() == 2);
+        REQUIRE(g_call_count == 3);
+
+        REQUIRE(memo(2) == 2); // should still be cached
+        REQUIRE(g_call_count == 3);
+
+        REQUIRE(memo(4) == 4); // evicts 2
+        REQUIRE(memo.size() == 2);
+        REQUIRE(g_call_count == 4);
+
+        REQUIRE(memo(3) == 3); // should still be cached
+        REQUIRE(g_call_count == 4);
     }
 }
