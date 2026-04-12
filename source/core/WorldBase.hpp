@@ -25,14 +25,14 @@ namespace cse498 {
   class WorldBase {
   protected:
     /// NOTE: derived worlds may choose to have more than one grid.
-    WorldGrid mMainGrid;                 ///< Main grid for this world
+    WorldGrid main_grid;    ///< Main grid for this world
 
     item_set_t item_set;    ///< Vector of pointers to non-agent entities (ItemBase)
     agent_set_t agent_set;  ///< Vector of pointers to agent entities (AgentBase)
 
-    std::unordered_map<std::string, size_t> mWorldGlobalCounts; /// Set of global resources / counts
+    std::unordered_map<std::string, size_t> world_global_counts; /// Set of global resources / counts
 
-    bool mRunOver = false;  ///< Are we finished executing and now shutting down?
+    bool run_over = false;  ///< Are we finished executing and now shutting down?
 
 
     /// Helper function that is run whenever a new agent is created.
@@ -77,17 +77,21 @@ namespace cse498 {
     }
 
     [[nodiscard]] const std::unordered_map<std::string, size_t> & GetWorldGlobalCounts() const { 
-      return mWorldGlobalCounts;
+      return world_global_counts;
     }
 
+    [[nodiscard]] virtual size_t GetWidth() const { return main_grid.GetWidth(); }
+    [[nodiscard]] virtual size_t GetHeight() const { return main_grid.GetHeight(); }
+    [[nodiscard]] virtual size_t GetNumCells() const { return main_grid.GetNumCells(); }
+
     /// Return an editable version of the current grid for this world (main_grid by default) 
-    virtual WorldGrid & GetGrid() { return mMainGrid; }
+    [[nodiscard]] virtual WorldGrid & GetGrid() { return main_grid; }
 
     /// Return the current grid for this world (main_grid by default) 
-    virtual const WorldGrid & GetGrid() const { return mMainGrid; }
+    [[nodiscard]] virtual const WorldGrid & GetGrid() const { return main_grid; }
 
     /// Determine if the run has ended.
-    virtual bool IsRunOver() const { return mRunOver; }
+    [[nodiscard]] virtual bool IsRunOver() const { return run_over; }
 
     // -- Agent Management --
 
@@ -122,7 +126,7 @@ namespace cse498 {
     /// @note Override function to control which grid each agent receives.
     virtual void RunAgents() {
       for (const auto & agent_ptr : agent_set) {
-        size_t action_id = agent_ptr->SelectAction(mMainGrid);
+        size_t action_id = agent_ptr->SelectAction(main_grid);
         int result = DoAction(*agent_ptr, action_id);
         agent_ptr->SetActionResult(result);
       }
@@ -135,8 +139,8 @@ namespace cse498 {
 
     /// @brief Run all agents repeatedly until an end condition is met.
     virtual void Run() {
-      mRunOver = false;
-      while (!mRunOver) {
+      run_over = false;
+      while (!run_over) {
         RunAgents();
         UpdateWorld();
       }

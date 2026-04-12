@@ -24,7 +24,7 @@ public:
    */
   DynamicWorld() {
       ConfigureCellTypes();
-      GenerateWorld(100, 100);
+      GenerateWorld(80, 80);
     }
   /**
    * @brief Construct a DynamicWorld with default size and configured cell types.
@@ -48,13 +48,13 @@ public:
    * Periodically prints global resource counts.
    */
   void Run() override {
-    mRunOver = false;
-    while (!mRunOver) {
+    run_over = false;
+    while (!run_over) {
       RunAgents();
       UpdateWorld();
 
       if (mUpdateCounter % 500 == 0) {
-        std::for_each(std::begin(mWorldGlobalCounts), std::end(mWorldGlobalCounts), 
+        std::for_each(std::begin(world_global_counts), std::end(world_global_counts), 
           [] (auto p){
             std::cout << p.first << ": " << p.second << std::endl;
           }
@@ -132,15 +132,15 @@ protected:
    * @brief Initialize all cell types used in the world grid.
    */
   void ConfigureCellTypes() {
-    mGrassId = mMainGrid.AddCellType("grass", "Open buildable terrain.", '.');
-    mTreeId  = mMainGrid.AddCellType("tree", "Wood resource.", 'T');
-    mStoneId = mMainGrid.AddCellType("stone", "Stone resource.", 'S');
-    mWheatId = mMainGrid.AddCellType("wheat", "Wheat resource.", 'W');
-    mQuarryId = mMainGrid.AddCellType("quarry", "Produces stone and steel.", 'Q', false);
-    mLumberyardId = mMainGrid.AddCellType("lumberyard", "Produces wood.", 'L', false);
-    mFarmId = mMainGrid.AddCellType("farm", "Produces wheat.", 'F', false);
-    mSpawnerId = mMainGrid.AddCellType("spawner", "Spawns agents.", 'A', false);
-    mTownhallId = mMainGrid.AddCellType("townhall", "Win condition.", 'H', false);
+    mGrassId = main_grid.AddCellType("grass", "Open buildable terrain.", '.');
+    mTreeId  = main_grid.AddCellType("tree", "Wood resource.", 'T');
+    mStoneId = main_grid.AddCellType("stone", "Stone resource.", 'S');
+    mWheatId = main_grid.AddCellType("wheat", "Wheat resource.", 'W');
+    mQuarryId = main_grid.AddCellType("quarry", "Produces stone and steel.", 'Q', false);
+    mLumberyardId = main_grid.AddCellType("lumberyard", "Produces wood.", 'L', false);
+    mFarmId = main_grid.AddCellType("farm", "Produces wheat.", 'F', false);
+    mSpawnerId = main_grid.AddCellType("spawner", "Spawns agents.", 'A', false);
+    mTownhallId = main_grid.AddCellType("townhall", "Win condition.", 'H', false);
   }
 
   /**
@@ -157,12 +157,12 @@ protected:
         int x = center_x + dx;
         int y = center_y + dy;
 
-        if (!mMainGrid.IsValid(x, y)) continue;
+        if (!main_grid.IsValid(x, y)) continue;
 
         if (dx * dx + dy * dy <= radius * radius) {
           WorldPosition pos(x, y);
-          if (mMainGrid[pos] == mGrassId) {
-            mMainGrid[pos] = type_id;
+          if (main_grid[pos] == mGrassId) {
+            main_grid[pos] = type_id;
           }
         }
       }
@@ -176,7 +176,7 @@ protected:
    * @param height Height of the world.
    */
   void GenerateWorld(size_t width, size_t height) {
-    mMainGrid.Resize(width, height, mGrassId);
+    main_grid.Resize(width, height, mGrassId);
 
     std::random_device rd;
     std::mt19937 gen(rd());

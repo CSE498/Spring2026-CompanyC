@@ -33,43 +33,43 @@ int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
     next = cur.Down().Right();
     break;
   case COLLECT: {
-    size_t cell = mMainGrid[cur];
+    size_t cell = main_grid[cur];
     if (cell == mTreeId) {
-      mWorldGlobalCounts["wood"] += 1;
-      mMainGrid[cur] = mGrassId;
+      world_global_counts["wood"] += 1;
+      main_grid[cur] = mGrassId;
       return true;
     } else if (cell == mStoneId) {
-      mWorldGlobalCounts["stone"] += 1;
-      mMainGrid[cur] = mGrassId;
+      world_global_counts["stone"] += 1;
+      main_grid[cur] = mGrassId;
       return true;
     } else if (cell == mWheatId) {
-      mWorldGlobalCounts["wheat"] += 1;
-      mMainGrid[cur] = mGrassId;
+      world_global_counts["wheat"] += 1;
+      main_grid[cur] = mGrassId;
       return true;
     }
     return false;
   }
   case BUILD_LUMBERYARD: {
-    if (mMainGrid[cur] != mGrassId)
+    if (main_grid[cur] != mGrassId)
       return false;
-    if (mWorldGlobalCounts["wood"] < 20 || mWorldGlobalCounts["steel"] < 20)
+    if (world_global_counts["wood"] < 20 || world_global_counts["steel"] < 20)
       return false;
-    mWorldGlobalCounts["wood"] -= 20;
-    mWorldGlobalCounts["steel"] -= 20;
-    mMainGrid[cur] = mLumberyardId;
+    world_global_counts["wood"] -= 20;
+    world_global_counts["steel"] -= 20;
+    main_grid[cur] = mLumberyardId;
     Building lumberyard(mUpdateCounter);
     lumberyard.AddResource("wood", 20);
     mBuildings.push_back(lumberyard);
     return true;
   }
   case BUILD_QUARRY: {
-    if (mMainGrid[cur] != mGrassId)
+    if (main_grid[cur] != mGrassId)
       return false;
-    if (mWorldGlobalCounts["stone"] < 20 || mWorldGlobalCounts["wood"] < 20)
+    if (world_global_counts["stone"] < 20 || world_global_counts["wood"] < 20)
       return false;
-    mWorldGlobalCounts["stone"] -= 20;
-    mWorldGlobalCounts["wood"] -= 20;
-    mMainGrid[cur] = mQuarryId;
+    world_global_counts["stone"] -= 20;
+    world_global_counts["wood"] -= 20;
+    main_grid[cur] = mQuarryId;
     Building quarry(mUpdateCounter);
     quarry.AddResource("steel", 40);
     quarry.AddResource("stone", 10);
@@ -77,41 +77,41 @@ int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
     return true;
   }
   case BUILD_SPAWNER: {
-    if (mMainGrid[cur] != mGrassId)
+    if (main_grid[cur] != mGrassId)
       return false;
-    if (mWorldGlobalCounts["stone"] < 30 || mWorldGlobalCounts["wheat"] < 30)
+    if (world_global_counts["stone"] < 30 || world_global_counts["wheat"] < 30)
       return false;
-    mWorldGlobalCounts["stone"] -= 30;
-    mWorldGlobalCounts["wheat"] -= 30;
-    mMainGrid[cur] = mSpawnerId;
+    world_global_counts["stone"] -= 30;
+    world_global_counts["wheat"] -= 30;
+    main_grid[cur] = mSpawnerId;
     mSpawners.push_back({cur, mUpdateCounter});
     return true;
   }
   case BUILD_FARM: {
-    if (mMainGrid[cur] != mGrassId)
+    if (main_grid[cur] != mGrassId)
       return false;
-    if (mWorldGlobalCounts["wheat"] < 20 || mWorldGlobalCounts["wood"] < 20)
+    if (world_global_counts["wheat"] < 20 || world_global_counts["wood"] < 20)
       return false;
-    mWorldGlobalCounts["wheat"] -= 20;
-    mWorldGlobalCounts["wood"] -= 20;
-    mMainGrid[cur] = mFarmId;
+    world_global_counts["wheat"] -= 20;
+    world_global_counts["wood"] -= 20;
+    main_grid[cur] = mFarmId;
     Building farm(mUpdateCounter);
     farm.AddResource("wheat", 10);
     mBuildings.push_back(farm);
     return true;
   }
   case BUILD_TOWNHALL: {
-    if (mMainGrid[cur] != mGrassId)
+    if (main_grid[cur] != mGrassId)
       return false;
-    if (mWorldGlobalCounts["wood"] < 500 || mWorldGlobalCounts["stone"] < 500 ||
-        mWorldGlobalCounts["steel"] < 500 || mWorldGlobalCounts["wheat"] < 500)
+    if (world_global_counts["wood"] < 500 || world_global_counts["stone"] < 500 ||
+        world_global_counts["steel"] < 500 || world_global_counts["wheat"] < 500)
       return false;
-    mWorldGlobalCounts["wood"] -= 500;
-    mWorldGlobalCounts["stone"] -= 500;
-    mWorldGlobalCounts["steel"] -= 500;
-    mWorldGlobalCounts["wheat"] -= 500;
-    mMainGrid[cur] = mTownhallId;
-    mRunOver = true;
+    world_global_counts["wood"] -= 500;
+    world_global_counts["stone"] -= 500;
+    world_global_counts["steel"] -= 500;
+    world_global_counts["wheat"] -= 500;
+    main_grid[cur] = mTownhallId;
+    run_over = true;
     return true;
   }
   default:
@@ -119,9 +119,9 @@ int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
   }
 
   if (action_id >= MOVE_UP && action_id <= MOVE_DOWN_RIGHT) {
-    if (!mMainGrid.IsValid(next))
+    if (!main_grid.IsValid(next))
       return false;
-    if (!mMainGrid.IsTraversable(mMainGrid[next]))
+    if (!main_grid.IsTraversable(main_grid[next]))
       return false;
     agent.SetLocation(next);
     return true;
@@ -139,7 +139,7 @@ void cse498::DynamicWorld::UpdateWorld() {
     for (auto resource : building.GetResources()){
       const size_t ticks_since_built = mUpdateCounter - building.GetBuiltTime();
       if (ticks_since_built % resource.second == 0) {
-        mWorldGlobalCounts[resource.first] += 1;
+        world_global_counts[resource.first] += 1;
       }
     }
   }
@@ -158,9 +158,9 @@ void cse498::DynamicWorld::UpdateWorld() {
             if (abs(dx) != radius && abs(dy) != radius) continue;
             int nx = sx + dx;
             int ny = sy + dy;
-            if (!mMainGrid.IsValid(nx, ny)) continue;
+            if (!main_grid.IsValid(nx, ny)) continue;
             WorldPosition spawn_pos(nx, ny);
-            if (mMainGrid[spawn_pos] == mGrassId) {
+            if (main_grid[spawn_pos] == mGrassId) {
               auto & agent = AddAgent<PacingAgent>("spawned_agent");
               agent.SetLocation(spawn_pos);
               placed = true;
