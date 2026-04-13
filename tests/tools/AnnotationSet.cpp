@@ -1,5 +1,5 @@
-#include "catch2/catch.hpp"
 
+#include <catch2/catch.hpp>
 #include "../../source/tools/AnnotationSet.hpp"
 #include <algorithm>
 
@@ -44,15 +44,15 @@ TEST_CASE("AddingTags-AnnotationSet","[AnnotationSet]"){
         REQUIRE(annotationSet.Size()==1);
     }
     SECTION("Adding multiple tags at once"){
-        annotationSet.AddTags({"cat","dog","raccoon"});
+        annotationSet.AddTags("cat","dog","raccoon");
         REQUIRE(annotationSet.Size()==3);
     }
     SECTION("No duplicate tags in set when added"){
-        annotationSet.AddTags({"cat","cat","raccoon"});
+        annotationSet.AddTags("cat","cat","raccoon");
         REQUIRE(annotationSet.Size()==2);
     }
     SECTION("No duplicate tags in set when added to set with the tag"){
-        annotationSet.AddTags({"cat","raccoon"});
+        annotationSet.AddTags("cat","raccoon");
         REQUIRE(annotationSet.Size()==2);
         annotationSet.AddTag("cat");
         REQUIRE(annotationSet.Size()==2);
@@ -82,8 +82,9 @@ TEST_CASE("RemovingTags-AnnotationSet","[AnnotationSet]"){
         REQUIRE(annotationSet.Size()==2);
     }
     SECTION("Deleting multiple tags"){
-        annotationSet.RemoveTags({"ghost", "boogieman"});
+        bool removeBool=annotationSet.RemoveTags("ghost", "boogieman");
         std::set<std::string> vals={"spectre"};
+        REQUIRE(removeBool==true);
         REQUIRE(annotationSet.GetTags()==vals);
         REQUIRE(annotationSet.Size()==1);
     }
@@ -102,6 +103,17 @@ TEST_CASE("RemovingTags-AnnotationSet","[AnnotationSet]"){
         annotationSet.AddTag("Batman");
         annotationSet.RemoveTag("Batman ");
         REQUIRE(annotationSet.GetTags().empty()==true);
+    }
+    SECTION("Deleting tags that dont exist"){
+        bool removeBool=annotationSet.RemoveTags("phantom","poltergeist");
+        std::set<std::string> vals={"spectre","ghost", "boogieman"};
+        REQUIRE(removeBool==false);
+        REQUIRE(annotationSet.GetTags()==vals);
+        REQUIRE(annotationSet.Size()==3);
+        removeBool=annotationSet.RemoveTag("phantom");
+        REQUIRE(removeBool==false);
+        REQUIRE(annotationSet.GetTags()==vals);
+        REQUIRE(annotationSet.Size()==3);
     }
 }
 TEST_CASE("TagCheck-AnnotationSet","[AnnotationSet]"){
@@ -135,5 +147,9 @@ TEST_CASE("TagCheck-AnnotationSet","[AnnotationSet]"){
         REQUIRE(annotationSet.FindAnyTag(findTags)==true);
         findTags={"meow ","ru ff"};
         REQUIRE(annotationSet.FindAllTags(findTags)==true);
+        findTags={};
+        REQUIRE(annotationSet.FindAnyTag(findTags)==false);
+        REQUIRE(annotationSet.FindAllTags(findTags)==true);
     }
+    
 }

@@ -4,13 +4,16 @@
 
 #pragma once
 
+#include <__expected/expected.h>
 #include <any>
-#include <assert.h>
+#include <cassert>
+#include <expected>
 #include <functional>
 #include <optional>
 #include <string>
 #include <typeindex>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 /**
@@ -53,14 +56,6 @@ public:
   ActionMap &operator=(const ActionMap &) = delete;
 
   /**
-   * @brief Registers a zero-argument function with a given name
-   * @param name The string identifier for the function
-   * @param func The function to register
-   * @return true if successfully added, false if name already exists
-   */
-  bool AddFunction(const std::string &name, std::function<void()> func);
-
-  /**
    * @brief Registers a function that takes arguments
    * @tparam Args The argument types for the function
    * @param name The string identifier for the function
@@ -68,15 +63,8 @@ public:
    * @return true if successfully added, false if name already exists
    */
   template <typename... Args>
-  bool AddFunction(const std::string &name, std::function<void(Args...)> func);
-
-  /**
-   * @brief Registers a function with a given name, replacing if it already
-   * exists
-   * @param name The string identifier for the function
-   * @param func The function to register
-   */
-  void ReplaceFunction(const std::string &name, std::function<void()> func);
+  std::expected<void, std::string>
+  AddFunction(const std::string &name, std::function<void(Args...)> func);
 
   /**
    * @brief Registers a function with a given name, replacing if it already
@@ -86,25 +74,21 @@ public:
    * @param func The function to register
    */
   template <typename... Args>
-  void ReplaceFunction(const std::string &name,
-                       std::function<void(Args...)> func);
-
-  /**
-   * @brief Looks up and executes the zero-argument function with the given name
-   * @param name The string identifier of the function to trigger
-   * @return Optional error message if function not found or type mismatch
-   */
-  std::optional<std::string> Trigger(const std::string &name);
+  std::expected<void, std::string>
+  ReplaceFunction(const std::string &name, std::function<void(Args...)> func);
 
   /**
    * @brief Looks up and executes a function, forwarding the provided arguments
    * @tparam Args The argument types to forward
    * @param name The string identifier of the function to trigger
    * @param args The arguments to pass to the function
-   * @return Optional error message if function not found or type mismatch
+   * @return std::expected<void, std::string>
+   *         - On success: contains no value (void)
+   *         - On failure: contains an error message explaining the issue
    */
   template <typename... Args>
-  std::optional<std::string> Trigger(const std::string &name, Args &&...args);
+  std::expected<void, std::string> Trigger(const std::string &name,
+                                           Args &&...args);
 
   /**
    * @brief Unregisters a function by name
@@ -139,13 +123,15 @@ public:
 
 // Template Implementations
 template <typename... Args>
-bool ActionMap::AddFunction(const std::string &name,
-                            std::function<void(Args...)> func) {
-
-  assert(!name.empty());
+std::expected<void, std::string>
+ActionMap::AddFunction(const std::string &name,
+                       std::function<void(Args...)> func) {
+  if (name.empty()) {
+    return std::unexpected("Function name cannot be empty");
+  }
 
   if (HasFunction(name)) {
-    return false;
+    return std::unexpected("Function '" + name + "' already exists");
   }
 
   function_map.emplace(
@@ -153,50 +139,53 @@ bool ActionMap::AddFunction(const std::string &name,
       FunctionEntry(std::any(std::move(func)),
                     std::type_index(typeid(std::function<void(Args...)>))));
 
-  return true;
+  return {};
 }
 
 template <typename... Args>
-void ActionMap::ReplaceFunction(const std::string &name,
-                                std::function<void(Args...)> func) {
+std::expected<void, std::string>
+ActionMap::ReplaceFunction(const std::string &name,
+                           std::function<void(Args...)> func) {
+  if (name.empty()) {
+    return std::unexpected("Function name cannot be empty");
+  }
 
-  assert(!name.empty());
   function_map.erase(name);
   function_map.emplace(
       name,
       FunctionEntry(std::any(std::move(func)),
                     std::type_index(typeid(std::function<void(Args...)>))));
-}
 
-// Ngl I chatted this one, will need to rewrite it to better understand passing
-// the return of the function to where it needs to go.
+  return {};
+}
 template <typename... Args>
-std::optional<std::string> ActionMap::Trigger(const std::string &name,
-                                              Args &&...args) {
-  // Find the function
+std::expected<void, std::string> ActionMap::Trigger(const std::string &name,
+                                                    Args &&...args) {
   auto it = function_map.find(name);
   if (it == function_map.end()) {
-    return "Function '" + name + "' not found in ActionMap";
+    return std::unexpected("Function '" + name + "' not found in ActionMap");
   }
 
-  // Verify type matches
-  std::type_index expected_type =
-      std::type_index(typeid(std::function<void(Args...)>));
+  std::type_index expected_type(typeid(std::function<void(Args...)>));
   if (it->second.type_info != expected_type) {
-    return "Type mismatch for function '" + name +
-           "': incorrect argument types";
+    return std::unexpected("Type mismatch for function '" + name +
+                           "': incorrect argument types");
   }
 
-  // Extract and call the function
+  auto &func =
+      std::any_cast<std::function<void(Args...)> &>(it->second.function);
+
   try {
-    auto &func =
-        std::any_cast<std::function<void(Args...)> &>(it->second.function);
     func(std::forward<Args>(args)...);
-    return std::nullopt; // Success
-  } catch (const std::bad_any_cast &) {
-    return "Internal error: failed to cast function '" + name + "'";
   } catch (const std::exception &e) {
-    return "Exception thrown by function '" + name + "': " + e.what();
+    return std::unexpected("Function '" + name +
+                           "' threw exception: " + std::string(e.what()));
+  } catch (...) {
+    return std::unexpected("Function '" + name +
+                           "' threw an unknown exception");
   }
+
+  return {};
 }
+
 } // namespace cse498

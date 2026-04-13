@@ -86,12 +86,12 @@ TEST_CASE("Selector Node Logic", "[composite]") {
 TEST_CASE("Action Node Basic Logic", "[leaf]") {
   Blackboard dummyBB;
   // Initial state
-  dummyBB["gold"] = 10;
+  updateBB(dummyBB, "gold", 10);
 
   // Define logic that increments gold
   auto gatherGold = [](Blackboard &bb) {
     int current = std::get<int>(bb.at("gold"));
-    bb["gold"] = current + 5;
+    updateBB(bb, "gold", current + 5);
     return Status::Success;
   };
 
@@ -126,7 +126,7 @@ TEST_CASE("Inverter Decorator Logic", "[decorator]") {
 
 TEST_CASE("Condition Node Logic", "[leaf]") {
   Blackboard dummyBB;
-  dummyBB["is_hungry"] = true;
+  updateBB(dummyBB, "is_hungry", true);
 
   auto checkHunger = [](const Blackboard &bb) {
     return std::get<bool>(bb.at("is_hungry"));
@@ -139,7 +139,7 @@ TEST_CASE("Condition Node Logic", "[leaf]") {
   }
 
   SECTION("Returns Failure when condition is changed to false") {
-    dummyBB["is_hungry"] = false;
+    updateBB(dummyBB, "is_hungry", false);
     REQUIRE(hungerNode.tick(dummyBB) == Status::Failure);
   }
 }
@@ -168,10 +168,9 @@ TEST_CASE("Blackboard Edge Cases - Missing Keys", "[blackboard]") {
 
 TEST_CASE("Blackboard Edge Cases - Wrong Type", "[blackboard]") {
   Blackboard confusedBB;
-  confusedBB["health"] = "Full Health"; // It's a string
+  updateBB(confusedBB, "health", std::string("Full Health"));
 
   auto readHealth = [](Blackboard &bb) {
-    // attempting to get int from a string variant
     try {
       std::get<int>(bb.at("health"));
       return Status::Success;

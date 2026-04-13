@@ -87,7 +87,7 @@ namespace cse498 {
     /// @param grid The current known portions of the WorldGrid
     /// @return ID of the action to perform; (0 is always "no action")
     /// @note Agents can use World API to query for more info (e.g., items, agents, or cell info)
-    [[nodiscard]] virtual size_t SelectAction(const WorldGrid & grid) = 0;
+    [[nodiscard]] virtual size_t SelectAction( WorldGrid & grid) = 0;
 
 
     /// Provide the result of this agent's most recent action.

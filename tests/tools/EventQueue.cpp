@@ -1,182 +1,345 @@
 /** 
- * @file TestEventQueue.cpp
+ * @file EventQueue.cpp
  * @author Truong Phan
  *
- * This file contains unit tests for the EventQueue class. It was written with the help of
- * ChatGPT and GitHub Copilot. 
+ * Tests for the EventQueue class.
+ * 
+ * Citation: ChatGPT and Claude AI were used to assist in the design and 
+ * implementation of the tests. The generated code was then modified and improved
+ * by the author to meet the requirements of the project.
  */
 
 #include "../../third-party/Catch/single_include/catch2/catch.hpp"
-
 #include "../../source/tools/EventQueue.hpp"
 
 using cse498::EventQueue;
 using cse498::Event;
 
-TEST_CASE("Test Event Constructor", "[Event]") 
+TEST_CASE("Test Event Constructor and Getters", "[Event]") 
 {
-    // Test default constructor
-    Event e1;
-    REQUIRE(e1.mData == "");
-    REQUIRE(e1.mPriority == 0);
-    REQUIRE(e1.mTiebreaker == 0);
+    // Test default constructor  
+    Event<std::string> e1;
 
-    
+    // Test getters for default event
+    REQUIRE(e1.GetData() == "");
+    REQUIRE(e1.GetPriority() == 0);
+    REQUIRE(e1.GetTiebreaker() == 0);
+
     // Test parameterized constructor
-    Event e2("Test Data", 5);
-    REQUIRE(e2.mData == "Test Data");
-    REQUIRE(e2.mPriority == 5);
-    REQUIRE(e2.mTiebreaker == 0);
+    Event<std::string> e2("Sample Event", 5);
+
+    // Test getters for parameterized event
+    REQUIRE(e2.GetData() == "Sample Event");
+    REQUIRE(e2.GetPriority() == 5);
+    REQUIRE(e2.GetTiebreaker() == 0);
+
+    // Test move constructor
+    Event<std::string> e3("Another Event", 42);
+
+    // Test getters for moved event
+    REQUIRE(e3.GetData() == "Another Event");
+    REQUIRE(e3.GetPriority() == 42);
+    REQUIRE(e3.GetTiebreaker() == 0);
 }
 
-TEST_CASE("Test EventQueue Constructor", "[EventQueue]") 
+TEST_CASE("Test EventQueue Default, Copy, and Assignment Constructor", "[EventQueue]") 
 {
     // Test default constructor
-    EventQueue eq;
+    EventQueue<std::string> eq;
     REQUIRE(eq.Empty());
     REQUIRE(eq.Size() == 0);
 
+    REQUIRE(eq.Push(Event<std::string>("Event 1", 1)));
+
     // Test copy constructor
-    eq.Push(Event("Event 1", 1));
-    EventQueue copy(eq);
-    REQUIRE(!copy.Empty());
+    EventQueue<std::string> copy(eq);
     REQUIRE(copy.Size() == 1);
+    REQUIRE(copy.Top()->GetData() == "Event 1");
 
     // Test assignment operator
-    EventQueue assigned;
+    EventQueue<std::string> assigned;
     assigned = eq;
-    REQUIRE(!assigned.Empty());
     REQUIRE(assigned.Size() == 1);
+    REQUIRE(assigned.Top()->GetData() == "Event 1");
 }
 
-TEST_CASE("Test Push", "[EventQueue]") 
+TEST_CASE("Test Copy and Assignment Correctness", "[EventQueue]") 
 {
-    // Test pushing events onto the EventQueue
-    EventQueue eq;
+    // Test that copy and assignment create independent copies of the EventQueue
+    EventQueue<std::string> eq;
+    REQUIRE(eq.Push(Event<std::string>("Event 1", 1)));
+    REQUIRE(eq.Push(Event<std::string>("Event 2", 2)));
+    REQUIRE(eq.Push(Event<std::string>("Event 3", 3)));
 
-    // Push an event and verify it's added correctly
-    eq.Push(Event("Event 1", 2));
-    REQUIRE(!eq.Empty());
-    REQUIRE(eq.Size() == 1);
-    REQUIRE(eq.Top().mData == "Event 1");
-    REQUIRE(eq.Top().mPriority == 2);
-    REQUIRE(eq.Top().mTiebreaker == 0);
-
-    eq.Push(Event("Event 2", 1));
-    REQUIRE(eq.Size() == 2);
-    REQUIRE(eq.Top().mData == "Event 2");
-    REQUIRE(eq.Top().mPriority == 1);
-    REQUIRE(eq.Top().mTiebreaker == 1);
-
-    // Test overload of Push that takes data and priority directly
-    eq.Push("Event 3", 0);
+    // Copy constructor
+    EventQueue<std::string> copy(eq);
+    REQUIRE(copy.Size() == eq.Size());
+    REQUIRE(copy.Top()->GetData() == eq.Top()->GetData());
+    REQUIRE(copy.Pop());
+    REQUIRE(copy.Size() == eq.Size() - 1);
     REQUIRE(eq.Size() == 3);
-    REQUIRE(eq.Top().mData == "Event 3");
-    REQUIRE(eq.Top().mPriority == 0);
-    REQUIRE(eq.Top().mTiebreaker == 2);
 
+    // Assignment operator
+    EventQueue<std::string> assigned;
+    assigned = eq;
+    REQUIRE(assigned.Size() == eq.Size());
+    REQUIRE(assigned.Top()->GetData() == eq.Top()->GetData());
+    REQUIRE(assigned.Pop());
+    REQUIRE(assigned.Size() == eq.Size() - 1);
+    REQUIRE(eq.Size() == 3);
+}
+
+TEST_CASE("Test Push and Top", "[EventQueue]") 
+{
+    // Test that events are pushed correctly and that the top event is returned correctly
+    EventQueue<std::string> eq;
+
+    REQUIRE(eq.Push(Event<std::string>("Event 1", 2)));
+    REQUIRE(eq.Size() == 1);
+    REQUIRE(eq.Top()->GetData() == "Event 1");
+    REQUIRE(eq.Top()->GetPriority() == 2);
+    REQUIRE(eq.Top()->GetTiebreaker() == 0);
+
+    REQUIRE(eq.Push(Event<std::string>("Event 2", 1)));
+    REQUIRE(eq.Size() == 2);
+    REQUIRE(eq.Top()->GetData() == "Event 2");
+    REQUIRE(eq.Top()->GetPriority() == 1);
+    REQUIRE(eq.Top()->GetTiebreaker() == 1);
+
+    REQUIRE(eq.Push("Event 3", 0));
+    REQUIRE(eq.Size() == 3);
+    REQUIRE(eq.Top()->GetData() == "Event 3");
+    REQUIRE(eq.Top()->GetPriority() == 0);
+    REQUIRE(eq.Top()->GetTiebreaker() == 2);
+}
+
+TEST_CASE("Test Top and Pop on Empty Queue", "[EventQueue]")
+{
+    // Test that Top() returns nullptr and Pop() returns false on an empty queue
+    EventQueue<std::string> eq;
+    REQUIRE(eq.Empty());
+
+    // Top() should return nullptr when the queue is empty
+    REQUIRE(eq.Top() == nullptr);
+
+    // Pop() should return false when the queue is empty
+    REQUIRE_FALSE(eq.Pop());
+
+    // Queue should still be empty and well-behaved after failed operations
+    REQUIRE(eq.Empty());
+    REQUIRE(eq.Size() == 0);
+
+    // Top() should return nullptr after Clear() empties a non-empty queue
+    REQUIRE(eq.Push(Event<std::string>("Event 1", 1)));
+    eq.Clear();
+    REQUIRE(eq.Top() == nullptr);
+    REQUIRE_FALSE(eq.Pop());
 }
 
 TEST_CASE("Test Pop", "[EventQueue]") 
 {
-    // Test popping events from the EventQueue
-    EventQueue eq;
-    eq.Push(Event("Event 1", 2));
-    eq.Push(Event("Event 2", 1));
-    eq.Push(Event("Event 3", 3));
+    // Test that events are popped correctly and that the heap property is maintained
+    EventQueue<std::string> eq;
+    REQUIRE(eq.Push(Event<std::string>("Event 1", 2)));
+    REQUIRE(eq.Push(Event<std::string>("Event 2", 1)));
+    REQUIRE(eq.Push(Event<std::string>("Event 3", 3)));
 
-    // Pop events and verify the order is correct
-    eq.Pop();
+    REQUIRE(eq.Pop());
     REQUIRE(eq.Size() == 2);
-    REQUIRE(eq.Top().mData == "Event 1");
-    REQUIRE(eq.Top().mPriority == 2);
-    REQUIRE(eq.Top().mTiebreaker == 0);
-    
-    eq.Pop();
+    REQUIRE(eq.Top()->GetData() == "Event 1");
+    REQUIRE(eq.Top()->GetPriority() == 2);
+
+    REQUIRE(eq.Pop());
     REQUIRE(eq.Size() == 1);
-    REQUIRE(eq.Top().mData == "Event 3");
-    REQUIRE(eq.Top().mPriority == 3);
-    REQUIRE(eq.Top().mTiebreaker == 2);
-    
-    // Pop last event and verify the EventQueue is empty
-    eq.Pop();
+    REQUIRE(eq.Top()->GetData() == "Event 3");
+    REQUIRE(eq.Top()->GetPriority() == 3);
+
+    REQUIRE(eq.Pop());
     REQUIRE(eq.Empty());
 }
 
-TEST_CASE("Test Top", "[EventQueue]") 
+TEST_CASE("Test Size, Empty, and Clear", "[EventQueue]") 
 {
-    // Test accessing the top event of the EventQueue
-    EventQueue eq;
-    eq.Push(Event("Event 1", 2));
-    eq.Push(Event("Event 2", 1));
-    eq.Push(Event("Event 3", 3));
-
-    // Verify the top event is correct
-    REQUIRE(eq.Top().mData == "Event 2");
-    REQUIRE(eq.Top().mPriority == 1);
-    REQUIRE(eq.Top().mTiebreaker == 1);
-    REQUIRE(eq.Size() == 3);
-
-    eq.Pop();
-
-    // Verify the new top event is correct after popping
-    REQUIRE(eq.Top().mData == "Event 1");
-    REQUIRE(eq.Top().mPriority == 2);
-    REQUIRE(eq.Top().mTiebreaker == 0);
-    REQUIRE(eq.Size() == 2);
-}
-
-TEST_CASE("Test Size and Empty", "[EventQueue]") 
-{
-    // Test the Size and Empty functions of the EventQueue
-    EventQueue eq;
-
-    // Initially empty
+    // Test that Size, Empty, and Clear functions work correctly
+    EventQueue<std::string> eq;
+    REQUIRE(eq.Empty());
     REQUIRE(eq.Size() == 0);
-    REQUIRE(eq.Empty());
 
-    // Push events and check size and empty
-    eq.Push(Event("Event 1", 2));
-    REQUIRE(eq.Size() == 1);
+    REQUIRE(eq.Push(Event<std::string>("Event 1", 1)));
+    REQUIRE(eq.Push(Event<std::string>("Event 2", 2)));
     REQUIRE(!eq.Empty());
-
-    eq.Push(Event("Event 2", 1));
     REQUIRE(eq.Size() == 2);
-    REQUIRE(!eq.Empty());
 
-    eq.Pop();
-    REQUIRE(eq.Size() == 1);
-    REQUIRE(!eq.Empty());
-
-    // Pop last event and check size and empty
-    eq.Pop();
+    eq.Clear();
+    REQUIRE(eq.Empty());
     REQUIRE(eq.Size() == 0);
+
+    REQUIRE(eq.Push(Event<std::string>("Event 3", 3)));
+    REQUIRE(eq.Size() == 1);
+    REQUIRE(eq.Top()->GetData() == "Event 3");
+}
+
+TEST_CASE("Test Equal-Priority Ordering", "[EventQueue]") 
+{
+    // Test that events with the same priority are ordered 
+    // based on their insertion order (tiebreaker).
+
+    // All events have the same priority, so they should be 
+    // processed in the order they were inserted
+    EventQueue<std::string> eq;
+    REQUIRE(eq.Push(Event<std::string>("Event 1", 5)));
+    REQUIRE(eq.Push(Event<std::string>("Event 2", 5)));
+    REQUIRE(eq.Push(Event<std::string>("Event 3", 5)));
+
+    REQUIRE(eq.Top()->GetData() == "Event 1");
+    REQUIRE(eq.Pop());
+    REQUIRE(eq.Top()->GetData() == "Event 2");
+    REQUIRE(eq.Pop());
+    REQUIRE(eq.Top()->GetData() == "Event 3");
+    REQUIRE(eq.Pop());
     REQUIRE(eq.Empty());
 }
 
-TEST_CASE("Test EventQueue Comparisons", "[EventQueue]") 
+TEST_CASE("Test Different Priorities and Interleaved Ordering", "[EventQueue]") 
 {
-    // Test that events with the same priority are ordered by insertion index
-    EventQueue eq;
-    eq.Push(Event("Event 1", 1)); // Tiebreaker 0
-    eq.Push(Event("Event 2", 1)); // Tiebreaker 1
-    eq.Push(Event("Event 3", 1)); // Tiebreaker 2
+    // Test that events with different priorities are ordered correctly and that
+    // events with the same priority are ordered based on their insertion order (tiebreaker)
 
-    REQUIRE(eq.Top().mData == "Event 1");
-    eq.Pop();
-    REQUIRE(eq.Top().mData == "Event 2");
-    eq.Pop();
-    REQUIRE(eq.Top().mData == "Event 3");
+    // All events have different priorities, so they should be processed in 
+    // order of their priority (lowest priority value first)
+    EventQueue<std::string> eq;
+    REQUIRE(eq.Push(Event<std::string>("A", 2)));
+    REQUIRE(eq.Push(Event<std::string>("B", 1)));
+    REQUIRE(eq.Push(Event<std::string>("C", 2)));
+    REQUIRE(eq.Push(Event<std::string>("D", 1)));
 
-    // Test that events with different priorities are ordered by priority
-    EventQueue eq2;
-    eq2.Push(Event("Event A", 5)); // Tiebreaker 0
-    eq2.Push(Event("Event B", 4)); // Tiebreaker 1
-    eq2.Push(Event("Event C", 3)); // Tiebreaker 2
+    REQUIRE(eq.Top()->GetData() == "B");
+    REQUIRE(eq.Top()->GetPriority() == 1);
+    REQUIRE(eq.Top()->GetTiebreaker() == 1);
+    REQUIRE(eq.Pop());
 
-    REQUIRE(eq2.Top().mData == "Event C");
-    eq2.Pop();
-    REQUIRE(eq2.Top().mData == "Event B");
-    eq2.Pop();
-    REQUIRE(eq2.Top().mData == "Event A");
+    REQUIRE(eq.Top()->GetData() == "D");
+    REQUIRE(eq.Top()->GetPriority() == 1);
+    REQUIRE(eq.Top()->GetTiebreaker() == 3);
+    REQUIRE(eq.Pop());
+
+    REQUIRE(eq.Top()->GetData() == "A");
+    REQUIRE(eq.Top()->GetPriority() == 2);
+    REQUIRE(eq.Top()->GetTiebreaker() == 0);
+    REQUIRE(eq.Pop());
+
+    REQUIRE(eq.Top()->GetData() == "C");
+    REQUIRE(eq.Top()->GetPriority() == 2);
+    REQUIRE(eq.Top()->GetTiebreaker() == 2);
+    REQUIRE(eq.Pop());
+
+    REQUIRE(eq.Empty());
+}
+
+TEST_CASE("Test Large Scale Push, Pop, and Ordering", "[EventQueue]")
+{
+    // Test that the EventQueue correctly orders a large number of events
+    // and maintains the heap property throughout
+    EventQueue<std::string> eq;
+
+    const int NUM_EVENTS = 1000;
+    const int NUM_PRIORITIES = 10;
+
+    // Push 1000 events with priorities cycling 0-9
+    for (int i = 0; i < NUM_EVENTS; ++i)
+    {
+        int priority = i % NUM_PRIORITIES;
+        REQUIRE(eq.Push(Event<std::string>("Event " + std::to_string(i), priority)));
+    }
+
+    REQUIRE(eq.Size() == NUM_EVENTS);
+
+    // Pop all events and verify they come out in non-decreasing priority order,
+    // and that events with the same priority are ordered by insertion (tiebreaker)
+    int lastPriority = -1;
+    std::size_t lastTiebreaker = 0;
+    int count = 0;
+
+    while (!eq.Empty())
+    {
+        const auto* top = eq.Top();
+        REQUIRE(top != nullptr);
+
+        int currentPriority = top->GetPriority();
+        std::size_t currentTiebreaker = top->GetTiebreaker();
+
+        // Priority must be non-decreasing
+        REQUIRE(currentPriority >= lastPriority);
+
+        // Within the same priority, tiebreaker must be increasing
+        if (currentPriority == lastPriority)
+            REQUIRE(currentTiebreaker > lastTiebreaker);
+
+        lastPriority = currentPriority;
+        lastTiebreaker = currentTiebreaker;
+        ++count;
+
+        REQUIRE(eq.Pop());
+    }
+
+    // All 1000 events should have been popped
+    REQUIRE(count == NUM_EVENTS);
+    REQUIRE(eq.Empty());
+    REQUIRE(eq.Size() == 0);
+
+    // Top() and Pop() should behave correctly after draining the large queue
+    REQUIRE(eq.Top() == nullptr);
+    REQUIRE_FALSE(eq.Pop());
+}
+
+TEST_CASE("Test Templated Event and EventQueue", "[EventQueue]")
+{
+    // Test with int data
+    EventQueue<int> intQueue;
+    REQUIRE(intQueue.Push(Event<int>(42, 2)));
+    REQUIRE(intQueue.Push(Event<int>(7, 1)));
+    REQUIRE(intQueue.Push(Event<int>(99, 3)));
+
+    REQUIRE(intQueue.Top()->GetData() == 7);
+    REQUIRE(intQueue.Top()->GetPriority() == 1);
+    REQUIRE(intQueue.Pop());
+    REQUIRE(intQueue.Top()->GetData() == 42);
+    REQUIRE(intQueue.Pop());
+    REQUIRE(intQueue.Top()->GetData() == 99);
+    REQUIRE(intQueue.Pop());
+    REQUIRE(intQueue.Empty());
+
+    // Test with double data
+    EventQueue<double> doubleQueue;
+    REQUIRE(doubleQueue.Push(Event<double>(3.14, 2)));
+    REQUIRE(doubleQueue.Push(Event<double>(2.71, 1)));
+    REQUIRE(doubleQueue.Push(Event<double>(1.41, 3)));
+
+    REQUIRE(doubleQueue.Top()->GetData() == 2.71);
+    REQUIRE(doubleQueue.Top()->GetPriority() == 1);
+    REQUIRE(doubleQueue.Pop());
+    REQUIRE(doubleQueue.Top()->GetData() == 3.14);
+    REQUIRE(doubleQueue.Pop());
+    REQUIRE(doubleQueue.Top()->GetData() == 1.41);
+    REQUIRE(doubleQueue.Pop());
+    REQUIRE(doubleQueue.Empty());
+
+    // Test with a custom struct
+    struct Point { int x, y; };
+    EventQueue<Point> pointQueue;
+    REQUIRE(pointQueue.Push(Event<Point>({1, 2}, 3)));
+    REQUIRE(pointQueue.Push(Event<Point>({3, 4}, 1)));
+    REQUIRE(pointQueue.Push(Event<Point>({5, 6}, 2)));
+
+    REQUIRE(pointQueue.Top()->GetData().x == 3);
+    REQUIRE(pointQueue.Top()->GetData().y == 4);
+    REQUIRE(pointQueue.Top()->GetPriority() == 1);
+    REQUIRE(pointQueue.Pop());
+    REQUIRE(pointQueue.Top()->GetData().x == 5);
+    REQUIRE(pointQueue.Top()->GetData().y == 6);
+    REQUIRE(pointQueue.Pop());
+    REQUIRE(pointQueue.Top()->GetData().x == 1);
+    REQUIRE(pointQueue.Top()->GetData().y == 2);
+    REQUIRE(pointQueue.Pop());
+    REQUIRE(pointQueue.Empty());
 }
