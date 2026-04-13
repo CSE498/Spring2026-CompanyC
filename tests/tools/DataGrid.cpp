@@ -150,6 +150,42 @@ TEST_CASE("Append to empty grid (0 rows) works", "[append]") {
     REQUIRE_NOTHROW(dg.Append(row));
 }
 
+TEST_CASE("Append with mismatched row width throws out_of_range", "[append]") {
+    DataGrid dg(2, 3);
+    // Row too short
+    REQUIRE_THROWS_AS(dg.Append({Datum(1), Datum(2)}), std::out_of_range);
+    // Row too long
+    REQUIRE_THROWS_AS(dg.Append({Datum(1), Datum(2), Datum(3), Datum(4)}), std::out_of_range);
+}
+
+TEST_CASE("Append to 0x0 grid establishes column width", "[append]") {
+    DataGrid dg(0, 0);
+    REQUIRE(dg.NumCols() == 0);
+
+    dg.Append({Datum(1), Datum(2), Datum(3)});
+    REQUIRE(dg.NumRows() == 1);
+    REQUIRE(dg.NumCols() == 3);
+    REQUIRE(dg.At(0, 0).AsDouble() == Approx(1.0));
+    REQUIRE(dg.At(0, 2).AsDouble() == Approx(3.0));
+
+    // Subsequent appends must match the established width
+    REQUIRE_NOTHROW(dg.Append({Datum(4), Datum(5), Datum(6)}));
+    REQUIRE_THROWS_AS(dg.Append({Datum(7), Datum(8)}), std::out_of_range);
+}
+
+TEST_CASE("Append preserves rectangular invariant for Column()", "[append]") {
+    DataGrid dg(1, 2);
+    dg.Insert(0, 0, 10);
+    dg.Insert(0, 1, 20);
+    dg.Append({Datum(30), Datum(40)});
+
+    // Column should safely access all rows
+    auto col0 = dg.Column(0);
+    REQUIRE(col0.size() == 2);
+    auto col1 = dg.Column(1);
+    REQUIRE(col1.size() == 2);
+}
+
 TEST_CASE("Multiple Appends accumulate rows", "[append]") {
     DataGrid dg(0, 2);
     dg.Append({Datum(1), Datum(2)});

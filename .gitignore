@@ -36,6 +36,8 @@
 *.exe
 *.out
 *.app
+run_tests
+source/simple
 
 # debug information files
 *.dwo
@@ -56,6 +58,8 @@ webtextbox_tests_grumpy
 
 # LLM Files
 .claude
+docs/superpowers/
+
 
 # IDE files
 .vscode/

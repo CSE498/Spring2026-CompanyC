@@ -1216,3 +1216,198 @@ TEST_CASE("DeserializeAt chain after failed parse", "[deserializeAt][pos]") {
         REQUIRE(pos != 17);
     }
 }
+
+// ================================================================
+//  40. variant — basic round-trip
+// ================================================================
+TEST_CASE("variant basic round-trip", "[variant]") {
+    using V = std::variant<int, double, std::string>;
+
+    SECTION("int alternative") {
+        V v = 42;
+        auto data = s.Serialize(v);
+        auto r = s.DeserializeVariant<int, double, std::string>(data);
+        REQUIRE(r.has_value());
+        REQUIRE(r->index() == 0);
+        REQUIRE(std::get<int>(*r) == 42);
+    }
+
+    SECTION("double alternative") {
+        V v = 3.14;
+        auto data = s.Serialize(v);
+        auto r = s.DeserializeVariant<int, double, std::string>(data);
+        REQUIRE(r.has_value());
+        REQUIRE(r->index() == 1);
+        REQUIRE(std::get<double>(*r) == 3.14);
+    }
+
+    SECTION("string alternative") {
+        V v = std::string("hello");
+        auto data = s.Serialize(v);
+        auto r = s.DeserializeVariant<int, double, std::string>(data);
+        REQUIRE(r.has_value());
+        REQUIRE(r->index() == 2);
+        REQUIRE(std::get<std::string>(*r) == "hello");
+    }
+}
+
+// ================================================================
+//  41. variant — index preservation
+// ================================================================
+TEST_CASE("variant index preservation", "[variant]") {
+    using V = std::variant<int, double>;
+
+    V as_int = int(0);
+    V as_double = double(0.0);
+
+    auto data_int = s.Serialize(as_int);
+    auto data_dbl = s.Serialize(as_double);
+
+    auto r_int = s.DeserializeVariant<int, double>(data_int);
+    auto r_dbl = s.DeserializeVariant<int, double>(data_dbl);
+
+    REQUIRE(r_int.has_value());
+    REQUIRE(r_dbl.has_value());
+    REQUIRE(r_int->index() == 0);
+    REQUIRE(r_dbl->index() == 1);
+}
+
+// ================================================================
+//  42. variant — Datum-style (string, double, bool)
+// ================================================================
+TEST_CASE("variant Datum-style round-trip", "[variant]") {
+    using Datum = std::variant<std::string, double, bool>;
+
+    SECTION("string") {
+        Datum d = std::string("world");
+        auto data = s.Serialize(d);
+        auto r = s.DeserializeVariant<std::string, double, bool>(data);
+        REQUIRE(r.has_value());
+        REQUIRE(std::get<std::string>(*r) == "world");
+    }
+
+    SECTION("double") {
+        Datum d = 2.718;
+        auto data = s.Serialize(d);
+        auto r = s.DeserializeVariant<std::string, double, bool>(data);
+        REQUIRE(r.has_value());
+        REQUIRE(std::get<double>(*r) == 2.718);
+    }
+
+    SECTION("bool") {
+        Datum d = true;
+        auto data = s.Serialize(d);
+        auto r = s.DeserializeVariant<std::string, double, bool>(data);
+        REQUIRE(r.has_value());
+        REQUIRE(std::get<bool>(*r) == true);
+    }
+}
+
+// ================================================================
+//  43. variant — BBValue-style (int, double, string, bool)
+// ================================================================
+TEST_CASE("variant BBValue-style round-trip", "[variant]") {
+    using BBValue = std::variant<int, double, std::string, bool>;
+
+    BBValue vals[] = {
+        BBValue(int(99)),
+        BBValue(double(1.5)),
+        BBValue(std::string("flag")),
+        BBValue(bool(false))
+    };
+
+    for (size_t i = 0; i < 4; ++i) {
+        auto data = s.Serialize(vals[i]);
+        auto r = s.DeserializeVariant<int, double, std::string, bool>(data);
+        REQUIRE(r.has_value());
+        REQUIRE(r->index() == i);
+    }
+}
+
+// ================================================================
+//  44. variant — nested in vector
+// ================================================================
+TEST_CASE("variant nested in vector", "[variant][vector]") {
+    using V = std::variant<int, std::string>;
+    std::vector<V> vec = { V(42), V(std::string("abc")), V(7) };
+
+    auto data = s.Serialize(vec);
+    auto r = s.DeserializeVector<V>(data);
+    REQUIRE(r.has_value());
+    REQUIRE(r->size() == 3);
+    REQUIRE(std::get<int>((*r)[0]) == 42);
+    REQUIRE(std::get<std::string>((*r)[1]) == "abc");
+    REQUIRE(std::get<int>((*r)[2]) == 7);
+}
+
+// ================================================================
+//  45. variant — positional DeserializeAt chaining
+// ================================================================
+TEST_CASE("variant DeserializeAt positional", "[variant][deserializeAt]") {
+    using V = std::variant<int, std::string>;
+
+    V v1 = 10;
+    V v2 = std::string("hi");
+    std::string data = s.Serialize(v1) + s.Serialize(v2);
+
+    size_t pos = 0;
+    auto r1 = s.DeserializeAt<V>(data, pos);
+    REQUIRE(r1.has_value());
+    REQUIRE(std::get<int>(*r1) == 10);
+
+    auto r2 = s.DeserializeAt<V>(data, pos);
+    REQUIRE(r2.has_value());
+    REQUIRE(std::get<std::string>(*r2) == "hi");
+
+    REQUIRE(pos == data.size());
+}
+
+// ================================================================
+//  46. variant — error cases
+// ================================================================
+TEST_CASE("variant error cases", "[variant][error]") {
+    using V = std::variant<int, double>;
+
+    SECTION("wrong tag") {
+        std::string data = "i:42;";
+        auto r = s.DeserializeVariant<int, double>(data);
+        CHECK_FALSE(r.has_value());
+    }
+
+    SECTION("out-of-range index") {
+        std::string data = "t:5:i:42;";
+        auto r = s.DeserializeVariant<int, double>(data);
+        CHECK_FALSE(r.has_value());
+    }
+
+    SECTION("truncated data") {
+        std::string data = "t:0:";
+        auto r = s.DeserializeVariant<int, double>(data);
+        CHECK_FALSE(r.has_value());
+    }
+
+    SECTION("pos unchanged on failure") {
+        std::string data = "i:42;";
+        size_t pos = 0;
+        auto r = s.DeserializeAt<V>(data, pos);
+        CHECK_FALSE(r.has_value());
+        REQUIRE(pos == 0);
+    }
+}
+
+// ================================================================
+//  47. variant — map with variant values
+// ================================================================
+TEST_CASE("variant as map values", "[variant][map]") {
+    using V = std::variant<int, std::string>;
+    std::map<std::string, V> m;
+    m["x"] = V(42);
+    m["y"] = V(std::string("hello"));
+
+    auto data = s.Serialize(m);
+    auto r = s.DeserializeMap<std::string, V>(data);
+    REQUIRE(r.has_value());
+    REQUIRE(r->size() == 2);
+    REQUIRE(std::get<int>(r->at("x")) == 42);
+    REQUIRE(std::get<std::string>(r->at("y")) == "hello");
+}
