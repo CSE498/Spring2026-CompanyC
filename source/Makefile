@@ -31,12 +31,13 @@ opt: opt-agent
 grumpy: grumpy-agent
 
 # Sources shared by all build targets (native and web)
-BASE_SOURCES = tools/BehaviorTree.cpp   \
-               tools/CompositeNodes.cpp \
-               tools/LeafNodes.cpp      \
-               tools/PathGenerator.cpp  \
-               tools/WorldPath.cpp      \
-               Agents/ClassicAgent.cpp  \
+BASE_SOURCES = Agents/ClassicAgent.cpp   \
+               Agents/TendencyAgent.cpp  \
+               tools/BehaviorTree.cpp    \
+               tools/CompositeNodes.cpp  \
+               tools/LeafNodes.cpp       \
+               tools/PathGenerator.cpp   \
+               tools/WorldPath.cpp       \
                Worlds/DynamicWorld.cpp
 
 # ── Web / Emscripten build ────────────────────────────────────────────────────
