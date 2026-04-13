@@ -1,4 +1,5 @@
  #include "DecoratorNodes.hpp"
+ #include <cassert>
 namespace cse498{
 /**
  * @file DecoratorNodes.cpp
@@ -6,7 +7,7 @@ namespace cse498{
  * @brief Implementation of Decorator node logic.
  */
  Status Inverter::tick(Blackboard& bb){
-    if (!child) return Status::Failure;
+    assert(child != nullptr);
 
     Status s = child->tick(bb);
 

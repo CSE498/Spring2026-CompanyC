@@ -18,7 +18,7 @@
 #   make test-build
 #   make test-list
 
-.PHONY: default all build test clean debug opt quick grumpy \
+.PHONY: default all build test web web-opt web-debug server clean debug opt quick grumpy \
         src-% test-% help
 
 # ---------- High-level targets ----------
@@ -37,13 +37,14 @@ test:
 all: build test
 
 # Program build variants (forwarded to source/)
-debug opt quick grumpy:
+debug opt quick grumpy web web-opt web-debug server:
 	$(MAKE) -C source $@
 
 # Clean everything
 clean:
 	$(MAKE) -C source clean
 	$(MAKE) -C tests clean
+	rm -rf web
 
 # Forward anything to source/ by prefixing with src-
 #   make src-simple
