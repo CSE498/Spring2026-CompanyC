@@ -193,7 +193,7 @@ public:
   bool Initialize() override;
 
   //Selects the best action each turn by scoring all available actions from the world
-  size_t SelectAction(const WorldGrid& grid) override;
+  size_t SelectAction(WorldGrid& grid) override;
 
   //Receives feedback/events from the world (e.g., failures, resources) to update internal memory
   void Notify(const std::string& message,

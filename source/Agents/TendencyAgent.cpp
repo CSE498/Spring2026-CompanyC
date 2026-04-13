@@ -85,7 +85,7 @@ void TendencyAgent::Notify(const std::string& message,
  * The agent adapts to the world by only considering actions it supports
  * (via HasAction), making it flexible across different environments.
  */
-size_t TendencyAgent::SelectAction(const WorldGrid& grid) {
+size_t TendencyAgent::SelectAction(WorldGrid& grid) {
   // 1. Decide what we want to accomplish this turn.
   ChooseGoal();
 

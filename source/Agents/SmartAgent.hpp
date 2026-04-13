@@ -450,7 +450,7 @@ namespace cse498 {
       npc_request_callback = callback;
     }
 
-    [[nodiscard]] size_t SelectAction(const WorldGrid & grid) override
+    [[nodiscard]] size_t SelectAction(WorldGrid & grid) override
     {
       if (action_result == 0) ClearPlan();
 
