@@ -6,7 +6,7 @@
  * @details
  *  - Make(...) returns a raw T* that must be returned via Delete(ptr).
  *  - MakeUnique(...) returns a std::unique_ptr with a custom deleter
- thatautomatically returns the object to the pool when it is destroyed or reset
+ that automatically returns the object to the pool when it is destroyed or reset
  (this method is generally preferred).
  *
  * Usage notes (IMPORTANT):
@@ -70,7 +70,7 @@ public:
   };
   /**
    * @brief Owning smart pointer that returns objects to the pool on
-   *desctruction.
+   *destruction.
    **/
   using UniquePtr = std::unique_ptr<T, Deleter>;
 
@@ -112,7 +112,7 @@ public:
   }
 
   /**
-   * @brief Ensures at least a given number of blocs are allocated
+   * @brief Ensures at least a given number of blocks are allocated
    * @param blocks minimum # of blocks to have allocated.
    **/
   void ReserveBlocks(std::size_t blocks) {
@@ -129,7 +129,7 @@ private:
   /**
    * @brief Rounds n up to the next multiple of align.
    * @param n Value to round up.
-   * @param align Aligment multiple
+   * @param align Alignment multiple
    * @return n rounded up to the next multiple of align
    **/
   static constexpr std::size_t RoundUp(std::size_t n, std::size_t align) {

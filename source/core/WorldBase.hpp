@@ -27,10 +27,12 @@ namespace cse498 {
   class WorldBase {
   protected:
     /// NOTE: derived worlds may choose to have more than one grid.
-    WorldGrid main_grid;                 ///< Main grid for this world
+    WorldGrid main_grid;    ///< Main grid for this world
 
     item_set_t item_set;    ///< Vector of pointers to non-agent entities (ItemBase)
     agent_set_t agent_set;  ///< Vector of pointers to agent entities (AgentBase)
+
+    std::unordered_map<std::string, size_t> world_global_counts; /// Set of global resources / counts
 
     bool run_over = false;  ///< Are we finished executing and now shutting down?
 
@@ -94,14 +96,22 @@ namespace cse498 {
       return *agent_set[id];
     }
 
+    [[nodiscard]] const std::unordered_map<std::string, size_t> & GetWorldGlobalCounts() const { 
+      return world_global_counts;
+    }
+
+    [[nodiscard]] virtual size_t GetWidth() const { return main_grid.GetWidth(); }
+    [[nodiscard]] virtual size_t GetHeight() const { return main_grid.GetHeight(); }
+    [[nodiscard]] virtual size_t GetNumCells() const { return main_grid.GetNumCells(); }
+
     /// Return an editable version of the current grid for this world (main_grid by default) 
-    virtual WorldGrid & GetGrid() { return main_grid; }
+    [[nodiscard]] virtual WorldGrid & GetGrid() { return main_grid; }
 
     /// Return the current grid for this world (main_grid by default) 
-    virtual const WorldGrid & GetGrid() const { return main_grid; }
+    [[nodiscard]] virtual const WorldGrid & GetGrid() const { return main_grid; }
 
     /// Determine if the run has ended.
-    virtual bool IsRunOver() const { return run_over; }
+    [[nodiscard]] virtual bool IsRunOver() const { return run_over; }
 
     // -- Agent Management --
 

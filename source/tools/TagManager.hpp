@@ -1,79 +1,134 @@
 /*
   Author: Shashank Papani
   File: TagManager.hpp
-  Header file for TagManager class
+  This is the header file for the TagManager class.
 */
 #pragma once
 
 #include <algorithm>
 #include <cassert>
+#include <cctype>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <cstddef>
-#include <cctype>
 
 namespace cse498 {
 
 class TagManager {
-public:
+ public:
+  // Use a stable integer ID so references do not break if objects move or get removed.
+  using ObjectId = std::uint64_t;
+  using TagSet = std::unordered_set<std::string>;
+  using IdSet = std::unordered_set<ObjectId>;
+  using IdList = std::vector<ObjectId>;
+
+  // Minimum length a normalized tag needs to be valid.
+  static constexpr std::size_t kMinValidTagLength = 1;
 
   /*
-    Constructor class:
-    Initializes an empty TagManager with no registered objects and no tag buckets
+    Default constructor:
+    Starts with no registered objects and no tags stored.
   */
   TagManager();
 
   /*
-    Default destructor:
+    Default destructor.
   */
   ~TagManager() = default;
 
-  // Using stable integer ID to avoid dangling references when objects are moved or removed.
-  using ObjectId = std::uint64_t;
-  
-  // Registration operations
+  // Functions for registering objects
   void RegisterObject(ObjectId id);
   void UnregisterObject(ObjectId id);
-  bool IsRegistered(ObjectId id) const;
+  bool IsRegistered(ObjectId id) const noexcept;
 
-  // Tag operations (require object is registered)
-  bool AddTag(ObjectId id, std::string_view tag); //true if it is newly added
-  bool RemoveTag(ObjectId id, std::string_view tag); //true if it is removed
+  // Functions for adding, removing, and checking tags
+  bool AddTag(ObjectId id, std::string_view tag);  // true if the tag was added
+  bool RemoveTag(ObjectId id, std::string_view tag);  // true if the tag was removed
   bool HasTag(ObjectId id, std::string_view tag) const;
 
-  // Read tags
-  const std::unordered_set<std::string>& GetTags(ObjectId id) const;
+  // Read the tags on an object
+  const TagSet& GetTags(ObjectId id) const;
 
-  // Tag queries
-  std::vector<ObjectId> FindAny(const std::vector<std::string>& tags) const;
-  std::vector<ObjectId> FindAll(const std::vector<std::string>& must_have) const;
-  std::vector<ObjectId> FindAllExcept(const std::vector<std::string>& must_have,
-                                      const std::vector<std::string>& must_not_have) const;
-                                      
-  // Count tags
+  /*
+    TryGetTags(id):
+      Returns a pointer to the object's tag set if the id is registered.
+      Returns nullptr if the object is not registered.
+
+    Purpose:
+      Gives other code a safe read-only way to check tags without assuming
+      the object is already there.
+  */
+  const TagSet* TryGetTags(ObjectId id) const noexcept;
+
+  // Query functions for tags
+  IdList FindAny(const std::vector<std::string>& tags) const;
+  IdList FindAll(const std::vector<std::string>& must_have) const;
+  IdList FindAllExcept(const std::vector<std::string>& must_have,
+                       const std::vector<std::string>& must_not_have) const;
+
+  // Count how many objects have a tag
   std::size_t Count(std::string_view tag) const;
 
-  // Checks if tag is valid
-  bool IsValidTag(std::string_view tag) const;
+  /*
+    ObjectCount():
+      Returns the current number of registered objects.
+  */
+  std::size_t ObjectCount() const noexcept;
 
-private:
-  using TagSet = std::unordered_set<std::string>;
-  using IdSet = std::unordered_set<ObjectId>;
+  // Check if a tag is valid
+  static bool IsValidTag(std::string_view tag);
 
-  // Core Storage (using maps)
+ private:
+  // Main storage
   std::unordered_map<ObjectId, TagSet> id_to_tags_;
   std::unordered_map<std::string, IdSet> tag_to_ids_;
 
-  // Helpers
+  // Helper functions
   static std::string NormalizeTag(std::string_view tag);
   static void DedupStringsInPlace(std::vector<std::string>& v);
+  static void SortIdsInPlace(IdList& ids);
 
-  // For fast filtering in queries
+  /*
+    NormalizeTags(tags):
+      Template helper used by the query functions.
+      It normalizes each input string, removes empty results, and removes duplicates.
+
+    Purpose:
+      This keeps the query code shorter and avoids repeating the same
+      normalization steps in different places.
+  */
+  template <typename Range>
+  static std::vector<std::string> NormalizeTags(const Range& tags) {
+    std::vector<std::string> normalized_tags;
+    for (const auto& tag : tags) {
+      std::string clean_tag = NormalizeTag(tag);
+      if (!clean_tag.empty()) {
+        normalized_tags.push_back(std::move(clean_tag));
+      }
+    }
+    DedupStringsInPlace(normalized_tags);
+    return normalized_tags;
+  }
+
+  // Used to check tag buckets quickly during queries
   bool BucketContainsId(const std::string& tag, ObjectId id) const;
+
+  /*
+    CheckInvariant():
+      Debug helper that checks if both internal maps match each other.
+
+    It checks:
+      if id_to_tags_[id] contains tag, then tag_to_ids_[tag] contains id
+      if tag_to_ids_[tag] contains id, then id_to_tags_[id] contains tag
+
+    Purpose:
+      Used with assert after changes to catch internal bugs early.
+  */
+  bool CheckInvariant() const;
 };
 
-}
+}  // namespace cse498
