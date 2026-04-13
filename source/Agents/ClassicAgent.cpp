@@ -98,7 +98,7 @@ void ClassicAgent::BuildTree() {
     auto gather_action = std::make_shared<ActionNode>(
         "Gather",
         [](Blackboard & bb) -> Status {
-            bb["chosen_action"].emplace<std::string>("gather");
+            bb["chosen_action"].emplace<std::string>("collect");
             return Status::Success;
         }
     );
@@ -134,8 +134,7 @@ void ClassicAgent::BuildTree() {
         }
     );
 
-    //TODO: root->addChild(attack_branch);
-    //TODO: root->addChild(gather_branch);
+    root->addChild(gather_branch);
     root->addChild(explore_action);
 
     tree.setRoot(root);
@@ -254,10 +253,42 @@ void ClassicAgent::Sense( WorldGrid& grid) {
     // --------------------------------------------------
     // Compute explore move from shared knowledge.
     // --------------------------------------------------
+    WorldView agent_world_view(grid.GetWidth(), grid.GetHeight());
+
+    for (const auto& [pos, tile] : shared.tiles){
+        if (tile.walkable_known && !tile.is_walkable){
+            agent_world_view.SetBlocked(StateGridPosition(pos.CellX(), pos.CellY()));
+        }
+    }
+
     PathGenerator generator;
+    generator.SetWorldView(agent_world_view);
 
     StateGridPosition start(m_pos.CellX(), m_pos.CellY());
-    WorldPath path = generator.GenerateExplorePath(start, shared, std::nullopt);
+
+    std::optional<StateGridPosition> target_resource;
+    int min_dist = 999999;
+
+    for(const auto& [pos,tile] : shared.tiles){
+        if(tile.has_resource){
+            int dist = std::abs(static_cast<int>(pos.CellX() - m_pos.CellX())) +
+                       std::abs(static_cast<int>(pos.CellY() - m_pos.CellY()));
+
+            if (dist > 0 && dist < min_dist){
+                min_dist = dist;
+                target_resource = StateGridPosition(pos.CellX(), pos.CellY());
+            }
+        }
+    }
+    WorldPath path;
+
+    if (target_resource.has_value()){
+        path = generator.GenerateShortestPath(start, target_resource.value());
+    }
+
+    if (path.size() < 2){
+        path = generator.GenerateExplorePath(start, shared, std::nullopt);
+    }
 
     std::string explore_move;
 
