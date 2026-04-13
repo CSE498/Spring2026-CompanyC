@@ -1,171 +1,142 @@
-//By Sachin Karatha
-//
-//This class stores tags that are attached to a given object with a unique Id.
-//
-//Class includes methods to add and remove tags using vectors or strings depending
-//on the amount being added. Tags can also be checked for membership whether it be
-//only one or multiple. 
-//Integration between TagManager made by Shashank Papani with help of chatgpt
-
 #include "AnnotationSet.hpp"
+
 #include "TagManager.hpp"
-#include <set>
-#include <string>
+
 #include <algorithm>
 #include <cctype>
-#include <vector>
+#include <utility>
+#include <span>
 
 namespace cse498 {
 
-//new constructor initializes object Id and tags with a default value of {}
-AnnotationSet::AnnotationSet(int obj, std::set<std::string> inTags){
-    objectId = obj;
-    tags = inTags;
+namespace {
+/// @brief This helper function is used to convert ints in the code to a tagmanager object id
+/// @param object_id int representing object's id
+/// @return the converted object id
+constexpr TagManager::ObjectId ToTagManagerId(int object_id) noexcept {
+  return static_cast<TagManager::ObjectId>(object_id);
 }
 
-
-//adds a tag to the tags
-void AnnotationSet::AddTag(std::string tag){
-    std::pair<bool,std::string>newTagPair=RemoveWhiteSpace(tag);
-    if (!newTagPair.first){
-        tags.insert(newTagPair.second);
-        if(tagManager){
-            tagManager->AddTag(static_cast<TagManager::ObjectId>(objectId),newTagPair.second);
-        }
-    }
 }
 
-//adds tags to the set of tags
-void AnnotationSet::AddTags(const std::vector<std::string>& addedTags) {
-    for (const auto& rawTag : addedTags) {
-        std::string tag = rawTag;
-        std::pair<bool,std::string>newTagPair=RemoveWhiteSpace(tag);
-        if (!newTagPair.first){
-            tags.insert(newTagPair.second);
-            if(tagManager){
-                tagManager->AddTag(static_cast<TagManager::ObjectId>(objectId),newTagPair.second);
-            }
-        }
+/// @brief Constructor for Annotation Set which must have object Id. Initial tags
+///default to a blank list
+/// @param obj object's id
+/// @param in_tags tags taken in
+AnnotationSet::AnnotationSet(int obj, const TagSet &in_tags)
+    : object_id_(obj) {
+  for (std::string tag : in_tags) {
+    tag = NormalizeTag_(std::move(tag));
+    if (!tag.empty()) {
+      tags_.insert(std::move(tag));
     }
+  }
 }
 
-
-//removes tags from the set of tags
-//returns true if all were successfull false otherwise
-bool AnnotationSet::RemoveTags(const std::vector<std::string>& removedTags){
-    bool allRemoved = true;
-
-    for (const auto& tag : removedTags) {
-        std::string newTag=tag;
-        std::pair<bool,std::string>newTagPair=RemoveWhiteSpace(newTag);
-        if (tags.erase(newTagPair.second) == 0) {
-            allRemoved = false;
-        }
-        else{
-            if(tagManager){
-                tagManager->RemoveTag(static_cast<TagManager::ObjectId>(objectId),newTagPair.second);
-            }
-        }
-    }
-
-    return allRemoved;
-}
-
-//removes a tag from the set of tags
-//returns true if successfull false otherwise
-bool AnnotationSet::RemoveTag(const std::string& tag){
-    std::string newTag=tag;
-    std::pair<bool,std::string>newTagPair=RemoveWhiteSpace(newTag);
-    if (tags.erase(newTagPair.second) == 0) {
-        return false;
-    }
-    else{
-        if(tagManager){
-            tagManager->RemoveTag(static_cast<TagManager::ObjectId>(objectId),newTagPair.second);
-        }
-        return true;
-    }
-}
-
-//checks if a certain tag is attached to object
-//returns true if successfull false otherwise
-bool AnnotationSet::FindTag(const std::string& tag){
-    std::string newTag=tag;
-    std::pair<bool,std::string>newTagPair=RemoveWhiteSpace(newTag);
-    if(tags.count(newTagPair.second)==1){
-        return true;
-    }
-    else{
-        return false;
-    }
-}
-
-//checks if any of a given set of tags are attached to an object
-//returns true if successfull false otherwise
-bool AnnotationSet::FindAnyTag(const std::vector<std::string>& searchTags){
-    for (const auto& tag : searchTags) {
-        std::string newTag=tag;
-        std::pair<bool,std::string>newTagPair=RemoveWhiteSpace(newTag);
-        if (tags.count(newTagPair.second)==1) {
-            return true;
-        }
-    }
+/// @brief adds a tag to the stored tags
+/// @param tag tag to be added
+bool AnnotationSet::AddTag(std::string tag) {
+  tag = NormalizeTag_(std::move(tag));
+  if (tag.empty()) {
     return false;
-}
-//checks if all of a given set of tags are attached to an object
-//returns true if successfull false otherwise
-bool AnnotationSet::FindAllTags(const std::vector<std::string>& searchTags){
-    for (const auto& tag : searchTags) {
-        std::string newTag=tag;
-        std::pair<bool,std::string>newTagPair=RemoveWhiteSpace(newTag);
-        if (!tags.count(newTagPair.second)) {
-            return false;
-        }
-    }
+  }
+
+  const bool inserted = tags_.insert(tag).second;
+  if (inserted && tag_manager_ != nullptr) {
+    tag_manager_->AddTag(ToTagManagerId(object_id_), tag);
     return true;
+  }
+  return false;
 }
 
-//deletes all tags in the set without deleting the object
-void AnnotationSet::DeleteAllTags(){
-    if(tagManager){
-        for(const auto& tag:tags){
-            tagManager->RemoveTag(static_cast<TagManager::ObjectId>(objectId),tag);
-        }
+
+/// @brief Removes a tag
+/// @param tag tag to be removed
+/// @return bool saying whether removal happens
+bool AnnotationSet::RemoveTag(const std::string& tag) {
+  const std::string normalized_tag = NormalizeTag_(tag);
+  if (normalized_tag.empty()) {
+    return false;
+  }
+
+  if (tags_.erase(normalized_tag) == 0) {
+    return false;
+  }
+
+  if (tag_manager_ != nullptr) {
+    tag_manager_->RemoveTag(ToTagManagerId(object_id_), normalized_tag);
+  }
+  return true;
+}
+
+/// @brief Finds a tag in tags
+/// @param tag tag to be found
+/// @return bool representing if the tag is found or not
+bool AnnotationSet::FindTag(const std::string& tag) const {
+  const std::string normalized_tag = NormalizeTag_(tag);
+  return !normalized_tag.empty() && tags_.contains(normalized_tag);
+}
+/// @brief Checks if any of the tags in the given list are stored in the set
+/// @param search_tags list of tags needing to be checked
+/// @return bool representing if any are found
+bool AnnotationSet::FindAnyTag(std::span<const std::string> search_tags) const {
+  return std::ranges::any_of(search_tags,
+    [this](const auto& tag) { return FindTag(tag); });
+}
+
+
+/// @brief Checks if all tags in the given list are stored in the set
+/// @param search_tags list of tags that need to be matched
+/// @return a bool representing if all are in the set or not
+bool AnnotationSet::FindAllTags(const std::vector<std::string> search_tags) const {
+  return std::ranges::all_of(search_tags.begin(), search_tags.end(),
+    [this](const auto& tag) { return FindTag(tag); });
+}
+
+/// @brief clears all tags in tag manager and in annotation set
+void AnnotationSet::DeleteAllTags() {
+  if (tag_manager_ != nullptr) {
+    for (const auto& tag : tags_) {
+      tag_manager_->RemoveTag(ToTagManagerId(object_id_), tag);
     }
-    tags.clear();
+  }
+  tags_.clear();
 }
 
-//gets object Id
-//returns int of object id
-int AnnotationSet::GetObjId()const{
-    return objectId;
+/// @brief gets the object id
+/// @return object id
+int AnnotationSet::GetObjId() const noexcept {
+  return object_id_;
 }
 
-//gets tags
-//returns the set containing all tags
-std::set<std::string> AnnotationSet::GetTags()const{
-    return tags;
+/// @brief gets tags
+/// @return tags
+AnnotationSet::TagSet AnnotationSet::GetTags() const {
+  return tags_;
 }
 
-//gets how many tags are currently in the set
-int AnnotationSet::Size()const{
-    return tags.size();
+/// @brief gets size
+/// @return how many tags are stored in the set
+int AnnotationSet::Size() const noexcept {
+  return static_cast<int>(tags_.size());
 }
 
-//helper function for removing white space
-//returns a pair with if the tag if empty after and the cleaned tag
-std::pair<bool,std::string> AnnotationSet::RemoveWhiteSpace(std::string tag){
-    tag.erase(std::remove_if(tag.begin(), tag.end(), [](unsigned char x){ return std::isspace(x); }), tag.end());
-    std::pair<bool,std::string> result={tag.empty(),tag};
-    return(result);
+/// @brief helper function to normalize tags
+/// @param tag tag given
+/// @return the normalized tag
+std::string AnnotationSet::NormalizeTag_(std::string tag) {
+  std::erase_if(tag, [](unsigned char ch) { return std::isspace(ch) != 0; });
+  return tag;
 }
 
-//attaches a tagmanager to the annotationset
-void AnnotationSet::AttachTagManager(TagManager& tm){
-    tagManager=&tm;
-    tm.RegisterObject(static_cast<TagManager::ObjectId>(objectId));
-    for(const auto& tag:tags){
-        tm.AddTag(static_cast<TagManager::ObjectId>(objectId),tag);
-    }
+/// @brief attaches a tag manager to annotation set
+/// @param tm tagmanager needing to be attached
+void AnnotationSet::AttachTagManager(TagManager& tm) {
+  tag_manager_ = &tm;
+  tm.RegisterObject(ToTagManagerId(object_id_));
+  for (const auto& tag : tags_) {
+    tm.AddTag(ToTagManagerId(object_id_), tag);
+  }
 }
+
 }

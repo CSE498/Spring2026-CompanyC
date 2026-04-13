@@ -13,6 +13,8 @@
 
 #include "Agents/ClassicAgent.hpp"
 #include "Agents/PacingAgent.hpp"
+#include "Agents/SmartAgent.hpp"
+#include "Agents/TendencyAgent.hpp"
 
 #include "Worlds/DynamicWorld.hpp"
 #include "Worlds/InteractionHeavyWorld.hpp"
@@ -47,6 +49,16 @@ int main() {
     using world_t = cse498::MazeWorld;
     auto & world = g_app->Initialize<world_t>();
     world.AddAgent<ClassicAgent>("Classic 1").SetLocation(WorldPosition{3,1});
+  }
+  else if (run_mode == "smart_agent") {
+    using world_t = cse498::MazeWorld;
+    auto & world = g_app->Initialize<world_t>();
+    world.AddAgent<SmartAgent>("SmartAgent").SetLocation(WorldPosition{3,1});
+  }
+  else if (run_mode == "tendency_agent") {
+    using world_t = cse498::MazeWorld;
+    auto & world = g_app->Initialize<world_t>();
+    world.AddAgent<TendencyAgent>("Tendency").SetLocation(WorldPosition{3,1});
   }
   else if (run_mode == "dynamic") {
     constexpr int basicAgentCount= 15; 

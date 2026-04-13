@@ -198,6 +198,7 @@ void Database::Clear() {
         mMemoryStorage.clear();
         mTypeMetadata.clear();
     }
+    mDirtyKeys.clear();
 }
 
 size_t Database::Size() const {
@@ -205,7 +206,78 @@ size_t Database::Size() const {
 }
 
 bool Database::Delete(const std::string& key) {
-    return DeleteEntry(key);
+    bool removed = DeleteEntry(key);
+
+    if (removed) {
+        mDirtyKeys[key] = ChangeType::Delete;
+        for (auto& cb : mChangeCallbacks) cb(key, ChangeType::Delete);
+    }
+
+    return removed;
+}
+
+void Database::OnChange(std::function<void(const std::string& key, ChangeType type)> callback) {
+    mChangeCallbacks.push_back(std::move(callback));
+}
+
+std::vector<std::pair<std::string, ChangeType>> Database::FlushDirty() {
+    std::vector<std::pair<std::string, ChangeType>> result;
+    result.reserve(mDirtyKeys.size());
+
+    for (auto& [key, type] : mDirtyKeys) {
+        result.emplace_back(key, type);
+    }
+    
+    mDirtyKeys.clear();
+    return result;
+}
+
+std::expected<std::vector<uint8_t>, DatabaseError> Database::GetRawBytes(const std::string& key) const {
+    return ReadEntry(key);
+}
+
+std::expected<void, DatabaseError> Database::SetRawBytes(const std::string& key, const std::vector<uint8_t>& value, const std::string& type_tag, bool mark_dirty) {
+    auto result = WriteEntry(key, value, type_tag);
+    if (!result) {
+        return std::unexpected(result.error());
+    }
+
+    if (mark_dirty) {
+        mDirtyKeys[key] = ChangeType::Store;
+        for (auto& cb : mChangeCallbacks) {
+            cb(key, ChangeType::Store);
+        }
+    }
+
+    return {};
+}
+
+std::vector<std::tuple<std::string, std::vector<uint8_t>, std::string>> Database::ExportAll() const {
+    std::vector<std::tuple<std::string, std::vector<uint8_t>, std::string>> result;
+    auto keys = AllKeys();
+    result.reserve(keys.size());
+
+    for (const auto& key : keys) {
+        auto raw = ReadEntry(key);
+        if (!raw) continue;
+
+        auto type_tag = GetType(key);
+        std::string tag = type_tag.has_value() ? *type_tag : "";
+
+        result.emplace_back(key, std::move(*raw), std::move(tag));
+    }
+
+    return result;
+}
+
+std::expected<void, DatabaseError> Database::ImportAll(const std::vector<std::tuple<std::string, std::vector<uint8_t>, std::string>>& entries) {
+    for (const auto& [key, value, type_tag] : entries) {
+        auto result = WriteEntry(key, value, type_tag);
+        if (!result) {
+            return std::unexpected(result.error());
+        }
+    }
+    return {};
 }
 
 std::vector<std::string> Database::ListKeys() const {
@@ -538,6 +610,8 @@ std::string Database::DeriveTypeTag(const std::string& serialized) {
         case 'v': return "vector";
         case 'm': return "map";
         case 'u': return "unordered_map";
+        case 'l': return "long long";
+        case 't': return "variant";
         default: break;
     }
 
@@ -560,6 +634,7 @@ std::expected<void, DatabaseError> Database::BeginTransaction() {
         mSnapshotMetadata = mTypeMetadata;
     }
 
+    mSnapshotDirtyKeys = mDirtyKeys;
     mInTransaction = true;
     return {};
 }
@@ -579,6 +654,7 @@ std::expected<void, DatabaseError> Database::Commit() {
         mSnapshotMetadata.clear();
     }
 
+    mSnapshotDirtyKeys.clear();
     mInTransaction = false;
     return {};
 }
@@ -598,6 +674,7 @@ std::expected<void, DatabaseError> Database::Rollback() {
         mTypeMetadata = std::move(mSnapshotMetadata);
     }
 
+    mDirtyKeys = std::move(mSnapshotDirtyKeys);
     mInTransaction = false;
     return {};
 }
@@ -618,6 +695,9 @@ std::expected<void, DatabaseError> Database::SaveToFile(const std::string& filep
             return std::unexpected(raw.error());
         }
 
+        auto type_tag = GetType(key);
+        std::string tag = type_tag.has_value() ? *type_tag : "";
+
         uint64_t key_len = key.size();
         out.write(reinterpret_cast<const char*>(&key_len), sizeof(key_len));
         out.write(key.data(), static_cast<std::streamsize>(key_len));
@@ -625,6 +705,10 @@ std::expected<void, DatabaseError> Database::SaveToFile(const std::string& filep
         uint64_t val_len = raw->size();
         out.write(reinterpret_cast<const char*>(&val_len), sizeof(val_len));
         out.write(reinterpret_cast<const char*>(raw->data()), static_cast<std::streamsize>(val_len));
+
+        uint64_t tag_len = tag.size();
+        out.write(reinterpret_cast<const char*>(&tag_len), sizeof(tag_len));
+        out.write(tag.data(), static_cast<std::streamsize>(tag_len));
     }
 
     if (!out) {
@@ -663,7 +747,17 @@ std::expected<void, DatabaseError> Database::LoadFromFile(const std::string& fil
         in.read(reinterpret_cast<char*>(value.data()), static_cast<std::streamsize>(val_len));
         if (!in) return std::unexpected(DatabaseError::InvalidData);
 
-        auto result = WriteEntry(key, value, "");
+        uint64_t tag_len = 0;
+        in.read(reinterpret_cast<char*>(&tag_len), sizeof(tag_len));
+        if (!in) return std::unexpected(DatabaseError::InvalidData);
+
+        std::string type_tag(tag_len, '\0');
+        if (tag_len > 0) {
+            in.read(type_tag.data(), static_cast<std::streamsize>(tag_len));
+            if (!in) return std::unexpected(DatabaseError::InvalidData);
+        }
+
+        auto result = WriteEntry(key, value, type_tag);
         if (!result) {
             return std::unexpected(result.error());
         }
