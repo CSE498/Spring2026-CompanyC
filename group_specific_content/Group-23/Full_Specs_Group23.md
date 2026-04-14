@@ -73,3 +73,36 @@ resetReplay() Resets replay progress and stops playback
 clearReplay() Clears all loaded events and returns the replay system to its initial state.
 Status helpers:
 isRunning(), isPaused(), isFinished()
+
+
+## OutputManager (Ismail):
+
+OutputManager is a unified logging utility that filters messages by log level (Silent, Normal, Verbose, Debug), optionally prefixes each line with a timestamp and metadata (module tag, agent id, tick), and routes formatted output to the console, a log file, and/or an in-memory string buffer. It maintains a thread-safe internal buffer, supports switching targets at runtime, and falls back to console output if file logging is enabled but the file stream is not available.
+
+Implemented Functions:
+
+setLevel(LogLevel level) Sets the active log level used for filtering messages
+
+getLevel() const Returns the currently configured log level
+
+enableTimestamps(bool on) Enables or disables prepending wall-clock timestamps to each log line
+
+enableMetadata(bool on) Enables or disables inclusion of LogContext metadata (tag, agent id, tick) in log lines
+
+enableTarget(OutputTarget target, bool on) Enables or disables a specific output target (Console, File, Buffer)
+
+openLogFile(const std::string & path) Opens a log file for the File target and returns true on success
+
+closeLogFile() Closes the currently open log file, if any
+
+getBufferedLogs() const Returns a copy of all buffered, fully formatted log lines
+
+clearBuffer() Clears the in-memory buffer of stored log lines
+
+logNormal(const std::string & message, const LogContext & ctx = LogContext{}) Logs a Normal-level message through the configured targets
+
+logVerbose(const std::string & message, const LogContext & ctx = LogContext{}) Logs a Verbose-level message when the current level allows it
+
+logDebug(const std::string & message, const LogContext & ctx = LogContext{}) Logs a Debug-level message when the current level allows it
+
+log(LogLevel level, const std::string & message, const LogContext & ctx = LogContext{}) Core logging entry point used by the helpers; applies level filtering, formats the line, and writes to all enabled targets

@@ -15,7 +15,7 @@ class TestAgent : public AgentBase {
 public:
     TestAgent(size_t id, const std::string& name, const WorldBase& world)
         : AgentBase(id, name, world) {}
-    size_t SelectAction(const WorldGrid&) override { return 0; }
+    size_t SelectAction(WorldGrid&) override { return 0; }
 };
 
 class TestWorld : public WorldBase {
