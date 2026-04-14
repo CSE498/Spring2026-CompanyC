@@ -12,7 +12,7 @@ public:
   StubAgent(size_t id, const std::string & name, const WorldBase & world)
     : AgentBase(id, name, world) { }
 
-  size_t SelectAction(const WorldGrid &) override { return next_action; }
+  size_t SelectAction(WorldGrid &) override { return next_action; }
 };
 
 // Expose protected DoAction and action enum + grid for white-box testing.
@@ -41,16 +41,16 @@ public:
   size_t TownhallId() const { return mTownhallId; }
 
   void SetResource(const std::string & name, size_t value) {
-    mWorldGlobalCounts[name] = value;
+    world_global_counts[name] = value;
   }
 
   // Direct grid write for test setup (bypasses random generation).
   void SetCell(size_t x, size_t y, size_t type_id) {
-    mMainGrid(x, y) = type_id;
+    main_grid[x, y] = type_id;
   }
 
   size_t GetCell(size_t x, size_t y) const {
-    return mMainGrid(x, y);
+    return main_grid[x, y];
   }
 
   size_t GrassId()  const { return mGrassId;  }
@@ -60,8 +60,8 @@ public:
   size_t QuarryId() const { return mQuarryId; }
 
   size_t GetResource(const std::string & name) const {
-    auto it = mWorldGlobalCounts.find(name);
-    return (it == mWorldGlobalCounts.end()) ? 0 : it->second;
+    auto it = world_global_counts.find(name);
+    return (it == world_global_counts.end()) ? 0 : it->second;
   }
 
   StubAgent & SpawnStubAt(size_t x, size_t y) {

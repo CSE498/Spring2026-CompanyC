@@ -22,38 +22,40 @@ TEST_CASE("Test adding agents into the ActionLog", "[core]") {
   guard1.SetHorizontal();
   guard1.SetLocation(cse498::WorldPosition{7, 7});
 
-  SECTION("Test recording single actions") {
-    // Since ActionLog uses shared_ptr, we need to create them
-    // Note: This assumes agents are stored as unique_ptr in world
-    // We need to get raw pointers and create non-owning shared_ptrs
-    auto pacer1Ptr =
-        std::shared_ptr<cse498::AgentBase>(&pacer1, [](cse498::AgentBase *) {});
-    auto guard1Ptr =
-        std::shared_ptr<cse498::AgentBase>(&guard1, [](cse498::AgentBase *) {});
+  auto &pacer2 = world.AddAgent<cse498::PacingAgent>("Pacer 2");
 
+  size_t up = 1;
+  size_t down = 2;
+  size_t left = 3;
+  size_t right = 4;
+
+  SECTION("Test recording single actions") {
     // Move pacer1 up
     cse498::WorldPosition cur_position = pacer1.GetLocation().AsWorldPosition();
     pacer1.SetLocation(cur_position.Up());
-    actionLog.recordAction(pacer1Ptr, "MOVE_UP");
+    actionLog.recordAction(pacer1, up);
     std::this_thread::sleep_for(std::chrono::microseconds(10)); // 10 µs delay
-    actionLog.actionEnd(pacer1Ptr);
+    actionLog.actionEnd(pacer1);
+
+    // Call actionEnd on an agent not in the map
+    actionLog.actionEnd(pacer2);
+
+    // Call actionEnd on an agent without any actions
+    actionLog.actionEnd(guard1);
 
     // Move guard1 left
     cur_position = guard1.GetLocation().AsWorldPosition();
     guard1.SetLocation(cur_position.Left());
-    actionLog.recordAction(guard1Ptr, "MOVE_LEFT");
+    actionLog.recordAction(guard1, left);
 
     // Move pacer1 up again
     cur_position = pacer1.GetLocation().AsWorldPosition();
     pacer1.SetLocation(cur_position.Up());
-    actionLog.recordAction(pacer1Ptr, "MOVE_UP");
-
-    // Move a nonexistant agent
-    actionLog.recordAction(nullptr, "MOVE_LEFT");
+    actionLog.recordAction(pacer1, up);
 
     // Get actions for each agent
-    auto pacerActions = actionLog.getActionsByAgent(pacer1Ptr);
-    auto guardActions = actionLog.getActionsByAgent(guard1Ptr);
+    auto pacerActions = actionLog.getActionsByAgent(pacer1);
+    auto guardActions = actionLog.getActionsByAgent(guard1);
 
     // Verify counts
     REQUIRE(pacerActions.size() == 2);
@@ -63,32 +65,24 @@ TEST_CASE("Test adding agents into the ActionLog", "[core]") {
     CHECK(pacerActions[0].duration != std::chrono::microseconds::zero());
 
     // Verify action types
-    CHECK(pacerActions[0].actionType == "MOVE_UP");
-    CHECK(pacerActions[1].actionType == "MOVE_UP");
-    CHECK(guardActions[0].actionType == "MOVE_LEFT");
+    CHECK(pacerActions[0].actionType == up);
+    CHECK(pacerActions[1].actionType == up);
+    CHECK(guardActions[0].actionType == left);
+    actionLog.clear();
   }
 
   SECTION("Test clearing the log") {
-    // Create non-owning shared_ptrs
-    auto pacer1Ptr =
-        std::shared_ptr<cse498::AgentBase>(&pacer1, [](cse498::AgentBase *) {});
-    auto guard1Ptr =
-        std::shared_ptr<cse498::AgentBase>(&guard1, [](cse498::AgentBase *) {});
-
     // Add some actions
-    actionLog.recordAction(pacer1Ptr, "ACTION_1");
-    actionLog.recordAction(guard1Ptr, "ACTION_2");
-    actionLog.recordAction(pacer1Ptr, "ACTION_3");
+    actionLog.recordAction(pacer1, down);
+    actionLog.recordAction(guard1, right);
+    actionLog.recordAction(pacer1, up);
 
     // Check map size (number of agents with recorded actions)
     CHECK(actionLog.getActions().size() == 2);
 
     // Check individual agent actions
-    CHECK(actionLog.getActionsByAgent(pacer1Ptr).size() == 2);
-    CHECK(actionLog.getActionsByAgent(guard1Ptr).size() == 1);
-
-    // Check agent actions on a nullptr
-    CHECK(actionLog.getActionsByAgent(nullptr).size() == 0);
+    CHECK(actionLog.getActionsByAgent(pacer1).size() == 2);
+    CHECK(actionLog.getActionsByAgent(guard1).size() == 1);
 
     // Clear the log
     actionLog.clear();
@@ -98,7 +92,7 @@ TEST_CASE("Test adding agents into the ActionLog", "[core]") {
 
     // Verify it's empty
     CHECK(actionLog.getActions().empty());
-    CHECK(actionLog.getActionsByAgent(pacer1Ptr).empty());
-    CHECK(actionLog.getActionsByAgent(guard1Ptr).empty());
+    CHECK(actionLog.getActionsByAgent(pacer1).empty());
+    CHECK(actionLog.getActionsByAgent(guard1).empty());
   }
 }
