@@ -80,6 +80,7 @@ WEB_SOURCES = web_main.cpp            \
                tools/WebCanvas.cpp    \
                tools/WebTextbox.cpp   \
                tools/WebInterface.cpp \
+               tools/WebSocketConnection.cpp \
                Worlds/StubWorld.cpp   \
               $(BASE_SOURCES)
 
@@ -87,7 +88,8 @@ FLAGS_web_base = -std=c++23 -I. \
                  -sWASM=1 \
                  -sEXPORTED_FUNCTIONS=_main,_HandleAction \
                  -sEXPORTED_RUNTIME_METHODS=ccall,cwrap \
-                 -lembind
+                 -lembind \
+                 -lwebsocket
 
 FLAGS_web_opt   = $(FLAGS_web_base) -O3 -DNDEBUG
 FLAGS_web_debug = $(FLAGS_web_base) -O0 -g
