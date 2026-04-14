@@ -39,6 +39,7 @@
 run_tests
 source/simple
 source/agent
+web/
 
 # debug information files
 *.dwo
