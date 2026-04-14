@@ -778,6 +778,8 @@ void SyncManager::Stop() {
 void SyncManager::Poll() {
     if (!mImpl || !mImpl->running) return;
 
+    mImpl->client->Poll();
+
     std::queue<std::vector<uint8_t>> local;
     std::swap(local, mImpl->incomingMessages);
 
@@ -880,10 +882,12 @@ std::expected<std::vector<uint8_t>, SyncError> SyncManager::EncodeMessage(SyncMe
     return frame;
 }
 
+static constexpr uint8_t MAX_MSG_TYPE = static_cast<uint8_t>(SyncMessageType::SAVE_LIST);
+
 std::expected<std::pair<SyncMessageType, std::vector<uint8_t>>, SyncError> SyncManager::DecodeMessage(const std::vector<uint8_t>& frame) {
     if (frame.size() < 9) return std::unexpected(SyncError::DecodeFailed);
     uint8_t raw_type = frame[0];
-    if (raw_type > 8) return std::unexpected(SyncError::InvalidMessage);
+    if (raw_type > MAX_MSG_TYPE) return std::unexpected(SyncError::InvalidMessage);
     auto type = static_cast<SyncMessageType>(raw_type);
     
     uint64_t length = (static_cast<uint64_t>(frame[1]) << 56)

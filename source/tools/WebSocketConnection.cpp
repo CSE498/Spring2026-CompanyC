@@ -261,7 +261,7 @@ void WebSocketConnection::OnDisconnect(std::function<void()> callback) {
 
 std::expected<void, WebSocketError> WebSocketConnection::Connect(const std::string& url) {
     if (!mImpl) return std::unexpected(WebSocketError::InvalidState);
-    if (mImpl->connected) return std::unexpected(WebSocketError::InvalidState);
+    if (mImpl->connected || mImpl->socket > 0) return std::unexpected(WebSocketError::InvalidState);
 
     EmscriptenWebSocketCreateAttributes attrs;
     emscripten_websocket_init_create_attributes(&attrs);
