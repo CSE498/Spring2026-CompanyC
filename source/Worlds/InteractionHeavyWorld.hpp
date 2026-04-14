@@ -9,12 +9,12 @@
 #pragma once
 
 #include <random>
+#include <fstream>
 #include <map>
 #include "../core/WorldBase.hpp"
 
 namespace cse498
 {
-
     class InteractionHeavyWorld : public WorldBase
     {
     private:
@@ -30,6 +30,9 @@ namespace cse498
         size_t mStoneCount = 0;
         size_t mGoldCount = 0;
 
+        // Starting position for the player
+        WorldPosition mStartPosition;
+
     protected:
         // Action types for this world
         enum ActionType
@@ -39,9 +42,8 @@ namespace cse498
             MOVE_DOWN,
             MOVE_LEFT,
             MOVE_RIGHT,
-            BREAK,
-            COLLECT,
-            CRAFT,
+            INTERACT,
+            BREAK_BOULDER,
             PRINT_INVENTORY
         };
 
@@ -52,110 +54,144 @@ namespace cse498
             agent.AddAction("down", MOVE_DOWN);
             agent.AddAction("left", MOVE_LEFT);
             agent.AddAction("right", MOVE_RIGHT);
-            agent.AddAction("break", BREAK);
-            agent.AddAction("collect", COLLECT);
-            agent.AddAction("craft", CRAFT);
+            agent.AddAction("break_boulder", BREAK_BOULDER);
+            agent.AddAction("interact", INTERACT);
             agent.AddAction("print_inventory", PRINT_INVENTORY);
-
         }
 
         // CellType IDs
-        size_t mBorderID;
         size_t mWallID;
         size_t mFloorID;
+
+        // Resource cells
         size_t mBoulderID;
-        size_t mStoneID;
-        size_t mIronOreID;
-        size_t mGoldOreID;
-        size_t mDiamondOreID;
-        size_t mExitID;
+        size_t mChestID;
+
+        // After action cells
         size_t mMaterialID;
+        size_t mChestOpenID;
+        size_t mDoorOpenID;
+
+        // Special cells
+        size_t mDoorID;
+        size_t mStartID;
+        size_t mEnemyID;
+        size_t mExitID;
 
         // Helper functions for world generation
         void ConfigureCellTypes()
         {
-            mBorderID = main_grid.AddCellType("border", "Border cell", 'B', false);
+            // Structure cells
             mWallID = main_grid.AddCellType("wall", "Wall cell", '#', false);
             mFloorID = main_grid.AddCellType("floor", "Floor cell", ' ', true);
+
+            // Resource cells
             mBoulderID = main_grid.AddCellType("boulder", "Boulder resource", 'O', false);
-            mStoneID = main_grid.AddCellType("stone", "Stone resource", 'S', false);
-            mIronOreID = main_grid.AddCellType("iron_ore", "Iron ore resource", 'I', false);
-            mGoldOreID = main_grid.AddCellType("gold_ore", "Gold ore resource", 'G', false);
-            mDiamondOreID = main_grid.AddCellType("diamond_ore", "Diamond ore resource", 'D', false);
-            mExitID = main_grid.AddCellType("exit", "Exit cell", 'E', true);
+            mChestID = main_grid.AddCellType("chest", "Chest resource", 'C', false);
+
+            // After action cells
             mMaterialID = main_grid.AddCellType("material", "Dropped material", 'M', true);
+            mChestOpenID = main_grid.AddCellType("chest_open", "Opened chest", 'c', false);
+            mDoorOpenID = main_grid.AddCellType("door_open", "Opened door", 'd', true);
+
+            // Special cells
+            mDoorID = main_grid.AddCellType("door", "Door", 'D', true);
+            mExitID = main_grid.AddCellType("exit", "Exit", 'X', true);
+            mStartID = main_grid.AddCellType("start", "Start", 'S', true);
+            mEnemyID = main_grid.AddCellType("enemy", "Hostile", 'H', false);
         }
 
-        // Helper function to randomly scatter resources in the world
-        void ScatterResources(size_t num_stones, size_t num_iron_ores, size_t num_gold_ores, size_t num_diamond_ores)
+        // Generate the world from a text file
+        void GenerateWorld()
         {
-            std::random_device rd;
+            std::vector<std::string> dungeon_layout;
 
-            std::mt19937 gen(rd());
-
-            std::uniform_int_distribution<int> x_dist(1, static_cast<int>(main_grid.GetWidth()) - 2);
-            std::uniform_int_distribution<int> y_dist(1, static_cast<int>(main_grid.GetHeight()) - 2);
-
-            // Lambda function to place a specific resource type in the world
-            auto place_resource = [&](size_t resource_id, size_t count)
+            std::ifstream infile("assets/interaction_world_maps/dungeon_map.txt");
+            if (!infile)
             {
-                for (size_t i = 0; i < count; ++i)
-                {
-                    int x, y;
-                    do
-                    {
-                        x = x_dist(gen);
-                        y = y_dist(gen);
-                    } while (main_grid[x, y] != mWallID);
-                    main_grid[x, y] = resource_id;
-                }
-            };
+                std::cerr << "Error: Could not open dungeon_map.txt\n";
+                return;
+            }
 
-            place_resource(mStoneID, num_stones);
-            place_resource(mIronOreID, num_iron_ores);
-            place_resource(mGoldOreID, num_gold_ores);
-            place_resource(mDiamondOreID, num_diamond_ores);
+            std::string line;
+            while (std::getline(infile, line))
+            {
+                if (!line.empty() && line.back() == '\r')
+                    line.pop_back();
+                dungeon_layout.push_back(line);
+            }
+
+            size_t width = dungeon_layout[0].size();
+            size_t height = dungeon_layout.size();
+
+            main_grid.Resize(width, height, mFloorID);
+            LoadDungeon(dungeon_layout);
+
+            AddAgent<TrashInterface>("Interface")
+                .SetSymbol('@')
+                .SetLocation(mStartPosition);
         }
 
-        void GenerateWorld(size_t width, size_t height)
+        void LoadDungeon(const std::vector<std::string>& dungeon_layout)
         {
-            main_grid.Resize(width, height, mFloorID);
+            for (size_t y = 0; y < dungeon_layout.size(); ++y)
+            {
+                for (size_t x = 0; x < dungeon_layout[y].size(); ++x)
+                {
+                    char c = dungeon_layout[y][x];
+                    WorldPosition pos(x, y);
 
-            main_grid.Load(std::vector<std::string>{
-                "#########################",
-                "#      #######          #",
-                "#  ###       ###   #### #",
-                "# ##   O        ## ##   #",
-                "# #   #####   O  ###    #",
-                "# #  ##   ##      #  ## #",
-                "# # ##     ##  ####  #  #",
-                "#   ##  ####   O ##     #",
-                "###      ##       ###   #",
-                "#    ###    ###     ##  #",
-                "#   ##   O    ##    ##  #",
-                "#   ##  ####   ###      #",
-                "#      O ####    ##  ####",
-                "#  ###        O  ##     #",
-                "# ##   #######   ###    #",
-                "# #   ##     ##     ##  #",
-                "#     ##     ##  O  ##  #",
-                "###    #######      ##  #",
-                "#        ##   O     ##  #",
-                "#   ####    ####    ##  #",
-                "#  ##   O      ##       #",
-                "#   ###      ###   #### #",
-                "#        ####   O       #",
-                "#   O                O  #",
-                "######################E##"});
+                    switch (c)
+                    {
+                        case '#':
+                            main_grid[pos] = mWallID;
+                            break;
+                        case ' ':
+                            main_grid[pos] = mFloorID;
+                            break;
+                        case 'D':
+                            main_grid[pos] = mDoorID;
+                            break;
+                        case 'X':
+                            main_grid[pos] = mExitID;
+                            break;
+                        case 'S':
+                            main_grid[pos] = mFloorID;
+                            mStartPosition = pos;
+                            break;
+                        case 'H':
+                        {
+                            static std::mt19937 gen(std::random_device{}());
+                            std::uniform_int_distribution<int> rnd(0, 1);
 
-            ScatterResources(30, 20, 15, 5);
-        };
+                            auto& agent = AddAgent<PacingAgent>("Pacer_" + std::to_string(x) + 
+                                                                    "_" + std::to_string(y));
+                            agent.SetLocation(pos);
+
+                            if (rnd(gen) == 0)
+                                agent.SetHorizontal();
+                            else
+                                agent.SetVertical();
+
+                            main_grid[pos] = mFloorID;
+                            break;
+                        }
+                        case 'O':
+                            main_grid[pos] = mBoulderID;
+                            break;
+                        case 'C':
+                            main_grid[pos] = mChestID;
+                            break;
+                    }
+                }
+            }
+        }
 
     public:
         InteractionHeavyWorld()
         {
             ConfigureCellTypes();
-            GenerateWorld(25, 25);
+            GenerateWorld();
         }
 
         size_t GetStoneCount() const { return mStoneCount; }
@@ -168,28 +204,7 @@ namespace cse498
             std::cout << "Gold: " << mGoldCount << "\n\n";
         }
 
-        void Collect(size_t x, size_t y)
-        {
-            WorldPosition pos(x, y);
-
-            if (!main_grid.IsValid(pos))
-                return;
-            if (main_grid[pos] != mMaterialID)
-                return;
-
-            auto key = std::make_pair(x, y);
-            auto it = inventory.find(key);
-            if (it == inventory.end())
-                return;
-
-            mStoneCount += it->second.stone;
-            mGoldCount += it->second.gold;
-
-            inventory.erase(it);
-            main_grid[pos] = mFloorID;
-        }
-
-        void Break(size_t x, size_t y)
+        void BreakBoulder(size_t x, size_t y)
         {
             static std::mt19937 gen(std::random_device{}());
             std::uniform_int_distribution<int> stone_dist(0, 10);
@@ -201,7 +216,8 @@ namespace cse498
                 center.Up(),
                 center.Down(),
                 center.Left(),
-                center.Right()};
+                center.Right()
+            };
 
             for (const auto &pos : neighbors)
             {
@@ -221,17 +237,74 @@ namespace cse498
             }
         }
 
-        void Craft(size_t agent_id)
+        // Single interaction handler — checks adjacent tiles and responds to whatever is there
+        void Interact(size_t x, size_t y)
         {
-            // Placeholder for crafting logic
+            WorldPosition center(x, y);
+
+            std::vector<WorldPosition> neighbors = {
+                center,
+                center.Up(),
+                center.Down(),
+                center.Left(),
+                center.Right()
+            };
+
+            for (const auto& pos : neighbors)
+            {
+                if (!main_grid.IsValid(pos)) continue;
+
+                size_t tile = main_grid[pos];
+
+                // Collect dropped materials
+                if (tile == mMaterialID)
+                {
+                    auto it = inventory.find({pos.CellX(), pos.CellY()});
+                    if (it == inventory.end()) continue;
+                    mStoneCount += it->second.stone;
+                    mGoldCount  += it->second.gold;
+                    inventory.erase(it);
+                    main_grid[pos] = mFloorID;
+                    return;
+                }
+
+                // Open a chest
+                if (tile == mChestID)
+                {   
+                    size_t gold_found = 2;
+
+                    mGoldCount += gold_found;
+                    main_grid[pos] = mChestOpenID;
+                    return;
+                }
+
+                // Open a door
+                if (tile == mDoorID)
+                {
+                    size_t required_gold = 1;
+
+                    if (mGoldCount >= required_gold)
+                    {
+                        mGoldCount -= required_gold;
+                        main_grid[pos] = mDoorOpenID;
+                    }
+                    return;
+                }
+
+                // Enemy interaction (placeholder)
+                if (tile == mEnemyID)
+                {
+                    // Placeholder
+                    return;
+                }
+            }
         }
 
-        /// Allow the agents to move around the maze.
         int DoAction(AgentBase &agent, size_t action_id) override
         {
-            // Determine where the agent is trying to move.
             WorldPosition cur_position = agent.GetLocation().AsWorldPosition();
             WorldPosition new_position;
+
             switch (action_id)
             {
             case REMAIN_STILL:
@@ -249,34 +322,36 @@ namespace cse498
             case MOVE_RIGHT:
                 new_position = cur_position.Right();
                 break;
-            // Additional actions for interacting with resources could be added here
-            case BREAK:
-                Break(cur_position.CellX(), cur_position.CellY());
+            case BREAK_BOULDER:
+                BreakBoulder(cur_position.CellX(), cur_position.CellY());
                 return true;
-
-            case COLLECT:
-                Collect(cur_position.CellX(), cur_position.CellY());
+            case INTERACT:
+                Interact(cur_position.CellX(), cur_position.CellY());
                 return true;
-            case PRINT_INVENTORY: ///CAN BE DELETED JUST for DEBUG/TESTING
+            case PRINT_INVENTORY:
                 PrintInventory();
                 return true;
-            case CRAFT:
-                Craft(agent.GetID());
-                break;
             }
 
-            // Don't let the agent move off the world or into a wall or boulder.
             if (!main_grid.IsValid(new_position))
-            {
                 return false;
-            }
-            if (main_grid[new_position] == mWallID || main_grid[new_position] == mBoulderID)
-            {
-                return false;
-            }
 
-            // Set the agent to its new postion.
+            if (main_grid[new_position] == mWallID || 
+                main_grid[new_position] == mBoulderID ||
+                main_grid[new_position] == mEnemyID || 
+                main_grid[new_position] == mDoorID || 
+                main_grid[new_position] == mChestID || 
+                main_grid[new_position] == mChestOpenID)
+                return false;
+
             agent.SetLocation(new_position);
+
+            if (main_grid[new_position] == mExitID)
+            {
+                std::cout << "Congratulations! You've reached the exit with " 
+                    << mStoneCount << " stone and " << mGoldCount << " gold!\n";
+                exit(0);
+            }
 
             return true;
         }
