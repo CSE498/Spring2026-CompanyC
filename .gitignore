@@ -39,6 +39,8 @@
 run_tests
 source/simple
 source/agent
+source/SaveServer
+source/Group09
 web/
 
 # debug information files

@@ -660,40 +660,206 @@ void SyncManager::SetLogHandler(std::function<void(const std::string&)> handler)
 
 #include "SyncManager.hpp"
 #include "Database.hpp"
+#include "../tools/WebSocketConnection.hpp"
 #include "../tools/Serializer.hpp"
+
+#include <iostream>
+#include <queue>
 
 namespace cse498 {
 
-struct SyncManager::Impl {};
+namespace {
 
-SyncManager::SyncManager(Database& db, WebSocketServer&) : mImpl(std::make_unique<Impl>()) { (void)db; }
-SyncManager::SyncManager(Database& db, WebSocketServer&, std::string) : mImpl(std::make_unique<Impl>()) { (void)db; }
-SyncManager::SyncManager(Database& db, WebSocketConnection&) : mImpl(std::make_unique<Impl>()) { (void)db; }
-SyncManager::~SyncManager() = default;
+bool ValidateSaveName(const std::string& name) {
+    if (name.empty()) return false;
+    for (char c : name) {
+        if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_' && c != '-') {
+            return false;
+        }
+    }
+    return true;
+}
+
+void ApplyFullStatePayload(Database& db, const std::vector<uint8_t>& payload) {
+    Serializer s;
+    std::string data(payload.begin(), payload.end());
+    size_t pos = 0;
+
+    auto count_opt = s.DeserializeAt<int>(data, pos);
+    if (!count_opt) return;
+    int count = *count_opt;
+
+    std::vector<std::tuple<std::string, std::vector<uint8_t>, std::string>> entries;
+    entries.reserve(count);
+
+    for (int i = 0; i < count; ++i) {
+        auto key = s.DeserializeAt<std::string>(data, pos);
+        auto tag = s.DeserializeAt<std::string>(data, pos);
+        auto blob_str = s.DeserializeAt<std::string>(data, pos);
+        if (!key || !tag || !blob_str) return;
+
+        std::vector<uint8_t> blob(blob_str->begin(), blob_str->end());
+        entries.emplace_back(std::move(*key), std::move(blob), std::move(*tag));
+    }
+
+    db.Clear();
+    (void)db.ImportAll(entries);
+}
+
+} // namespace
+
+struct SyncManager::Impl {
+    enum class Mode { Server, Client };
+    Mode mode;
+    bool running = false;
+
+    Database& db;
+
+    WebSocketConnection* client = nullptr;
+
+    std::queue<std::vector<uint8_t>> incomingMessages;
+
+    std::function<void(const std::vector<SaveInfo>&)> onSaveListCallback;
+    std::function<void(const std::string&)> logHandler = [](const std::string& msg) {
+        std::cout << msg;
+    };
+
+    explicit Impl(Database& database) : db(database) {}
+
+    void Log(const std::string& msg) {
+        if (logHandler) logHandler(msg);
+    }
+};
+
+SyncManager::SyncManager(Database& db, WebSocketServer&) : mImpl(std::make_unique<Impl>(db)) {
+    mImpl->mode = Impl::Mode::Server;
+}
+
+SyncManager::SyncManager(Database& db, WebSocketServer&, std::string) : mImpl(std::make_unique<Impl>(db)) {
+    mImpl->mode = Impl::Mode::Server;
+}
+
+SyncManager::SyncManager(Database& db, WebSocketConnection& client) : mImpl(std::make_unique<Impl>(db)) {
+    mImpl->mode = Impl::Mode::Client;
+    mImpl->client = &client;
+}
+
+SyncManager::~SyncManager() {
+    if (mImpl && mImpl->running) Stop();
+}
+
 SyncManager::SyncManager(SyncManager&&) noexcept = default;
-SyncManager& SyncManager::operator=(SyncManager&&) noexcept = default;
+
+SyncManager& SyncManager::operator=(SyncManager&& other) noexcept {
+    if (this != &other) {
+        if (mImpl && mImpl->running) Stop();
+        mImpl = std::move(other.mImpl);
+    }
+    return *this;
+}
 
 std::expected<void, SyncError> SyncManager::Start() {
-    return std::unexpected(SyncError::NotStarted);
+    if (!mImpl) return std::unexpected(SyncError::NotStarted);
+    if (mImpl->running) return std::unexpected(SyncError::AlreadyStarted);
+    if (mImpl->mode != Impl::Mode::Client) return std::unexpected(SyncError::NotStarted);
+
+    mImpl->client->OnMessage([this](const std::vector<uint8_t>& data) {
+        mImpl->incomingMessages.push(data);
+    });
+
+    mImpl->running = true;
+    return {};
 }
-void SyncManager::Stop() {}
-void SyncManager::Poll() {}
-bool SyncManager::IsRunning() const { return false; }
+
+void SyncManager::Stop() {
+    if (mImpl) mImpl->running = false;
+}
+
+void SyncManager::Poll() {
+    if (!mImpl || !mImpl->running) return;
+
+    std::queue<std::vector<uint8_t>> local;
+    std::swap(local, mImpl->incomingMessages);
+
+    while (!local.empty()) {
+        auto& raw = local.front();
+
+        auto decoded = DecodeMessage(raw);
+        if (!decoded.has_value()) { local.pop(); continue; }
+
+        auto [msg_type, payload] = std::move(*decoded);
+
+        if (msg_type == SyncMessageType::FULL_STATE || msg_type == SyncMessageType::SYNC_RESPONSE) {
+            ApplyFullStatePayload(mImpl->db, payload);
+
+        } else if (msg_type == SyncMessageType::SAVE_LIST) {
+            auto list = DecodeSaveListPayload(payload);
+            if (list.has_value() && mImpl->onSaveListCallback) {
+                mImpl->onSaveListCallback(*list);
+            }
+        }
+
+        local.pop();
+    }
+}
+
+bool SyncManager::IsRunning() const { return mImpl && mImpl->running; }
 bool SyncManager::IsServer() const { return false; }
+
 std::expected<void, SyncError> SyncManager::SendUpdate(const std::string&) {
     return std::unexpected(SyncError::NotStarted);
 }
-std::expected<void, SyncError> SyncManager::SaveGame(const std::string&) {
-    return std::unexpected(SyncError::NotStarted);
+
+std::expected<void, SyncError> SyncManager::SaveGame(const std::string& name) {
+    if (!mImpl || !mImpl->running) return std::unexpected(SyncError::NotStarted);
+    if (mImpl->mode != Impl::Mode::Client) return std::unexpected(SyncError::NotStarted);
+    if (!ValidateSaveName(name)) return std::unexpected(SyncError::EncodeFailed);
+
+    auto payload = EncodeSavePayload(name, mImpl->db);
+    auto frame = EncodeMessage(SyncMessageType::SAVE, payload);
+    if (!frame.has_value()) return std::unexpected(SyncError::EncodeFailed);
+
+    auto result = mImpl->client->Send(*frame);
+    if (!result.has_value()) return std::unexpected(SyncError::WebSocketError);
+
+    return {};
 }
-std::expected<void, SyncError> SyncManager::LoadGame(const std::string&) {
-    return std::unexpected(SyncError::NotStarted);
+
+std::expected<void, SyncError> SyncManager::LoadGame(const std::string& name) {
+    if (!mImpl || !mImpl->running) return std::unexpected(SyncError::NotStarted);
+    if (mImpl->mode != Impl::Mode::Client) return std::unexpected(SyncError::NotStarted);
+    if (!ValidateSaveName(name)) return std::unexpected(SyncError::EncodeFailed);
+
+    auto payload = EncodeLoadPayload(name);
+    auto frame = EncodeMessage(SyncMessageType::LOAD, payload);
+    if (!frame.has_value()) return std::unexpected(SyncError::EncodeFailed);
+
+    auto result = mImpl->client->Send(*frame);
+    if (!result.has_value()) return std::unexpected(SyncError::WebSocketError);
+
+    return {};
 }
+
 std::expected<void, SyncError> SyncManager::RequestSaveList() {
-    return std::unexpected(SyncError::NotStarted);
+    if (!mImpl || !mImpl->running) return std::unexpected(SyncError::NotStarted);
+    if (mImpl->mode != Impl::Mode::Client) return std::unexpected(SyncError::NotStarted);
+
+    auto frame = EncodeMessage(SyncMessageType::LIST_SAVES, {});
+    if (!frame.has_value()) return std::unexpected(SyncError::EncodeFailed);
+
+    auto result = mImpl->client->Send(*frame);
+    if (!result.has_value()) return std::unexpected(SyncError::WebSocketError);
+
+    return {};
 }
-void SyncManager::OnSaveListReceived(std::function<void(const std::vector<SaveInfo>&)>) {}
-void SyncManager::SetLogHandler(std::function<void(const std::string&)>) {}
+
+void SyncManager::OnSaveListReceived(std::function<void(const std::vector<SaveInfo>&)> callback) {
+    if (mImpl) mImpl->onSaveListCallback = std::move(callback);
+}
+
+void SyncManager::SetLogHandler(std::function<void(const std::string&)> handler) {
+    if (mImpl) mImpl->logHandler = std::move(handler);
+}
 
 std::expected<std::vector<uint8_t>, SyncError> SyncManager::EncodeMessage(SyncMessageType type, const std::vector<uint8_t>& payload) {
     uint64_t length = static_cast<uint64_t>(payload.size());
