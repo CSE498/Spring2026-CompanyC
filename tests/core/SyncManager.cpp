@@ -5,29 +5,19 @@
  */
 
 #include "catch2/catch.hpp"
+#include "../tools/TestHelpers.hpp"
 #include "../../source/core/SyncManager.hpp"
 #include "../../source/core/Database.hpp"
 #include "../../source/tools/WebSocketConnection.hpp"
 #include "../../source/tools/WebSocketServer.hpp"
 #include "../../source/tools/Serializer.hpp"
 
-#include <thread>
-#include <chrono>
 #include <filesystem>
 
 using namespace cse498;
+using cse498::test::WaitFor;
 
 namespace {
-
-template <typename Pred>
-bool WaitFor(Pred pred, int timeout_ms = 2000, int poll_interval_ms = 10) {
-    auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
-    while (!pred()) {
-        if (std::chrono::steady_clock::now() > deadline) return false;
-        std::this_thread::sleep_for(std::chrono::milliseconds(poll_interval_ms));
-    }
-    return true;
-}
 
 constexpr int SYNC_TEST_PORT = 18090;
 
