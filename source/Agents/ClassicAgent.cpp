@@ -59,19 +59,24 @@ void ClassicAgent::BuildTree() {
     auto root = std::make_shared<Selector>("Root");
 
     // --------------------------------------------------
-    // Branch 0: If we can afford a Townhall -> Build it
+    // Branch 0: If we can afford a Townhall and are on grass -> Build it
     // --------------------------------------------------
-    auto build_branch = std::make_shared<Sequence>("BuildBranch");
+    auto townhall_branch = std::make_shared<Sequence>("TownhallBranch");
 
-    auto ready_to_build = std::make_shared<ConditionNode>(
-        "ReadyToBuild",
+    auto ready_to_build_townhall = std::make_shared<ConditionNode>(
+        "ReadyToBuildTownhall",
         [](const Blackboard & bb) -> bool{
-            auto it = bb.find("can_build_townhall");
-            return it != bb.end() && std::get<bool>(it->second);
+            auto afford_it = bb.find("can_build_townhall");
+            bool can_afford = afford_it != bb.end() && std::get<bool>(afford_it->second);
+
+            auto grass_it = bb.find("on_grass");
+            bool on_grass = grass_it != bb.end() && std::get<bool>(grass_it->second);
+
+            return can_afford && on_grass;
         }
     );
 
-    auto build_action = std::make_shared<ActionNode>(
+    auto build_townhall_action = std::make_shared<ActionNode>(
         "BuildTownhall",
         [](Blackboard & bb) -> Status {
             bb["chosen_action"].emplace<std::string>("build_townhall");
@@ -79,8 +84,42 @@ void ClassicAgent::BuildTree() {
         }
     );
 
-    build_branch->addChild(ready_to_build);
-    build_branch->addChild(build_action);
+    townhall_branch->addChild(ready_to_build_townhall);
+    townhall_branch->addChild(build_townhall_action);
+
+    // --------------------------------------------------
+    // Branch 0.5: If we need Steel, can afford a Quarry, and are on grass
+    // --------------------------------------------------
+    auto quarry_branch = std::make_shared<Sequence>("QuarryBranch");
+
+    auto ready_to_build_quarry = std::make_shared<ConditionNode>(
+        "ReadyToBuildQuarry",
+        [](const Blackboard & bb) -> bool {
+            auto afford_it = bb.find("can_build_quarry");
+            bool can_afford = afford_it != bb.end() && std::get<bool>(afford_it->second);
+
+            auto grass_it = bb.find("on_grass");
+            bool on_grass = grass_it != bb.end() && std::get<bool>(grass_it->second);
+
+            auto built_it = bb.find("has_built_quarry");
+            bool already_built = built_it != bb.end() && std::get<bool>(built_it->second);
+
+            return can_afford && on_grass && !already_built;
+        }
+    );
+
+    auto build_quarry_action = std::make_shared<ActionNode>(
+        "BuildQuarry",
+        [](Blackboard & bb) -> Status {
+            bb["chosen_action"].emplace<std::string>("build_quarry");
+
+            bb["has_built_quarry"].emplace<bool>(true);
+            return Status::Success;
+        }
+    );
+
+    quarry_branch->addChild(ready_to_build_quarry);
+    quarry_branch->addChild(build_quarry_action);
 
     // --------------------------------------------------
     // Branch 1: If enemy nearby -> attack
@@ -157,7 +196,8 @@ void ClassicAgent::BuildTree() {
             return Status::Failure;
         }
     );
-    root->addChild(build_branch);
+    root->addChild(townhall_branch);
+    root->addChild(quarry_branch);
     root->addChild(gather_branch);
     root->addChild(explore_action);
 
@@ -276,18 +316,11 @@ void ClassicAgent::Sense( WorldGrid& grid) {
 
     const auto& inventory = world.GetWorldGlobalCounts();
 
-    size_t wood_count = 0;
-    if (inventory.count("wood")){
-        wood_count = inventory.at("wood");
-    }
-
-    size_t stone_count = 0;
-    if (inventory.count("stone")){
-        stone_count = inventory.at("stone");
-    }
-
     bool can_build_townhall = false;
-    if (wood_count >= 50 && stone_count >= 20){   //Placeholder numbers until we know count needed for townhall
+    if (inventory.count("wood") && inventory.at("wood") >= 500 &&
+        inventory.count("stone") && inventory.at("stone") >= 500 &&
+        inventory.count("steel") && inventory.at("steel") >= 500 &&
+        inventory.count("wheat") && inventory.at("wheat") >= 500) {
         can_build_townhall = true;
     }
 
