@@ -34,8 +34,15 @@ struct SyncManager::Impl {
     std::queue<std::pair<uint64_t, std::vector<uint8_t>>> incomingMessages;
     std::string savesDir = "./saves/";
     std::function<void(const std::vector<SaveInfo>&)> onSaveListCallback;
+    std::function<void(const std::string&)> logHandler = [](const std::string& msg) {
+        std::cout << msg;
+    };
 
     explicit Impl(Database& database) : db(database) {}
+
+    void Log(const std::string& msg) {
+        if (logHandler) logHandler(msg);
+    }
 };
 
 
@@ -485,38 +492,38 @@ void SyncManager::Poll() {
                 else if (msg_type == SyncMessageType::SAVE) {
                     auto decoded_save = DecodeSavePayload(payload);
                     if (!decoded_save.has_value()) {
-                        std::cout << "[SyncManager] Failed to decode SAVE payload\n";
+                        mImpl->Log("[SyncManager] Failed to decode SAVE payload\n");
 
                     } else {
                         auto& [name, state_bytes] = *decoded_save;
                         if (!ValidateSaveName(name)) {
-                            std::cout << "[SyncManager] Rejected invalid save name '" << name << "'\n";
+                            mImpl->Log("[SyncManager] Rejected invalid save name '" + name + "'\n");
                         } else if (!WriteSaveFile(mImpl->savesDir, name, state_bytes)) {
-                            std::cout << "[SyncManager] Failed to write save '" << name << "'\n";
+                            mImpl->Log("[SyncManager] Failed to write save '" + name + "'\n");
                         } else {
-                            std::cout << "[SyncManager] Saved '" << name << "' (" << state_bytes.size() << " bytes)\n";
+                            mImpl->Log("[SyncManager] Saved '" + name + "' (" + std::to_string(state_bytes.size()) + " bytes)\n");
                         }
                     }
                 }
                 else if (msg_type == SyncMessageType::LOAD) {
                     auto name_result = DecodeLoadPayload(payload);
                     if (!name_result.has_value()) {
-                        std::cout << "[SyncManager] Failed to decode LOAD payload\n";
+                        mImpl->Log("[SyncManager] Failed to decode LOAD payload\n");
 
                     } else {
                         auto& name = *name_result;
 
                         if (!ValidateSaveName(name)) {
-                            std::cout << "[SyncManager] Rejected invalid load name '" << name << "'\n";
+                            mImpl->Log("[SyncManager] Rejected invalid load name '" + name + "'\n");
                         } else {
                             auto file_bytes = ReadSaveFile(mImpl->savesDir, name);
                             if (file_bytes.empty()) {
-                                std::cout << "[SyncManager] LOAD requested for unknown save '" << name << "'\n";
+                                mImpl->Log("[SyncManager] LOAD requested for unknown save '" + name + "'\n");
                             } else {
                                 auto frame = EncodeMessage(SyncMessageType::FULL_STATE, file_bytes);
                                 if (frame.has_value()) {
                                     (void)mImpl->server->Send(client_id, *frame);
-                                    std::cout << "[SyncManager] Loaded '" << name << "' (" << file_bytes.size() << " bytes) for client " << client_id << "\n";
+                                    mImpl->Log("[SyncManager] Loaded '" + name + "' (" + std::to_string(file_bytes.size()) + " bytes) for client " + std::to_string(client_id) + "\n");
                                 }
                             }
                         }
@@ -529,7 +536,7 @@ void SyncManager::Poll() {
 
                     if (frame.has_value()) {
                         (void)mImpl->server->Send(client_id, *frame);
-                        std::cout << "[SyncManager] Sent save list (" << saves.size() << " saves) to client " << client_id << "\n";
+                        mImpl->Log("[SyncManager] Sent save list (" + std::to_string(saves.size()) + " saves) to client " + std::to_string(client_id) + "\n");
                     }
                 }
 
@@ -641,6 +648,12 @@ void SyncManager::OnSaveListReceived(std::function<void(const std::vector<SaveIn
     }
 }
 
+void SyncManager::SetLogHandler(std::function<void(const std::string&)> handler) {
+    if (mImpl) {
+        mImpl->logHandler = std::move(handler);
+    }
+}
+
 } // namespace cse498
 
 #else // __EMSCRIPTEN__
@@ -680,6 +693,7 @@ std::expected<void, SyncError> SyncManager::RequestSaveList() {
     return std::unexpected(SyncError::NotStarted);
 }
 void SyncManager::OnSaveListReceived(std::function<void(const std::vector<SaveInfo>&)>) {}
+void SyncManager::SetLogHandler(std::function<void(const std::string&)>) {}
 
 std::expected<std::vector<uint8_t>, SyncError> SyncManager::EncodeMessage(SyncMessageType type, const std::vector<uint8_t>& payload) {
     uint64_t length = static_cast<uint64_t>(payload.size());
