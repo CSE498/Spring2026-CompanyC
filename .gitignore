@@ -38,6 +38,7 @@
 *.app
 run_tests
 source/simple
+source/agent
 
 # debug information files
 *.dwo
