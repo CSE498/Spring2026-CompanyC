@@ -8,13 +8,12 @@
 #include "Agents/PacingAgent.hpp"
 #include "Interfaces/TrashInterface.hpp"
 #include "Worlds/MazeWorld.hpp"
-#include "Worlds/InteractionHeavyWorld.hpp"
 
 using namespace cse498;
 
 int main()
 {
-    InteractionHeavyWorld world;
+    MazeWorld world;
 
     world.AddAgent<PacingAgent>("Pacer 1").SetLocation(WorldPosition{3,1});
     world.AddAgent<PacingAgent>("Pacer 2").SetLocation(WorldPosition{6,1});
