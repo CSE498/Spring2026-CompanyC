@@ -59,6 +59,30 @@ void ClassicAgent::BuildTree() {
     auto root = std::make_shared<Selector>("Root");
 
     // --------------------------------------------------
+    // Branch 0: If we can afford a Townhall -> Build it
+    // --------------------------------------------------
+    auto build_branch = std::make_shared<Sequence>("BuildBranch");
+
+    auto ready_to_build = std::make_shared<ConditionNode>(
+        "ReadyToBuild",
+        [](const Blackboard & bb) -> bool{
+            auto it = bb.find("can_build_townhall");
+            return it != bb.end() && std::get<bool>(it->second);
+        }
+    );
+
+    auto build_action = std::make_shared<ActionNode>(
+        "BuildTownhall",
+        [](Blackboard & bb) -> Status {
+            bb["chosen_action"].emplace<std::string>("build_townhall");
+            return Status::Success;
+        }
+    );
+
+    build_branch->addChild(ready_to_build);
+    build_branch->addChild(build_action);
+
+    // --------------------------------------------------
     // Branch 1: If enemy nearby -> attack
     // --------------------------------------------------
     auto attack_branch = std::make_shared<Sequence>("AttackBranch");
@@ -133,7 +157,7 @@ void ClassicAgent::BuildTree() {
             return Status::Failure;
         }
     );
-
+    root->addChild(build_branch);
     root->addChild(gather_branch);
     root->addChild(explore_action);
 
@@ -249,6 +273,25 @@ void ClassicAgent::Sense( WorldGrid& grid) {
 
     tree.setMemory("enemy_nearby", enemy_nearby);
     tree.setMemory("material_nearby", material_nearby);
+
+    const auto& inventory = world.GetWorldGlobalCounts();
+
+    size_t wood_count = 0;
+    if (inventory.count("wood")){
+        wood_count = inventory.at("wood");
+    }
+
+    size_t stone_count = 0;
+    if (inventory.count("stone")){
+        stone_count = inventory.at("stone");
+    }
+
+    bool can_build_townhall = false;
+    if (wood_count >= 50 && stone_count >= 20){   //Placeholder numbers until we know count needed for townhall
+        can_build_townhall = true;
+    }
+
+    tree.setMemory("can_build_townhall", can_build_townhall);
 
     // --------------------------------------------------
     // Compute explore move from shared knowledge.
