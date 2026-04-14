@@ -11,6 +11,7 @@
 
 #include <ixwebsocket/IXNetSystem.h>
 #include <ixwebsocket/IXWebSocket.h>
+#include <atomic>
 #include <mutex>
 #include <queue>
 
@@ -34,7 +35,7 @@ struct Event {
 
 struct WebSocketConnection::Impl {
     ix::WebSocket ws;
-    bool connected{false};
+    std::atomic<bool> connected{false};
 
     std::mutex queueMutex;
     std::queue<Event> eventQueue;
