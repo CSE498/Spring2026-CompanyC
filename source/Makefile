@@ -47,7 +47,8 @@ BASE_SOURCES = Agents/ClassicAgent.cpp   \
                tools/LeafNodes.cpp       \
                tools/PathGenerator.cpp   \
                tools/WorldPath.cpp       \
-               Worlds/DynamicWorld.cpp
+               Worlds/DynamicWorld.cpp	 \
+			   Worlds/InteractionHeavyWorld.cpp
 
 # SaveServer needs extra .cpp sources for Database + WebSocket stack
 SAVESERVER_SRCS = \
@@ -87,7 +88,8 @@ FLAGS_web_base = -std=c++23 -I. \
                  -sWASM=1 \
                  -sEXPORTED_FUNCTIONS=_main,_HandleAction \
                  -sEXPORTED_RUNTIME_METHODS=ccall,cwrap \
-                 -lembind
+                 -lembind \
+				 --preload-file ../source/Worlds/interaction_world_maps
 
 FLAGS_web_opt   = $(FLAGS_web_base) -O3 -DNDEBUG
 FLAGS_web_debug = $(FLAGS_web_base) -O0 -g
