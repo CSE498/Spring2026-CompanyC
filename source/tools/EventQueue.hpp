@@ -128,13 +128,12 @@ namespace cse498
         /**
          * Push an event onto the EventQueue.
          * 
-         * The event is copied to modify the tiebreaker, which is set to the current insertion index. 
+         * The tiebreaker value of the event is set to the current insertion index, which is then incremented for the next event.
          * The event is then added to the heap and the heap property is maintained using std::push_heap.
          * 
          * @param event The event to be added
-         * @return This will return false if the event could not be added to the EventQueue and true otherwise.
          */
-        [[nodiscard]] bool Push(Event<T> event)
+        void Push(Event<T> event)
         {
             event.mTiebreaker = mInsertionIndex++;
 
@@ -143,8 +142,6 @@ namespace cse498
 
             assert(std::is_heap(mHeap.begin(), mHeap.end(), Comparator{}) 
                     && "EventQueue: Heap property broken");
-
-            return true;
         }
 
         /**
@@ -154,11 +151,10 @@ namespace cse498
          * 
          * @param data The event data
          * @param priority The priority of the event
-         * @return This will return false if the event could not be added to the EventQueue and true otherwise.
          */
-        [[nodiscard]] bool Push(const T& data, int priority)
+        void Push(const T& data, int priority)
         {
-            return Push(Event<T>(data, priority));
+            Push(Event<T>(data, priority));
         }
 
         /**
@@ -204,6 +200,29 @@ namespace cse498
                 return nullptr;
 
             return &mHeap.front(); 
+        }
+
+        /**
+         * Removes and returns the top event from the EventQueue.
+         * 
+         * This function combines the functionality of Top and Pop. 
+         * It checks if the EventQueue is empty, and if it is, it returns std::nullopt.
+         * 
+         * @return An optional containing the top event if the EventQueue is not empty, or std::nullopt if it is empty.
+         */
+        [[nodiscard]] std::optional<Event<T>> PopTop()
+        {
+            if (Empty())
+                return std::nullopt;
+
+            std::pop_heap(mHeap.begin(), mHeap.end(), Comparator{});
+            Event<T> top = std::move(mHeap.back());
+            mHeap.pop_back();
+
+            assert(std::is_heap(mHeap.begin(), mHeap.end(), Comparator{}) 
+                    && "EventQueue: Heap property broken");
+
+            return top;
         }
 
         /**
