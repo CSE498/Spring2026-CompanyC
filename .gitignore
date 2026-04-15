@@ -66,6 +66,10 @@ tests/web/build/
 docs/superpowers/
 
 
+# Save server data
+saves/
+test_saves/
+
 # IDE files
 .vscode/
 .idea

@@ -92,7 +92,10 @@ int main() {
     world.AddAgent<agent_t>("Guard 1").SetHorizontal().SetLocation(WorldPosition{7,7});
     world.AddAgent<agent_t>("Guard 2").SetHorizontal().ToggleDirection().SetLocation(WorldPosition{8,8});
   } else { // run_mode == "stub"
-    g_app->Initialize<cse498::StubWorld>();
+    auto& stub = g_app->Initialize<cse498::StubWorld>();
+    stub.SetDatabase(&g_app->GetDatabase());
+    g_app->SetSaveCallback([&stub]() { stub.SaveState("stub_world"); });
+    g_app->SetLoadCallback([&stub]() { stub.LoadState("stub_world"); });
   }
 
   g_app->SetCellVisual("grass",       "#8fd17f", ".");
@@ -118,6 +121,11 @@ int main() {
   g_app->RegisterActionMeta("right",   Meta{"Right",   "D",     true});
   g_app->RegisterActionMeta("collect", Meta{"Collect", "E",     true});
   g_app->RegisterActionMeta("build",   Meta{"Build",   "B",     true});
+
+  // Connect to SaveServer for save/load persistence.
+  // Default: ws://localhost:8080, override with ?server=ws://host:port
+  std::string server_url = GetUrlParam("server", "ws://localhost:8080");
+  g_app->ConnectToServer(server_url);
 
   g_app->Render();
   emscripten_exit_with_live_runtime();
