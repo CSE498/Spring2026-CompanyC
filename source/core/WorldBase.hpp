@@ -14,6 +14,8 @@
 #include "AgentBase.hpp"
 #include "ItemBase.hpp"
 #include "WorldGrid.hpp"
+#include "../tools/ActionLog.hpp"
+#include "../tools/Timer.hpp"
 
 namespace cse498 {
 
@@ -25,10 +27,12 @@ namespace cse498 {
   class WorldBase {
   protected:
     /// NOTE: derived worlds may choose to have more than one grid.
-    WorldGrid main_grid;                 ///< Main grid for this world
+    WorldGrid main_grid;    ///< Main grid for this world
 
     item_set_t item_set;    ///< Vector of pointers to non-agent entities (ItemBase)
     agent_set_t agent_set;  ///< Vector of pointers to agent entities (AgentBase)
+
+    std::unordered_map<std::string, size_t> world_global_counts; /// Set of global resources / counts
 
     bool run_over = false;  ///< Are we finished executing and now shutting down?
 
@@ -37,6 +41,14 @@ namespace cse498 {
     /// @note Override this function to provide agents with actions or other setup.
     virtual void ConfigAgent(AgentBase & /* agent */) { }
 
+
+  private:
+    /// Shared timer for this world instance (used for developer benchmarking/profiling).
+    /// @note Access via GetTimer() so all modules use a consistent entry point.
+    Timer mTimer;
+
+    /// Action log to keep track of all the actions done by agents in this world
+    ActionLog mActionLog;
 
   public:
     WorldBase() = default;
@@ -49,6 +61,16 @@ namespace cse498 {
 
     /// Get the total number of AGENT entities
     [[nodiscard]] size_t GetNumAgents() const { return agent_set.size(); }
+
+    /// Access the shared Timer
+    /// Usage: world.GetTimer().Start("...") / Stop("...")
+    Timer & GetTimer() { return mTimer; }
+
+    /// Access the shared Timer for this world (const overload)
+    const Timer & GetTimer() const { return mTimer; }
+
+    /// Access the ActionLog
+    ActionLog & GetActionLog() { return mActionLog; }
 
     /// Return a reference to an Item with a given ID.
     [[nodiscard]] ItemBase & GetItem(size_t id) {
@@ -74,14 +96,22 @@ namespace cse498 {
       return *agent_set[id];
     }
 
+    [[nodiscard]] const std::unordered_map<std::string, size_t> & GetWorldGlobalCounts() const { 
+      return world_global_counts;
+    }
+
+    [[nodiscard]] virtual size_t GetWidth() const { return main_grid.GetWidth(); }
+    [[nodiscard]] virtual size_t GetHeight() const { return main_grid.GetHeight(); }
+    [[nodiscard]] virtual size_t GetNumCells() const { return main_grid.GetNumCells(); }
+
     /// Return an editable version of the current grid for this world (main_grid by default) 
-    virtual WorldGrid & GetGrid() { return main_grid; }
+    [[nodiscard]] virtual WorldGrid & GetGrid() { return main_grid; }
 
     /// Return the current grid for this world (main_grid by default) 
-    virtual const WorldGrid & GetGrid() const { return main_grid; }
+    [[nodiscard]] virtual const WorldGrid & GetGrid() const { return main_grid; }
 
     /// Determine if the run has ended.
-    virtual bool IsRunOver() const { return run_over; }
+    [[nodiscard]] virtual bool IsRunOver() const { return run_over; }
 
     // -- Agent Management --
 
@@ -118,6 +148,9 @@ namespace cse498 {
       for (const auto & agent_ptr : agent_set) {
         size_t action_id = agent_ptr->SelectAction(main_grid);
         int result = DoAction(*agent_ptr, action_id);
+        if (result){
+          mActionLog.recordAction(*agent_ptr, action_id);
+        }
         agent_ptr->SetActionResult(result);
       }
     }

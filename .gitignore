@@ -36,6 +36,8 @@
 *.exe
 *.out
 *.app
+run_tests
+source/simple
 
 # debug information files
 *.dwo
@@ -50,12 +52,15 @@ group24_demo.wasm
 # Test binaries
 webtextbox_tests
 webtextbox_tests_grumpy
+tests/web/build/
 
 # macOS debug symbols
 *.dSYM/
 
 # LLM Files
 .claude
+docs/superpowers/
+
 
 # IDE files
 .vscode/

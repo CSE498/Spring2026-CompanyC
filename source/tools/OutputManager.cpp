@@ -33,14 +33,14 @@ namespace cse498
 
   void OutputManager::setLevel(LogLevel in_level)
   {
-    std::lock_guard<std::mutex> guard(mutex);
-    level = in_level;
+    // Relaxed ordering is sufficient: log() only needs a consistent value,
+    // not a synchronization point with other state protected by mutex.
+    level.store(in_level, std::memory_order_relaxed);
   }
 
   LogLevel OutputManager::getLevel() const
   {
-    std::lock_guard<std::mutex> guard(mutex);
-    return level;
+    return level.load(std::memory_order_relaxed);
   }
 
   void OutputManager::enableTimestamps(bool on)
@@ -69,6 +69,8 @@ namespace cse498
     }
   }
 
+  // If opening the file fails, console output is forced on to preserve visibility,
+  // even if the caller previously disabled the console target.
   bool OutputManager::openLogFile(const std::string &path)
   {
     std::lock_guard<std::mutex> guard(mutex);
@@ -85,6 +87,7 @@ namespace cse498
 
     if (!success)
     {
+      // Ensure logs are still visible after file-open failure by forcing console on.
       targets_mask |= TargetBit(OutputTarget::Console);
       return false;
     }
@@ -113,6 +116,22 @@ namespace cse498
     buffer.clear();
   }
 
+  void OutputManager::addOutputHandler(OutputLineHandler handler)
+  {
+    if (!handler)
+    {
+      return;
+    }
+    std::lock_guard<std::mutex> guard(mutex);
+    output_handlers.push_back(std::move(handler));
+  }
+
+  void OutputManager::clearOutputHandlers()
+  {
+    std::lock_guard<std::mutex> guard(mutex);
+    output_handlers.clear();
+  }
+
   void OutputManager::logNormal(const std::string &message,
                                 const LogContext &ctx)
   {
@@ -135,20 +154,29 @@ namespace cse498
                           const std::string &message,
                           const LogContext &ctx)
   {
-    std::lock_guard<std::mutex> guard(mutex);
-
-    if (!ShouldLogUnlocked(msg_level))
+    // Fast-path: avoid taking the mutex at all if this message would be
+    // filtered out at the current log level.
+    if (!shouldLogUnlocked(msg_level))
     {
       return;
     }
 
-    const std::string line = FormatMessageUnlocked(msg_level, message, ctx);
-    WriteLineUnlocked(line);
+    std::lock_guard<std::mutex> guard(mutex);
+
+    if (!shouldLogUnlocked(msg_level))
+    {
+      return;
+    }
+
+    const std::string line = formatMessageUnlocked(msg_level, message, ctx);
+    writeLineUnlocked(line);
   }
 
-  bool OutputManager::ShouldLogUnlocked(LogLevel msg_level) const
+  bool OutputManager::shouldLogUnlocked(LogLevel msg_level) const
   {
-    switch (level)
+    const LogLevel current_level = level.load(std::memory_order_relaxed);
+
+    switch (current_level)
     {
     case LogLevel::Silent:
       return false;
@@ -163,7 +191,7 @@ namespace cse498
     return false;
   }
 
-  std::string OutputManager::FormatMessageUnlocked(LogLevel msg_level,
+  std::string OutputManager::formatMessageUnlocked(LogLevel msg_level,
                                                    const std::string &message,
                                                    const LogContext &ctx) const
   {
@@ -185,7 +213,7 @@ namespace cse498
       out << '[' << std::put_time(&time_info, "%Y-%m-%d %H:%M:%S") << "] ";
     }
 
-    out << '[' << LevelToString(msg_level) << "] ";
+    out << '[' << levelToString(msg_level) << "] ";
 
     if (metadata_enabled)
     {
@@ -220,32 +248,43 @@ namespace cse498
     return out.str();
   }
 
-  void OutputManager::WriteLineUnlocked(const std::string &line)
+  // Writes to enabled targets. If file output is enabled but the stream is not open,
+  // output falls back to console (without duplicating console writes).
+  void OutputManager::writeLineUnlocked(const std::string &line)
   {
-    if (IsTargetEnabledUnlocked(OutputTarget::Console))
+    if (isTargetEnabledUnlocked(OutputTarget::Console))
     {
       std::cout << line << '\n';
     }
 
-    if (IsTargetEnabledUnlocked(OutputTarget::File))
+    if (isTargetEnabledUnlocked(OutputTarget::File))
     {
       if (file_stream.is_open())
       {
         file_stream << line << '\n';
       }
-      else
+      else if (!isTargetEnabledUnlocked(OutputTarget::Console))
       {
+        // If file output is requested but unavailable, emit to console as fallback.
         std::cout << line << '\n';
       }
     }
 
-    if (IsTargetEnabledUnlocked(OutputTarget::Buffer))
+    if (isTargetEnabledUnlocked(OutputTarget::Buffer))
     {
       buffer.push_back(line);
     }
+
+    for (const auto &handler : output_handlers)
+    {
+      if (handler)
+      {
+        handler(line);
+      }
+    }
   }
 
-  const char *OutputManager::LevelToString(LogLevel in_level)
+  const char *OutputManager::levelToString(LogLevel in_level)
   {
     switch (in_level)
     {
@@ -261,7 +300,7 @@ namespace cse498
     return "UNKNOWN";
   }
 
-  bool OutputManager::IsTargetEnabledUnlocked(OutputTarget target) const
+  bool OutputManager::isTargetEnabledUnlocked(OutputTarget target) const
   {
     const unsigned int bit = TargetBit(target);
     return (targets_mask & bit) != 0u;

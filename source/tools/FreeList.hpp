@@ -6,7 +6,7 @@
 
 #pragma once
 #include <cstddef>
-
+namespace cse498 {
 class FreeList {
 public:
   /**
@@ -66,3 +66,4 @@ private:
   Node *mHead = nullptr;
   std::size_t mCount = 0;
 };
+} // namespace cse498
