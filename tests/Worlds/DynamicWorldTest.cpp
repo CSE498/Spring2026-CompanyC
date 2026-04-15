@@ -35,15 +35,6 @@ public:
   using DynamicWorld::BUILD_TOWNHALL;
 
   // Expose building ids so tests can verify the correct structure was placed
-  size_t LumberyardId() const { return GetLumberyardId(); }
-  size_t FarmId()       const { return GetFarmId(); }
-  size_t SpawnerId()    const { return GetSpawnerId(); }
-  size_t TownhallId()   const { return GetTownhallId(); }
-  size_t GrassId()      const { return GetGrassId(); }
-  size_t TreeId()       const { return GetTreeId(); }
-  size_t StoneId()      const { return GetStoneId(); }
-  size_t WheatId()      const { return GetWheatId(); }
-  size_t QuarryId()     const { return GetQuarryId(); }
 
   void SetResource(const std::string & name, size_t value) {
     mWorldResourceCounts[ResourceIndex(name)] = value;
@@ -170,7 +161,7 @@ TEST_CASE("DynamicWorld move - blocked by building tile", "[DynamicWorld][move]"
   auto & agent = world.SpawnStubAt(50, 50);
 
   // Place a quarry directly to the right of the agent.
-  world.SetCell(51, 50, world.QuarryId());
+  world.SetCell(51, 50, world.GetQuarryId());
 
   int result = world.DoAction(agent, world.MOVE_RIGHT);
   REQUIRE(result == 0);
@@ -186,7 +177,7 @@ TEST_CASE("DynamicWorld move - can move onto resource tiles", "[DynamicWorld][mo
   auto & agent = world.SpawnStubAt(50, 50);
 
   // Place a tree to the right — agents must be able to stand on it to collect.
-  world.SetCell(51, 50, world.TreeId());
+  world.SetCell(51, 50, world.GetTreeId());
 
   int result = world.DoAction(agent, world.MOVE_RIGHT);
   REQUIRE(result != 0);
@@ -203,45 +194,45 @@ TEST_CASE("DynamicWorld move - can move onto resource tiles", "[DynamicWorld][mo
 TEST_CASE("DynamicWorld collect - wood", "[DynamicWorld][collect]") {
   cse498::TestDynamicWorld world;
   auto & agent = world.SpawnStubAt(50, 50);
-  world.SetCell(50, 50, world.TreeId());
+  world.SetCell(50, 50, world.GetTreeId());
 
   int result = world.DoAction(agent, world.COLLECT);
 
   REQUIRE(result != 0);
   REQUIRE(world.GetResource("wood") == 1);
   // Tile must become grass after collection.
-  REQUIRE(world.GetCell(50, 50) == world.GrassId());
+  REQUIRE(world.GetCell(50, 50) == world.GetGrassId());
 }
 
 TEST_CASE("DynamicWorld collect - stone", "[DynamicWorld][collect]") {
   cse498::TestDynamicWorld world;
   auto & agent = world.SpawnStubAt(50, 50);
-  world.SetCell(50, 50, world.StoneId());
+  world.SetCell(50, 50, world.GetStoneId());
 
   int result = world.DoAction(agent, world.COLLECT);
 
   REQUIRE(result != 0);
   REQUIRE(world.GetResource("stone") == 1);
-  REQUIRE(world.GetCell(50, 50) == world.GrassId());
+  REQUIRE(world.GetCell(50, 50) == world.GetGrassId());
 }
 
 TEST_CASE("DynamicWorld collect - wheat", "[DynamicWorld][collect]") {
   cse498::TestDynamicWorld world;
   auto & agent = world.SpawnStubAt(50, 50);
-  world.SetCell(50, 50, world.WheatId());
+  world.SetCell(50, 50, world.GetWheatId());
 
   int result = world.DoAction(agent, world.COLLECT);
 
   REQUIRE(result != 0);
   REQUIRE(world.GetResource("wheat") == 1);
-  REQUIRE(world.GetCell(50, 50) == world.GrassId());
+  REQUIRE(world.GetCell(50, 50) == world.GetGrassId());
 }
 
 TEST_CASE("DynamicWorld collect - fails on grass", "[DynamicWorld][collect]") {
   cse498::TestDynamicWorld world;
   auto & agent = world.SpawnStubAt(50, 50);
   // Ensure the tile is plain grass (no resource).
-  world.SetCell(50, 50, world.GrassId());
+  world.SetCell(50, 50, world.GetGrassId());
 
   int result = world.DoAction(agent, world.COLLECT);
 
@@ -256,7 +247,7 @@ TEST_CASE("DynamicWorld collect - multiple collections accumulate", "[DynamicWor
 
   // Collect wood from three separate tiles using three agents.
   for (size_t i = 0; i < 3; ++i) {
-    world.SetCell(10 + i, 10, world.TreeId());
+    world.SetCell(10 + i, 10, world.GetTreeId());
     auto & agent = world.SpawnStubAt(10 + i, 10);
     world.DoAction(agent, world.COLLECT);
   }
@@ -272,7 +263,7 @@ TEST_CASE("DynamicWorld build lumberyard - succeeds", "[DynamicWorld][build]") {
   auto & agent = world.SpawnStubAt(50, 50);
 
   // Start on a valid buildable tile
-  world.SetCell(50, 50, world.GrassId());
+  world.SetCell(50, 50, world.GetGrassId());
 
   // Give the exact resources needed for this building
   world.SetResource("wood", 20);
@@ -282,7 +273,7 @@ TEST_CASE("DynamicWorld build lumberyard - succeeds", "[DynamicWorld][build]") {
   int result = world.DoAction(agent, world.BUILD_LUMBERYARD);
 
   REQUIRE(result != 0);
-  REQUIRE(world.GetCell(50, 50) == world.LumberyardId());
+  REQUIRE(world.GetCell(50, 50) == world.GetLumberyardId());
   REQUIRE(world.GetResource("wood") == 0);
   REQUIRE(world.GetResource("steel") == 0);
 }
@@ -290,7 +281,7 @@ TEST_CASE("DynamicWorld build lumberyard - succeeds", "[DynamicWorld][build]") {
 TEST_CASE("DynamicWorld build lumberyard - fails without enough resources", "[DynamicWorld][build]") {
   cse498::TestDynamicWorld world;
   auto & agent = world.SpawnStubAt(50, 50);
-  world.SetCell(50, 50, world.GrassId());
+  world.SetCell(50, 50, world.GetGrassId());
 
   // Leave wood one short so the build fails
   world.SetResource("wood", 19);
@@ -300,7 +291,7 @@ TEST_CASE("DynamicWorld build lumberyard - fails without enough resources", "[Dy
   int result = world.DoAction(agent, world.BUILD_LUMBERYARD);
 
   REQUIRE(result == 0);
-  REQUIRE(world.GetCell(50, 50) == world.GrassId());
+  REQUIRE(world.GetCell(50, 50) == world.GetGrassId());
   REQUIRE(world.GetResource("wood") == 19);
   REQUIRE(world.GetResource("steel") == 20);
 }
@@ -308,7 +299,7 @@ TEST_CASE("DynamicWorld build lumberyard - fails without enough resources", "[Dy
 TEST_CASE("DynamicWorld build quarry - succeeds", "[DynamicWorld][build]") {
   cse498::TestDynamicWorld world;
   auto & agent = world.SpawnStubAt(50, 50);
-  world.SetCell(50, 50, world.GrassId());
+  world.SetCell(50, 50, world.GetGrassId());
 
   world.SetResource("stone", 20);
   world.SetResource("wood", 20);
@@ -316,7 +307,7 @@ TEST_CASE("DynamicWorld build quarry - succeeds", "[DynamicWorld][build]") {
   int result = world.DoAction(agent, world.BUILD_QUARRY);
 
   REQUIRE(result != 0);
-  REQUIRE(world.GetCell(50, 50) == world.QuarryId());
+  REQUIRE(world.GetCell(50, 50) == world.GetQuarryId());
   REQUIRE(world.GetResource("stone") == 0);
   REQUIRE(world.GetResource("wood") == 0);
 }
@@ -324,7 +315,7 @@ TEST_CASE("DynamicWorld build quarry - succeeds", "[DynamicWorld][build]") {
 TEST_CASE("DynamicWorld build quarry - fails on non-grass tile", "[DynamicWorld][build]") {
   cse498::TestDynamicWorld world;
   auto & agent = world.SpawnStubAt(50, 50);
-  world.SetCell(50, 50, world.TreeId());
+  world.SetCell(50, 50, world.GetTreeId());
 
   world.SetResource("stone", 20);
   world.SetResource("wood", 20);
@@ -332,7 +323,7 @@ TEST_CASE("DynamicWorld build quarry - fails on non-grass tile", "[DynamicWorld]
   int result = world.DoAction(agent, world.BUILD_QUARRY);
 
   REQUIRE(result == 0);
-  REQUIRE(world.GetCell(50, 50) == world.TreeId());
+  REQUIRE(world.GetCell(50, 50) == world.GetTreeId());
   REQUIRE(world.GetResource("stone") == 20);
   REQUIRE(world.GetResource("wood") == 20);
 }
@@ -340,7 +331,7 @@ TEST_CASE("DynamicWorld build quarry - fails on non-grass tile", "[DynamicWorld]
 TEST_CASE("DynamicWorld build spawner - succeeds", "[DynamicWorld][build]") {
   cse498::TestDynamicWorld world;
   auto & agent = world.SpawnStubAt(50, 50);
-  world.SetCell(50, 50, world.GrassId());
+  world.SetCell(50, 50, world.GetGrassId());
 
   world.SetResource("stone", 30);
   world.SetResource("wheat", 30);
@@ -348,7 +339,7 @@ TEST_CASE("DynamicWorld build spawner - succeeds", "[DynamicWorld][build]") {
   int result = world.DoAction(agent, world.BUILD_SPAWNER);
 
   REQUIRE(result != 0);
-  REQUIRE(world.GetCell(50, 50) == world.SpawnerId());
+  REQUIRE(world.GetCell(50, 50) == world.GetSpawnerId());
   REQUIRE(world.GetResource("stone") == 0);
   REQUIRE(world.GetResource("wheat") == 0);
 }
@@ -356,7 +347,7 @@ TEST_CASE("DynamicWorld build spawner - succeeds", "[DynamicWorld][build]") {
 TEST_CASE("DynamicWorld build farm - succeeds", "[DynamicWorld][build]") {
   cse498::TestDynamicWorld world;
   auto & agent = world.SpawnStubAt(50, 50);
-  world.SetCell(50, 50, world.GrassId());
+  world.SetCell(50, 50, world.GetGrassId());
 
   world.SetResource("wheat", 20);
   world.SetResource("wood", 20);
@@ -364,7 +355,7 @@ TEST_CASE("DynamicWorld build farm - succeeds", "[DynamicWorld][build]") {
   int result = world.DoAction(agent, world.BUILD_FARM);
 
   REQUIRE(result != 0);
-  REQUIRE(world.GetCell(50, 50) == world.FarmId());
+  REQUIRE(world.GetCell(50, 50) == world.GetFarmId());
   REQUIRE(world.GetResource("wheat") == 0);
   REQUIRE(world.GetResource("wood") == 0);
 }
@@ -372,7 +363,7 @@ TEST_CASE("DynamicWorld build farm - succeeds", "[DynamicWorld][build]") {
 TEST_CASE("DynamicWorld build townhall - succeeds", "[DynamicWorld][build]") {
   cse498::TestDynamicWorld world;
   auto & agent = world.SpawnStubAt(50, 50);
-  world.SetCell(50, 50, world.GrassId());
+  world.SetCell(50, 50, world.GetGrassId());
 
   world.SetResource("wood", 500);
   world.SetResource("stone", 500);
@@ -382,7 +373,7 @@ TEST_CASE("DynamicWorld build townhall - succeeds", "[DynamicWorld][build]") {
   int result = world.DoAction(agent, world.BUILD_TOWNHALL);
 
   REQUIRE(result != 0);
-  REQUIRE(world.GetCell(50, 50) == world.TownhallId());
+  REQUIRE(world.GetCell(50, 50) == world.GetTownhallId());
   REQUIRE(world.GetResource("wood") == 0);
   REQUIRE(world.GetResource("stone") == 0);
   REQUIRE(world.GetResource("steel") == 0);
@@ -392,7 +383,7 @@ TEST_CASE("DynamicWorld build townhall - succeeds", "[DynamicWorld][build]") {
 TEST_CASE("DynamicWorld build townhall - fails without enough resources", "[DynamicWorld][build]") {
   cse498::TestDynamicWorld world;
   auto & agent = world.SpawnStubAt(50, 50);
-  world.SetCell(50, 50, world.GrassId());
+  world.SetCell(50, 50, world.GetGrassId());
 
   world.SetResource("wood", 500);
   world.SetResource("stone", 500);
@@ -402,7 +393,7 @@ TEST_CASE("DynamicWorld build townhall - fails without enough resources", "[Dyna
   int result = world.DoAction(agent, world.BUILD_TOWNHALL);
 
   REQUIRE(result == 0);
-  REQUIRE(world.GetCell(50, 50) == world.GrassId());
+  REQUIRE(world.GetCell(50, 50) == world.GetGrassId());
   REQUIRE(world.GetResource("wood") == 500);
   REQUIRE(world.GetResource("stone") == 500);
   REQUIRE(world.GetResource("steel") == 499);

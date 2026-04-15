@@ -177,9 +177,13 @@ namespace cse498 {
     virtual void Run() {
       run_over = false;
       while (!run_over) {
-        RunAgents();
-        UpdateWorld();
+        Tick();
       }
+    }
+
+    virtual void Tick() {
+      RunAgents();
+      UpdateWorld();
     }
 
 

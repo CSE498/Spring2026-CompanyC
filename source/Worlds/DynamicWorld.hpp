@@ -40,22 +40,12 @@ protected:
    */
   int DoAction(AgentBase & agent, size_t action_id) override;
 
-  size_t GetGrassId()      const { return mGrassId; }
-  size_t GetTreeId()       const { return mTreeId; }
-  size_t GetStoneId()      const { return mStoneId; }
-  size_t GetWheatId()      const { return mWheatId; }
-  size_t GetQuarryId()     const { return mQuarryId; }
-  size_t GetLumberyardId() const { return mLumberyardId; }
-  size_t GetFarmId()       const { return mFarmId; }
-  size_t GetSpawnerId()    const { return mSpawnerId; }
-  size_t GetTownhallId()   const { return mTownhallId; }
-
 public:
 
   /**
    * @brief Construct a DynamicWorld with default size and configured cell types.
    */
-  DynamicWorld() : DynamicWorld(100, 100) { }
+  DynamicWorld() : DynamicWorld(80, 80) { }
   /**
    * @brief Construct a DynamicWorld with default size and configured cell types.
    * @param width the width of the world
@@ -94,6 +84,11 @@ public:
     }
   }
 
+  void Tick() override {
+      RunAgents();
+      UpdateWorld();
+  }
+
   // resource to index in mWorldResourceCounts
   size_t ResourceIndex(const std::string & resource_name) const {
     assert(resource_name == "wood" || resource_name == "stone" || resource_name == "steel" || resource_name == "wheat");
@@ -103,6 +98,16 @@ public:
     // if its not wood, stone, or steel, it must be wheat since we assert that above
     return 3;
   }
+
+  size_t GetGrassId()      const { return mGrassId; }
+  size_t GetTreeId()       const { return mTreeId; }
+  size_t GetStoneId()      const { return mStoneId; }
+  size_t GetWheatId()      const { return mWheatId; }
+  size_t GetQuarryId()     const { return mQuarryId; }
+  size_t GetLumberyardId() const { return mLumberyardId; }
+  size_t GetFarmId()       const { return mFarmId; }
+  size_t GetSpawnerId()    const { return mSpawnerId; }
+  size_t GetTownhallId()   const { return mTownhallId; }
 
 private:
 
@@ -216,14 +221,23 @@ private:
     std::uniform_int_distribution<int> x_dist(2, static_cast<int>(width) - 3);
     std::uniform_int_distribution<int> y_dist(2, static_cast<int>(height) - 3);
 
-    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 20);
-    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 20);
+    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 2);
+    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 3);
+    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 4);
+    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 4);
+    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 5);
 
-    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 20);
-    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 20);
+    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 2);
+    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 3);
+    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 4);
+    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 4);
+    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 5);
 
-    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 20);
-    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 20);
+    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 2);
+    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 3);
+    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 4);
+    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 4);
+    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 5);
   }
 
   /**
