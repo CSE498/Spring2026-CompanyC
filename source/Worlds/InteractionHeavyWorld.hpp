@@ -1,5 +1,5 @@
 /**
- * @file InteractionWorld.hpp
+ * @file InteractionHeavyWorld.hpp
  * @author Truong Phan
  *
  * This is the initial module for the Interaction Heavy-Simulation world.
@@ -13,7 +13,7 @@
 
 namespace cse498
 {
-    class InteractionWorld : public WorldBase
+    class InteractionHeavyWorld : public WorldBase
     {
     private:
         // Information Revolving around Boulder
@@ -90,7 +90,7 @@ namespace cse498
 
     public:
         // Constructor
-        InteractionWorld()
+        InteractionHeavyWorld()
         {
             ConfigureCellTypes();
             GenerateWorld();

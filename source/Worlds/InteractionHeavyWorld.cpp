@@ -1,24 +1,24 @@
 /*
- * @file InteractionWorld.cpp
+ * @file InteractionHeavyWorld.cpp
  * @author Truong Phan
  *
  * This is the implementation file for the Interaction Heavy-Simulation world.
  * @brief A World that consists of various resources that agents can interact with (e.g., break, collect, etc.).
  * @note Status: PROPOSAL
  */
-#include "InteractionWorld.hpp"
+#include "InteractionHeavyWorld.hpp"
 #include <random>
 #include <fstream>
 
 namespace cse498
 {
-    size_t InteractionWorld::GetStoneCount() const { return mStoneCount; }
+    size_t InteractionHeavyWorld::GetStoneCount() const { return mStoneCount; }
 
-    size_t InteractionWorld::GetGoldCount() const { return mGoldCount; }
+    size_t InteractionHeavyWorld::GetGoldCount() const { return mGoldCount; }
 
-    WorldPosition InteractionWorld::GetStartPosition() const { return mStartPosition; }
+    WorldPosition InteractionHeavyWorld::GetStartPosition() const { return mStartPosition; }
     
-    void InteractionWorld::ConfigAgent(AgentBase &agent)
+    void InteractionHeavyWorld::ConfigAgent(AgentBase &agent)
     {
         agent.AddAction("up", MOVE_UP);
         agent.AddAction("down", MOVE_DOWN);
@@ -29,7 +29,7 @@ namespace cse498
         agent.AddAction("print_inventory", PRINT_INVENTORY);
     }
 
-    void InteractionWorld::ConfigureCellTypes()
+    void InteractionHeavyWorld::ConfigureCellTypes()
     {
         // Structure cells
         mWallID = main_grid.AddCellType("wall", "Wall cell", '#', false);
@@ -51,7 +51,7 @@ namespace cse498
         mEnemyID = main_grid.AddCellType("enemy", "Hostile", 'H', false);
     }
 
-    void InteractionWorld::GenerateWorld()
+    void InteractionHeavyWorld::GenerateWorld()
     {
         // Load dungeon layout from text file
         std::vector<std::string> dungeon_layout;
@@ -83,7 +83,7 @@ namespace cse498
         PlaceBoulders();
     }
 
-    void InteractionWorld::LoadDungeon(const std::vector<std::string>& dungeon_layout)
+    void InteractionHeavyWorld::LoadDungeon(const std::vector<std::string>& dungeon_layout)
     {
         // Iterate through the layout and set cell types based on characters
         for (size_t y = 0; y < dungeon_layout.size(); ++y)
@@ -119,7 +119,7 @@ namespace cse498
         }
     }
 
-    bool InteractionWorld::NearStartingPosition(const WorldPosition &pos) const
+    bool InteractionHeavyWorld::NearStartingPosition(const WorldPosition &pos) const
     {
         // Simple Manhattan distance check to keep resources away from the starting area
         size_t dx = std::abs((int)pos.CellX() - (int)mStartPosition.CellX());
@@ -131,7 +131,7 @@ namespace cse498
         return false;
     }
 
-    WorldPosition InteractionWorld::GetRandomPosition() const
+    WorldPosition InteractionHeavyWorld::GetRandomPosition() const
     {
         // Generate random positions until we find a valid floor cell that isn't near the starting position
         static std::mt19937 gen(std::random_device{}());
@@ -151,7 +151,7 @@ namespace cse498
         }
     }
 
-    void InteractionWorld::PlaceBoulders()
+    void InteractionHeavyWorld::PlaceBoulders()
     {
         // Randomly place boulders in the world, avoiding the starting area and ensuring they are on floor cells.
         static std::mt19937 gen(std::random_device{}());
@@ -172,14 +172,14 @@ namespace cse498
         }
     }
 
-    void InteractionWorld::PrintInventory() const
+    void InteractionHeavyWorld::PrintInventory() const
     {
         std::cout << "\nCurrent Inventory:\n";
         std::cout << "Stone: " << mStoneCount << "\n";
         std::cout << "Gold: " << mGoldCount << "\n\n";
     }
 
-    void InteractionWorld::BreakBoulder(size_t x, size_t y)
+    void InteractionHeavyWorld::BreakBoulder(size_t x, size_t y)
     {
         // Check the four adjacent cells for a boulder to break
         static std::mt19937 gen(std::random_device{}());
@@ -213,7 +213,7 @@ namespace cse498
         }
     }
 
-    void InteractionWorld::Interact(size_t x, size_t y)
+    void InteractionHeavyWorld::Interact(size_t x, size_t y)
     {
         // Check the four adjacent cells for interactable objects (e.g., materials, chests, doors, enemies)
         WorldPosition center(x, y);
@@ -276,7 +276,7 @@ namespace cse498
         }
     }
 
-    int InteractionWorld::DoAction(AgentBase &agent, size_t action_id)
+    int InteractionHeavyWorld::DoAction(AgentBase &agent, size_t action_id)
     {
         WorldPosition cur_position = agent.GetLocation().AsWorldPosition();
         WorldPosition new_position;

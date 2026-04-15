@@ -12,14 +12,14 @@
 // Include the modules that we will be using.
 #include "../source/Agents/PacingAgent.hpp"
 #include "../source/Interfaces/TrashInterface.hpp"
-#include "../source/Worlds/InteractionWorld.hpp"
+#include "../source/Worlds/InteractionHeavyWorld.hpp"
 #include <random>
 
 using namespace cse498;
 
 int main()
 {
-  InteractionWorld world;
+  InteractionHeavyWorld world;
 
   world.AddAgent<TrashInterface>("Player").SetSymbol('@').SetLocation(world.GetStartPosition());
 
