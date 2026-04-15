@@ -34,6 +34,7 @@ struct SyncManager::Impl {
     std::queue<std::pair<uint64_t, std::vector<uint8_t>>> incomingMessages;
     std::string savesDir = "./saves/";
     std::function<void(const std::vector<SaveInfo>&)> onSaveListCallback;
+    std::function<void()> onLoadCompleteCallback;
     std::function<void(const std::string&)> logHandler = [](const std::string& msg) {
         std::cout << msg;
     };
@@ -543,7 +544,8 @@ void SyncManager::Poll() {
             } else {
                 if (msg_type == SyncMessageType::FULL_STATE || msg_type == SyncMessageType::SYNC_RESPONSE) {
                     ApplyFullStatePayload(mImpl->db, payload);
-                    
+                    if (mImpl->onLoadCompleteCallback) mImpl->onLoadCompleteCallback();
+
                 } else if (msg_type == SyncMessageType::DELTA) {
                     ApplyDeltaPayload(mImpl->db, payload);
 
@@ -648,6 +650,12 @@ void SyncManager::OnSaveListReceived(std::function<void(const std::vector<SaveIn
     }
 }
 
+void SyncManager::OnLoadComplete(std::function<void()> callback) {
+    if (mImpl) {
+        mImpl->onLoadCompleteCallback = std::move(callback);
+    }
+}
+
 void SyncManager::SetLogHandler(std::function<void(const std::string&)> handler) {
     if (mImpl) {
         mImpl->logHandler = std::move(handler);
@@ -720,6 +728,7 @@ struct SyncManager::Impl {
     std::queue<std::vector<uint8_t>> incomingMessages;
 
     std::function<void(const std::vector<SaveInfo>&)> onSaveListCallback;
+    std::function<void()> onLoadCompleteCallback;
     std::function<void(const std::string&)> logHandler = [](const std::string& msg) {
         std::cout << msg;
     };
@@ -793,6 +802,7 @@ void SyncManager::Poll() {
 
         if (msg_type == SyncMessageType::FULL_STATE || msg_type == SyncMessageType::SYNC_RESPONSE) {
             ApplyFullStatePayload(mImpl->db, payload);
+            if (mImpl->onLoadCompleteCallback) mImpl->onLoadCompleteCallback();
 
         } else if (msg_type == SyncMessageType::SAVE_LIST) {
             auto list = DecodeSaveListPayload(payload);
@@ -857,6 +867,10 @@ std::expected<void, SyncError> SyncManager::RequestSaveList() {
 
 void SyncManager::OnSaveListReceived(std::function<void(const std::vector<SaveInfo>&)> callback) {
     if (mImpl) mImpl->onSaveListCallback = std::move(callback);
+}
+
+void SyncManager::OnLoadComplete(std::function<void()> callback) {
+    if (mImpl) mImpl->onLoadCompleteCallback = std::move(callback);
 }
 
 void SyncManager::SetLogHandler(std::function<void(const std::string&)> handler) {

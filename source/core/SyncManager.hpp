@@ -87,6 +87,9 @@ public:
     /// Register callback for save list responses
     void OnSaveListReceived(std::function<void(const std::vector<SaveInfo>&)> callback);
 
+    /// Register callback for when a FULL_STATE (load response) 
+    void OnLoadComplete(std::function<void()> callback);
+
     /// Set a custom log handler. Default writes to std::cout.
     /// Pass nullptr to silence all log output.
     void SetLogHandler(std::function<void(const std::string&)> handler);
