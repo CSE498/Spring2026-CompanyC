@@ -12,6 +12,7 @@
 #include "../tools/BehaviorTree.hpp"
 #include "../core/WorldBase.hpp"
 #include "../tools/PathGenerator.hpp"
+#include "../tools/DynamicTreeBuilder.hpp"
 
 namespace cse498 {
 
@@ -56,156 +57,22 @@ std::string DirectionToString(Direction dir) {
 
 
 void ClassicAgent::BuildTree() {
-    auto root = std::make_shared<Selector>("Root");
+    std::string world_type = "DynamicWorld";       //TODO: need something like world.GetWorldName(); here
+    std::shared_ptr<Node> root;
 
-    // --------------------------------------------------
-    // Branch 0: If we can afford a Townhall and are on grass -> Build it
-    // --------------------------------------------------
-    auto townhall_branch = std::make_shared<Sequence>("TownhallBranch");
-
-    auto ready_to_build_townhall = std::make_shared<ConditionNode>(
-        "ReadyToBuildTownhall",
-        [](const Blackboard & bb) -> bool{
-            auto afford_it = bb.find("can_build_townhall");
-            bool can_afford = afford_it != bb.end() && std::get<bool>(afford_it->second);
-
-            auto grass_it = bb.find("on_grass");
-            bool on_grass = grass_it != bb.end() && std::get<bool>(grass_it->second);
-
-            return can_afford && on_grass;
-        }
-    );
-
-    auto build_townhall_action = std::make_shared<ActionNode>(
-        "BuildTownhall",
-        [](Blackboard & bb) -> Status {
-            bb["chosen_action"].emplace<std::string>("build_townhall");
-            return Status::Success;
-        }
-    );
-
-    townhall_branch->addChild(ready_to_build_townhall);
-    townhall_branch->addChild(build_townhall_action);
-
-    // --------------------------------------------------
-    // Branch 0.5: If we need Steel, can afford a Quarry, and are on grass
-    // --------------------------------------------------
-    auto quarry_branch = std::make_shared<Sequence>("QuarryBranch");
-
-    auto ready_to_build_quarry = std::make_shared<ConditionNode>(
-        "ReadyToBuildQuarry",
-        [](const Blackboard & bb) -> bool {
-            auto afford_it = bb.find("can_build_quarry");
-            bool can_afford = afford_it != bb.end() && std::get<bool>(afford_it->second);
-
-            auto grass_it = bb.find("on_grass");
-            bool on_grass = grass_it != bb.end() && std::get<bool>(grass_it->second);
-
-            auto built_it = bb.find("has_built_quarry");
-            bool already_built = built_it != bb.end() && std::get<bool>(built_it->second);
-
-            return can_afford && on_grass && !already_built;
-        }
-    );
-
-    auto build_quarry_action = std::make_shared<ActionNode>(
-        "BuildQuarry",
-        [](Blackboard & bb) -> Status {
-            bb["chosen_action"].emplace<std::string>("build_quarry");
-
-            bb["has_built_quarry"].emplace<bool>(true);
-            return Status::Success;
-        }
-    );
-
-    quarry_branch->addChild(ready_to_build_quarry);
-    quarry_branch->addChild(build_quarry_action);
-
-    // --------------------------------------------------
-    // Branch 1: If enemy nearby -> attack
-    // --------------------------------------------------
-    auto attack_branch = std::make_shared<Sequence>("AttackBranch");
-
-    auto enemy_nearby = std::make_shared<ConditionNode>(
-        "EnemyNearby",
-        [](const Blackboard & bb) -> bool {
-            auto it = bb.find("enemy_nearby");
-            return it != bb.end() && std::get<bool>(it->second);
-        }
-    );
-
-    auto attack_action = std::make_shared<ActionNode>(
-        "Attack",
-        [](Blackboard & bb) -> Status {
-            bb["chosen_action"].emplace<std::string>("attack");
-            return Status::Success;
-        }
-    );
-
-    attack_branch->addChild(enemy_nearby);
-    attack_branch->addChild(attack_action);
-
-    // --------------------------------------------------
-    // Branch 2: If material nearby -> gather
-    // --------------------------------------------------
-    auto gather_branch = std::make_shared<Sequence>("GatherBranch");
-
-    auto material_nearby = std::make_shared<ConditionNode>(
-        "MaterialNearby",
-        [](const Blackboard & bb) -> bool {
-            auto it = bb.find("material_nearby");
-            return it != bb.end() && std::get<bool>(it->second);
-        }
-    );
-
-    auto gather_action = std::make_shared<ActionNode>(
-        "Gather",
-        [](Blackboard & bb) -> Status {
-            bb["chosen_action"].emplace<std::string>("collect");
-            return Status::Success;
-        }
-    );
-
-    gather_branch->addChild(material_nearby);
-    gather_branch->addChild(gather_action);
-
-    // --------------------------------------------------
-    // Branch 3: Otherwise -> explore
-    // Explore now expects Sense() to have already placed
-    // a valid movement string into "chosen_action".
-    // --------------------------------------------------
-    auto explore_action = std::make_shared<ActionNode>(
-        "Explore",
-        [](Blackboard & bb) -> Status {
-            auto it = bb.find("chosen_action");
-            if (it == bb.end()) return Status::Failure;
-
-            if (!std::holds_alternative<std::string>(it->second)) {
-                return Status::Failure;
-            }
-
-            const std::string& action = std::get<std::string>(it->second);
-
-            if (action == "up" ||
-                action == "down" ||
-                action == "left" ||
-                action == "right") {
-                return Status::Success;
-            }
-
-            return Status::Failure;
-        }
-    );
-    root->addChild(townhall_branch);
-    root->addChild(quarry_branch);
-    root->addChild(gather_branch);
-    root->addChild(explore_action);
-
+    if (world_type == "DynamicWorld") {
+        root = DynamicTreeBuilder::Build(this);
+    }
+    else if (world_type == "HeavyInteraction") {
+        //TODO: root = HeavyTreeBuilder::Build(this);
+    }
     tree.setRoot(root);
 }
 
 
 void ClassicAgent::Sense( WorldGrid& grid) {
+    tree.setMemory("grid", std::cref(grid));
+
     bool enemy_nearby = false;
     bool material_nearby = false;
 
@@ -316,15 +183,10 @@ void ClassicAgent::Sense( WorldGrid& grid) {
 
     const auto& inventory = world.GetWorldGlobalCounts();
 
-    bool can_build_townhall = false;
-    if (inventory.count("wood") && inventory.at("wood") >= 500 &&
-        inventory.count("stone") && inventory.at("stone") >= 500 &&
-        inventory.count("steel") && inventory.at("steel") >= 500 &&
-        inventory.count("wheat") && inventory.at("wheat") >= 500) {
-        can_build_townhall = true;
-    }
-
-    tree.setMemory("can_build_townhall", can_build_townhall);
+    tree.setMemory("wood_count", inventory.count("wood") ? inventory.at("wood") : 0);
+    tree.setMemory("stone_count", inventory.count("stone") ? inventory.at("stone") : 0);
+    tree.setMemory("steel_count", inventory.count("steel") ? inventory.at("steel") : 0);
+    tree.setMemory("wheat_count", inventory.count("wheat") ? inventory.at("wheat") : 0);
 
     // --------------------------------------------------
     // Compute explore move from shared knowledge.
@@ -377,10 +239,10 @@ void ClassicAgent::Sense( WorldGrid& grid) {
     }
 
     if (!explore_move.empty()) {
-        tree.setMemory(
-            "chosen_action",
-            BBValue(std::in_place_type<std::string>, explore_move)
-        );
+        const auto& bb = tree.getBlackboard();
+        if (bb.find("chosen_action") == bb.end()) {
+            tree.setMemory("chosen_action", explore_move);
+        }
     }
 }
 
