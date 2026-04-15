@@ -124,7 +124,7 @@ namespace cse498 {
     [[nodiscard]] virtual bool IsRunOver() const { return run_over; }
 
     /// Get the tick count
-    [[nodiscard]] virtual size_t GetTickCount() const;
+    [[nodiscard]] virtual size_t GetTickCount() const { return 0; };
 
     // -- Agent Management --
 
