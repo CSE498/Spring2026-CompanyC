@@ -33,6 +33,8 @@ namespace cse498 {
     agent_set_t agent_set;  ///< Vector of pointers to agent entities (AgentBase)
 
     std::unordered_map<std::string, size_t> world_global_counts; /// Set of global resources / counts
+    std::vector<std::string> mWorldResourceNames; ///< List of resource names for this world (e.g., "wood", "stone", etc.)
+    std::vector<size_t> mWorldResourceCounts; ///< List of resource counts for this world (e.g., 10 wood, 5 stone, etc.)
 
     bool run_over = false;  ///< Are we finished executing and now shutting down?
 
@@ -98,6 +100,14 @@ namespace cse498 {
 
     [[nodiscard]] const std::unordered_map<std::string, size_t> & GetWorldGlobalCounts() const { 
       return world_global_counts;
+    }
+
+    [[nodiscard]] const std::vector<std::string> & GetWorldResourceNames() const {
+      return mWorldResourceNames;
+    }
+
+    [[nodiscard]] const std::vector<size_t> & GetWorldResourceCounts() const {
+      return mWorldResourceCounts;
     }
 
     [[nodiscard]] virtual size_t GetWidth() const { return main_grid.GetWidth(); }
