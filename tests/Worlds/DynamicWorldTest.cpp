@@ -35,14 +35,20 @@ public:
   using DynamicWorld::BUILD_TOWNHALL;
 
   // Expose building ids so tests can verify the correct structure was placed
-  size_t LumberyardId() const { return mLumberyardId; }
-  size_t FarmId() const { return mFarmId; }
-  size_t SpawnerId() const { return mSpawnerId; }
-  size_t TownhallId() const { return mTownhallId; }
+  size_t LumberyardId() const { return GetLumberyardId(); }
+  size_t FarmId()       const { return GetFarmId(); }
+  size_t SpawnerId()    const { return GetSpawnerId(); }
+  size_t TownhallId()   const { return GetTownhallId(); }
+  size_t GrassId()      const { return GetGrassId(); }
+  size_t TreeId()       const { return GetTreeId(); }
+  size_t StoneId()      const { return GetStoneId(); }
+  size_t WheatId()      const { return GetWheatId(); }
+  size_t QuarryId()     const { return GetQuarryId(); }
 
   void SetResource(const std::string & name, size_t value) {
-    world_global_counts[name] = value;
+    mWorldResourceCounts[ResourceIndex(name)] = value;
   }
+  
 
   // Direct grid write for test setup (bypasses random generation).
   void SetCell(size_t x, size_t y, size_t type_id) {
@@ -53,15 +59,8 @@ public:
     return main_grid[x, y];
   }
 
-  size_t GrassId()  const { return mGrassId;  }
-  size_t TreeId()   const { return mTreeId;   }
-  size_t StoneId()  const { return mStoneId;  }
-  size_t WheatId()  const { return mWheatId;  }
-  size_t QuarryId() const { return mQuarryId; }
-
   size_t GetResource(const std::string & name) const {
-    auto it = world_global_counts.find(name);
-    return (it == world_global_counts.end()) ? 0 : it->second;
+    return mWorldResourceCounts[ResourceIndex(name)];
   }
 
   StubAgent & SpawnStubAt(size_t x, size_t y) {
