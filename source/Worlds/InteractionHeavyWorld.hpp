@@ -90,11 +90,7 @@ namespace cse498
 
     public:
         // Constructor
-        InteractionHeavyWorld()
-        {
-            ConfigureCellTypes();
-            GenerateWorld();
-        }
+        InteractionHeavyWorld();
 
         // Getters for inventory counts and positions
         size_t GetStoneCount() const;

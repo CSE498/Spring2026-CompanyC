@@ -12,6 +12,12 @@
 
 namespace cse498
 {
+    InteractionHeavyWorld::InteractionHeavyWorld()
+    {
+        ConfigureCellTypes();
+        GenerateWorld();
+    }
+
     size_t InteractionHeavyWorld::GetStoneCount() const { return mStoneCount; }
 
     size_t InteractionHeavyWorld::GetGoldCount() const { return mGoldCount; }
@@ -56,7 +62,7 @@ namespace cse498
         // Load dungeon layout from text file
         std::vector<std::string> dungeon_layout;
 
-        std::ifstream infile("assets/interaction_world_maps/dungeon_map.txt");
+        std::ifstream infile("source/Worlds/interaction_world_maps/dungeon_map.txt");
         if (!infile)
         {
             std::cerr << "Error: Could not open dungeon_map.txt\n";
