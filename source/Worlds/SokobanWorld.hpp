@@ -94,6 +94,19 @@ namespace cse498 {
         break;
       case 1:
         main_grid.Load(std::vector<std::string>{
+          " ####   ",
+          " #  ### ",
+          " # O  # ",
+          "### # ##",
+          "#o# #  #",
+          "#oO  # #",
+          "#o   O #",
+          "########"} );
+        agent_set[0]->SetLocation(WorldPosition{2,1});
+        exit_pos = WorldPosition{2,7};
+        break;
+      case 2:
+        main_grid.Load(std::vector<std::string>{
           "  ##### ",
           "###   # ",
           "#o O  # ",
@@ -104,6 +117,30 @@ namespace cse498 {
           "#   o  #",
           "########"} );
         agent_set[0]->SetLocation(WorldPosition{2,2});
+        exit_pos = WorldPosition{0,6};
+        break;
+      case 3:
+        main_grid.Load(std::vector<std::string>{
+          "                                      ",
+          "                                      ",
+          "                                      ",
+          "                                      ",
+          "                                      ",
+          "                                      ",
+          "                                      ",
+          "# #  ###  # #    O  O  O  ooo  X  X  #",
+          "# #  # #  # #    O  O  O   o   XX X  #",
+          " #   # #  # #     O O O    o   X XX   ",
+          " #   ###  ###      O O    ooo  X  X  #",
+          "                                      ",
+          "                                      ",
+          "                                      ",
+          "                                      ",
+          "                                      ",
+          "                                      ",
+          "                                      ",
+          "                                      "} );
+        agent_set[0]->SetLocation(WorldPosition{0,0});
         exit_pos = WorldPosition{0,6};
         break;
       }
