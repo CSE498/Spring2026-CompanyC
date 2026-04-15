@@ -6,13 +6,13 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cassert>
 #include <fstream>
 #include <iostream>
+#include <string>
 #include <unordered_map>
 #include <vector>
-#include <string>
-#include <algorithm>
 
 #include "Location.hpp"
 #include "../tools/io_utils.hpp"
@@ -175,6 +175,11 @@ namespace cse498
       return cells[ToIndex(pos)];
     }
 
+
+    [[nodiscard]] size_t CountCells(size_t type_id) const {
+      return std::count(cells.begin(), cells.end(), type_id);
+    }
+    
     // ===========================
     //   Cell type management...
     // ===========================
