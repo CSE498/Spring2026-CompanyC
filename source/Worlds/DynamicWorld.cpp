@@ -1,7 +1,7 @@
 #include <algorithm>
 #include "./DynamicWorld.hpp"
 
-consteval std::unordered_map<std::string, size_t> ResourceTick = {
+const std::unordered_map<std::string, size_t> ResourceTick = {
   {"wood", 20},
   {"steel", 40},
   {"stone", 10},
@@ -9,30 +9,30 @@ consteval std::unordered_map<std::string, size_t> ResourceTick = {
 };
 
 // Amount of wood required to build a town hall (win condition).
-consteval size_t townHallWoodWinCondition = 500;
+constexpr size_t townHallWoodWinCondition = 500;
 // Amount of stone required to build a town hall (win condition).
-consteval size_t townHallStoneWinCondition = 500;
+constexpr size_t townHallStoneWinCondition = 500;
 // Amount of steel required to build a town hall (win condition).
-consteval size_t townHallSteelWinCondition = 500;
+constexpr size_t townHallSteelWinCondition = 500;
 // Amount of wheat required to build a town hall (win condition).
-consteval size_t townHallWheatWinCondition = 500;
+constexpr size_t townHallWheatWinCondition = 500;
 
 // Amount of wood required to build a lumberyard.
-consteval size_t lumberyardWoodBuildCondition = 20;
+constexpr size_t lumberyardWoodBuildCondition = 20;
 // Amount of steel required to build a lumberyard.
-consteval size_t lumberyardSteelBuildCondition = 20;
+constexpr size_t lumberyardSteelBuildCondition = 20;
 // Amount of stone required to build a quarry.
-consteval size_t quarryStoneBuildCondition = 20;
+constexpr size_t quarryStoneBuildCondition = 20;
 // Amount of wood required to build a quarry.
-consteval size_t quarryWoodBuildCondition = 20;
+constexpr size_t quarryWoodBuildCondition = 20;
 // Amount of stone required to build a spawner.
-consteval size_t spawnerStoneBuildCondition = 30;
+constexpr size_t spawnerStoneBuildCondition = 30;
 // Amount of wheat required to build a spawner.
-consteval size_t spawnerWheatBuildCondition = 30;
+constexpr size_t spawnerWheatBuildCondition = 30;
 // Amount of wheat required to build a farm.
-consteval size_t farmWheatBuildCondition = 20;
+constexpr size_t farmWheatBuildCondition = 20;
 // Amount of wood required to build a farm.
-consteval size_t farmWoodBuildCondition = 20;
+constexpr size_t farmWoodBuildCondition = 20;
 
 int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
   const WorldPosition cur = agent.GetLocation().AsWorldPosition();

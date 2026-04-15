@@ -107,7 +107,8 @@ private:
     if (resource_name == "wood") return 0;
     if (resource_name == "stone") return 1;
     if (resource_name == "steel") return 2;
-    if (resource_name == "wheat") return 3;
+    // if its not wood, stone, or steel, it must be wheat since we assert that above
+    return 3;
   }
 
    /** @brief Configure an agent with available actions.
