@@ -17,6 +17,39 @@ namespace cse498 {
  * Handles agent actions, world updates, resource generation, and building logic.
  */
 class DynamicWorld : public WorldBase {
+protected:
+
+  /**
+   * @enum ActionType
+   * @brief Enumerates all possible actions an agent can take in the world.
+   */
+  enum ActionType {
+    REMAIN_STILL = 0,
+    MOVE_UP, MOVE_DOWN, MOVE_LEFT, MOVE_RIGHT,
+    MOVE_UP_LEFT, MOVE_UP_RIGHT, MOVE_DOWN_LEFT, MOVE_DOWN_RIGHT,
+    COLLECT,
+    BUILD_LUMBERYARD, BUILD_QUARRY, BUILD_SPAWNER, BUILD_FARM, BUILD_TOWNHALL
+  };
+
+  /**
+   * @brief Execute an agent action.
+   *
+   * @param agent The acting agent.
+   * @param action_id The selected action ID.
+   * @return Result/status code of the action.
+   */
+  int DoAction(AgentBase & agent, size_t action_id) override;
+
+  size_t GetGrassId()      const { return mGrassId; }
+  size_t GetTreeId()       const { return mTreeId; }
+  size_t GetStoneId()      const { return mStoneId; }
+  size_t GetWheatId()      const { return mWheatId; }
+  size_t GetQuarryId()     const { return mQuarryId; }
+  size_t GetLumberyardId() const { return mLumberyardId; }
+  size_t GetFarmId()       const { return mFarmId; }
+  size_t GetSpawnerId()    const { return mSpawnerId; }
+  size_t GetTownhallId()   const { return mTownhallId; }
+
 public:
 
   /**
@@ -61,19 +94,15 @@ public:
     }
   }
 
-  /**
-   * @enum ActionType
-   * @brief Enumerates all possible actions an agent can take in the world.
-   */
-  enum ActionType {
-    REMAIN_STILL = 0,
-    MOVE_UP, MOVE_DOWN, MOVE_LEFT, MOVE_RIGHT,
-    MOVE_UP_LEFT, MOVE_UP_RIGHT, MOVE_DOWN_LEFT, MOVE_DOWN_RIGHT,
-    COLLECT,
-    BUILD_LUMBERYARD, BUILD_QUARRY, BUILD_SPAWNER, BUILD_FARM, BUILD_TOWNHALL
-  };
-
-  
+  // resource to index in mWorldResourceCounts
+  size_t ResourceIndex(const std::string & resource_name) const {
+    assert(resource_name == "wood" || resource_name == "stone" || resource_name == "steel" || resource_name == "wheat");
+    if (resource_name == "wood") return 0;
+    if (resource_name == "stone") return 1;
+    if (resource_name == "steel") return 2;
+    // if its not wood, stone, or steel, it must be wheat since we assert that above
+    return 3;
+  }
 
 private:
 
@@ -99,17 +128,6 @@ private:
   size_t mFarmId = 0;
   size_t mSpawnerId = 0;
   size_t mTownhallId = 0;
-
-
-  // resource to index in mWorldResourceCounts
-  size_t ResourceIndex(const std::string & resource_name) {
-    assert(resource_name == "wood" || resource_name == "stone" || resource_name == "steel" || resource_name == "wheat");
-    if (resource_name == "wood") return 0;
-    if (resource_name == "stone") return 1;
-    if (resource_name == "steel") return 2;
-    // if its not wood, stone, or steel, it must be wheat since we assert that above
-    return 3;
-  }
 
    /** @brief Configure an agent with available actions.
    *
@@ -187,8 +205,7 @@ private:
    */
   void GenerateWorld(size_t width, size_t height) {
 
-    assert(mGrassId == 0); // Ensure cell types are configured before generating world.
-    assert(mTreeId != 0 && mStoneId != 0 && mWheatId != 0); // Ensure cell types are configured before generating world.
+    assert(mGrassId != 0 && mTreeId != 0 && mStoneId != 0 && mWheatId != 0); // Ensure cell types are configured before generating world.
     assert(mQuarryId != 0 && mLumberyardId != 0 && mFarmId != 0 && mSpawnerId != 0 && mTownhallId != 0); // Ensure all building types are configured.
 
     main_grid.Resize(width, height, mGrassId);
@@ -208,15 +225,6 @@ private:
     PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 20);
     PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 20);
   }
-
-  /**
-   * @brief Execute an agent action.
-   *
-   * @param agent The acting agent.
-   * @param action_id The selected action ID.
-   * @return Result/status code of the action.
-   */
-  int DoAction(AgentBase & agent, size_t action_id) override;
 
   /**
    * @brief Update the world state each tick.
