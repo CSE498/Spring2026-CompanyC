@@ -22,16 +22,15 @@ public:
   /**
    * @brief Construct a DynamicWorld with default size and configured cell types.
    */
-  DynamicWorld() {
-      ConfigureCellTypes();
-      GenerateWorld(80, 80);
-    }
+  DynamicWorld() : DynamicWorld(100, 100) { }
   /**
    * @brief Construct a DynamicWorld with default size and configured cell types.
    * @param width the width of the world
    * @param height the height of the world
    */
   DynamicWorld(size_t width, size_t height) {
+    mWorldResourceNames = {"wood", "stone", "steel", "wheat"};
+    mWorldResourceCounts = {0, 0, 0, 0};
     ConfigureCellTypes();
     GenerateWorld(width, height);
   }
@@ -54,16 +53,13 @@ public:
       UpdateWorld();
 
       if (mUpdateCounter % 500 == 0) {
-        std::for_each(std::begin(world_global_counts), std::end(world_global_counts), 
-          [] (auto p){
-            std::cout << p.first << ": " << p.second << std::endl;
-          }
-        );
+        for (size_t i = 0; i < mWorldResourceNames.size(); ++i) {
+          std::cout << mWorldResourceNames[i] << ": " << mWorldResourceCounts[i] << " ";
+        }
+        std::cout << std::endl;
       }
     }
   }
-
-protected:
 
   /**
    * @enum ActionType
@@ -76,6 +72,10 @@ protected:
     COLLECT,
     BUILD_LUMBERYARD, BUILD_QUARRY, BUILD_SPAWNER, BUILD_FARM, BUILD_TOWNHALL
   };
+
+  
+
+private:
 
   /// @brief Counts how many times UpdateWorld() has been called.
   size_t mUpdateCounter = 0;
@@ -100,8 +100,17 @@ protected:
   size_t mSpawnerId = 0;
   size_t mTownhallId = 0;
 
-  /**
-   * @brief Configure an agent with available actions.
+
+  // resource to index in mWorldResourceCounts
+  size_t ResourceIndex(const std::string & resource_name) {
+    assert(resource_name == "wood" || resource_name == "stone" || resource_name == "steel" || resource_name == "wheat");
+    if (resource_name == "wood") return 0;
+    if (resource_name == "stone") return 1;
+    if (resource_name == "steel") return 2;
+    if (resource_name == "wheat") return 3;
+  }
+
+   /** @brief Configure an agent with available actions.
    *
    * The first agent added becomes the "leader" and gains build abilities.
    *
@@ -176,6 +185,11 @@ protected:
    * @param height Height of the world.
    */
   void GenerateWorld(size_t width, size_t height) {
+
+    assert(mGrassId == 0); // Ensure cell types are configured before generating world.
+    assert(mTreeId != 0 && mStoneId != 0 && mWheatId != 0); // Ensure cell types are configured before generating world.
+    assert(mQuarryId != 0 && mLumberyardId != 0 && mFarmId != 0 && mSpawnerId != 0 && mTownhallId != 0); // Ensure all building types are configured.
+
     main_grid.Resize(width, height, mGrassId);
 
     std::random_device rd;

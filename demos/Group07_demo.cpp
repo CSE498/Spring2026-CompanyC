@@ -31,7 +31,7 @@ int main(){
 
     cse498::DynamicWorld world(width, height);
 
-    constexpr int basicAgentCount= 15;
+    constexpr size_t basicAgentCount= 15;
 
     int agentPositionX = 0;
     int agentPositionY = 0;
