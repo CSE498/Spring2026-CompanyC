@@ -19,6 +19,7 @@
 #include "Worlds/DynamicWorld.hpp"
 #include "Worlds/InteractionHeavyWorld.hpp"
 #include "Worlds/MazeWorld.hpp"
+#include "Worlds/SokobanWorld.hpp"
 #include "Worlds/StubWorld.hpp"
 
 using namespace cse498;
@@ -91,21 +92,25 @@ int main() {
     world.AddAgent<agent_t>("Pacer 2").SetLocation(WorldPosition{6,1});
     world.AddAgent<agent_t>("Guard 1").SetHorizontal().SetLocation(WorldPosition{7,7});
     world.AddAgent<agent_t>("Guard 2").SetHorizontal().ToggleDirection().SetLocation(WorldPosition{8,8});
+  } else if (run_mode == "sokoban") {
+    g_app->Initialize<cse498::SokobanWorld>();
   } else { // run_mode == "stub"
     g_app->Initialize<cse498::StubWorld>();
   }
 
-  g_app->SetCellVisual("grass",       "#8fd17f", ".");
-  g_app->SetCellVisual("wall",        "#0c1523", "#");
-  g_app->SetCellVisual("built",       "#8b5cf6", "B");
-  g_app->SetCellVisual("diamond_ore", "#eae2fb", "D");
-  g_app->SetCellVisual("exit",        "#a12989", "E");
-  g_app->SetCellVisual("gold_ore",    "#e1e827", "G");
-  g_app->SetCellVisual("iron_ore",    "#525252", "I");
-  g_app->SetCellVisual("boulder",     "#6e4f08", "O");
-  g_app->SetCellVisual("stone",       "#9ca3af", "S");
-  g_app->SetCellVisual("tree",        "#3f8f3f", "T");
-  g_app->SetCellVisual("wheat",       "#f4d35e", "W");
+  g_app->SetCellVisual("grass",        "#8fd17f", ".");
+  g_app->SetCellVisual("wall",         "#0c1523", "#");
+  g_app->SetCellVisual("button",       "#629cfa", "o");
+  g_app->SetCellVisual("built",        "#8b5cf6", "B");
+  g_app->SetCellVisual("diamond_ore",  "#eae2fb", "D");
+  g_app->SetCellVisual("exit",         "#a12989", "E");
+  g_app->SetCellVisual("gold_ore",     "#e1e827", "G");
+  g_app->SetCellVisual("iron_ore",     "#525252", "I");
+  g_app->SetCellVisual("boulder",      "#6e4f08", "O");
+  g_app->SetCellVisual("stone",        "#9ca3af", "S");
+  g_app->SetCellVisual("tree",         "#3f8f3f", "T");
+  g_app->SetCellVisual("wheat",        "#f4d35e", "W");
+  g_app->SetCellVisual("pressed",      "#0f30ee", "X");
 
   using Meta = cse498::WebInterface::ActionMeta;
   g_app->RegisterActionMeta("start",   Meta{"Start",   "Enter", false});
