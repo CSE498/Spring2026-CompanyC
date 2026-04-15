@@ -123,6 +123,9 @@ namespace cse498 {
     /// Determine if the run has ended.
     [[nodiscard]] virtual bool IsRunOver() const { return run_over; }
 
+    /// Get the tick count
+    [[nodiscard]] virtual size_t GetTickCount() const;
+
     // -- Agent Management --
 
     /// @brief Build a new agent of the specified type

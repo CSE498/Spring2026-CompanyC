@@ -225,6 +225,12 @@ private:
    */
   void UpdateWorld() override;
 
+  /** 
+   * @brief  Override to return the current tick count for use in agents or buildings.
+   * @return the current tick count since the world started running.
+   */
+  [[nodiscard]] size_t GetTickCount() const override { return mUpdateCounter; }
+
 };
 
 } // namespace cse498
