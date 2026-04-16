@@ -32,7 +32,6 @@ namespace cse498 {
     item_set_t item_set;    ///< Vector of pointers to non-agent entities (ItemBase)
     agent_set_t agent_set;  ///< Vector of pointers to agent entities (AgentBase)
 
-    std::unordered_map<std::string, size_t> world_global_counts; /// Set of global resources / counts
     std::vector<std::string> mWorldResourceNames; ///< List of resource names for this world (e.g., "wood", "stone", etc.)
     std::vector<size_t> mWorldResourceCounts; ///< List of resource counts for this world (e.g., 10 wood, 5 stone, etc.)
 
@@ -96,10 +95,6 @@ namespace cse498 {
     [[nodiscard]] const AgentBase & GetAgent(size_t id) const {
       assert(id < agent_set.size());
       return *agent_set[id];
-    }
-
-    [[nodiscard]] const std::unordered_map<std::string, size_t> & GetWorldGlobalCounts() const {
-      return world_global_counts;
     }
 
     [[nodiscard]] const std::vector<std::string> & GetWorldResourceNames() const {
