@@ -71,7 +71,7 @@ void ClassicAgent::BuildTree() {
 
 
 void ClassicAgent::Sense( WorldGrid& grid) {
-    tree.setMemory("grid", std::cref(grid));
+    tree.setMemory<std::any>("grid", std::cref(grid));
 
     bool enemy_nearby = false;
     bool material_nearby = false;
@@ -183,10 +183,10 @@ void ClassicAgent::Sense( WorldGrid& grid) {
 
     const auto& inventory = world.GetWorldGlobalCounts();
 
-    tree.setMemory("wood_count", inventory.count("wood") ? inventory.at("wood") : 0);
-    tree.setMemory("stone_count", inventory.count("stone") ? inventory.at("stone") : 0);
-    tree.setMemory("steel_count", inventory.count("steel") ? inventory.at("steel") : 0);
-    tree.setMemory("wheat_count", inventory.count("wheat") ? inventory.at("wheat") : 0);
+    tree.setMemory<int>("wood_count", inventory.count("wood") ? inventory.at("wood") : 0);
+    tree.setMemory<int>("stone_count", inventory.count("stone") ? inventory.at("stone") : 0);
+    tree.setMemory<int>("steel_count", inventory.count("steel") ? inventory.at("steel") : 0);
+    tree.setMemory<int>("wheat_count", inventory.count("wheat") ? inventory.at("wheat") : 0);
 
     // --------------------------------------------------
     // Compute explore move from shared knowledge.

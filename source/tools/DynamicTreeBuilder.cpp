@@ -88,7 +88,7 @@ std::shared_ptr<Node> DynamicTreeBuilder::Build(ClassicAgent* agent) {
     dynamic_root->addChild(townhall_branch);
     dynamic_root->addChild(quarry_branch);
 
-    // TODO: Add explore/attack/gather logic here later!
+    // TODO: Add explore/attack/gather logic here
 
     return dynamic_root;
 }
