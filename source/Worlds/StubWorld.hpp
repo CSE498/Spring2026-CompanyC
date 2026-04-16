@@ -14,6 +14,7 @@
 
 namespace cse498 {
 
+class Database;      // forward declaration for save/load
 class WebInterface;  // forward declaration; full definition needed only in .cpp
 
 /// @brief 10×10 resource-collection world for the Group 24 web demo.
@@ -57,6 +58,15 @@ class StubWorld : public WorldBase {
   /// @return 1 on success, 0 on failure (status message sent via Notify).
   int DoAction(AgentBase& agent, size_t action_id) override;
 
+  /// Set the Database pointer used for save/load (non-owning).
+  void SetDatabase(Database* db) { db_ = db; }
+
+  /// Serialize base + custom state into the Database.
+  void SaveState(const std::string& world_name);
+
+  /// Restore base + custom state from the Database.
+  void LoadState(const std::string& world_name);
+
  private:
   static constexpr int kWidth  = 10;
   static constexpr int kHeight = 10;
@@ -70,6 +80,8 @@ class StubWorld : public WorldBase {
 
   bool started_ = false;
   std::map<std::string, int> resources_;
+
+  Database* db_ = nullptr;
 
   /// Load the initial (or reset) grid layout from a character string map.
   void InitializeGrid_();
