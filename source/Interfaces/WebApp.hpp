@@ -56,6 +56,16 @@ class WebApp {
   void RegisterActionMeta(const std::string& action_id,
                           cse498::WebInterface::ActionMeta meta);
 
+  /// Assign a sprite image URL to agents whose glyph character matches.
+  /// Call after Initialize() and before Render().
+  void RegisterEntityVisual(char glyph, std::string image_url);
+
+  /// Register a background image to draw beneath a named cell type's sprite.
+  /// e.g., RegisterCellBackground("tree", "assets/grass.png") draws grass
+  /// under every tree cell before the tree sprite is drawn on top.
+  void RegisterCellBackground(const std::string& cell_type_name,
+                               std::string bg_image_url);
+
   /// Build the legend cache and draw the first frame.
   /// Must be called after Initialize() and all SetCellVisual()/RegisterActionMeta() calls.
   void Render();
@@ -99,6 +109,9 @@ class WebApp {
 
   // Legend is built once in Render() and reused on every subsequent frame.
   std::unordered_map<int, cse498::LegendEntry> legend_by_id_;
+
+  // Optional background image per cell type name (drawn beneath the cell sprite).
+  std::unordered_map<std::string, std::string> cell_backgrounds_;
 };
 
 /// Single application instance — defined in WebApp.cpp, used by

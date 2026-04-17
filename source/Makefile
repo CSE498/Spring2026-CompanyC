@@ -53,10 +53,12 @@ WEB_OUT_DIR = ../web
 web web-opt: $(WEB_SOURCES)
 	@mkdir -p $(WEB_OUT_DIR)
 	$(EMCC) $(WEB_SOURCES) $(FLAGS_web_opt) -o $(WEB_OUT_DIR)/demo.html
+	@cp -r ../assets $(WEB_OUT_DIR)/assets
 
 web-debug: $(WEB_SOURCES)
 	@mkdir -p $(WEB_OUT_DIR)
 	$(EMCC) $(WEB_SOURCES) $(FLAGS_web_debug) -o $(WEB_OUT_DIR)/demo.html
+	@cp -r ../assets $(WEB_OUT_DIR)/assets
 # ─────────────────────────────────────────────────────────────────────────────
 
 server:

@@ -65,6 +65,10 @@ void WebInterface::SetCellVisual(const std::string& cell_type_name,
       CellVisual{std::move(fill_css), std::move(glyph)};
 }
 
+void WebInterface::SetEntityVisual(char glyph, std::string image_url) {
+  entity_visuals_[glyph] = std::move(image_url);
+}
+
 void WebInterface::RegisterActionMeta(const std::string& action_id,
                                       ActionMeta meta) {
   action_metas_[action_id] = std::move(meta);
@@ -135,13 +139,17 @@ std::vector<RenderableEntity> WebInterface::GetEntities() const {
 
     const WorldPosition& pos = agent.GetLocation().AsWorldPosition();
     RenderableEntity ent;
-    ent.id       = static_cast<int>(id);
-    ent.x        = static_cast<int>(pos.CellX());
-    ent.y        = static_cast<int>(pos.CellY());
-    ent.label    = agent.GetName();
-    ent.fill_css = agent.IsInterface() ? "#2563eb" : "#dc2626";
-    ent.glyph    = std::string(1, agent.GetSymbol());
-    ent.visible  = true;
+    const char sym = agent.GetSymbol();
+    const auto vis_it = entity_visuals_.find(sym);
+
+    ent.id        = static_cast<int>(id);
+    ent.x         = static_cast<int>(pos.CellX());
+    ent.y         = static_cast<int>(pos.CellY());
+    ent.label     = agent.GetName();
+    ent.fill_css  = agent.IsInterface() ? "#2563eb" : "#dc2626";
+    ent.glyph     = std::string(1, sym);
+    ent.image_url = (vis_it != entity_visuals_.end()) ? vis_it->second : "";
+    ent.visible   = true;
     entities.push_back(std::move(ent));
   }
   return entities;
