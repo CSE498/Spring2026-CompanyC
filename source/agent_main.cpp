@@ -6,6 +6,7 @@
 
 // Include the modules that we will be using.
 #include "Agents/ClassicAgent.hpp"
+#include "Agents/ClassicDynamicAgent.hpp"
 #include "Worlds/DynamicWorld.hpp"
 
 using namespace cse498;
@@ -14,7 +15,7 @@ int main()
 {
   DynamicWorld world;
 
-  world.AddAgent<ClassicAgent>("Classic 1").SetLocation(WorldPosition{1,1});
+  world.AddAgent<ClassicDynamicAgent>("Dynamic Classic Agent").SetLocation(WorldPosition{1,1});
 
   world.Run();
 }
