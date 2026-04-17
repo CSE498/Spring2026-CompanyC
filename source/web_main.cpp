@@ -54,6 +54,28 @@ int main() {
   g_app->SetCellVisual("tree",        "#3f8f3f", "T");
   g_app->SetCellVisual("wheat",       "#f4d35e", "W");
 
+  // Background tiles drawn beneath resource/object cell sprites.
+  // Group 7 (outdoor): grass under trees, wheat, stone, wood.
+  g_app->RegisterCellBackground("tree",  "assets/grass.png");
+  g_app->RegisterCellBackground("wheat", "assets/grass.png");
+  g_app->RegisterCellBackground("stone", "assets/grass.png");
+  g_app->RegisterCellBackground("wood",  "assets/grass.png");
+  // Group 8 (dungeon): floor/dirt under ores and boulders.
+  g_app->RegisterCellBackground("boulder",     "assets/floor.png");
+  g_app->RegisterCellBackground("gold_ore",    "assets/floor.png");
+  g_app->RegisterCellBackground("iron_ore",    "assets/floor.png");
+  g_app->RegisterCellBackground("diamond_ore", "assets/floor.png");
+  g_app->RegisterCellBackground("exit",        "assets/floor.png");
+
+  // Entity sprites: maps the agent glyph symbol to an asset PNG.
+  // 'P' is set by WebApp::Initialize for the human player.
+  g_app->RegisterEntityVisual('P', "assets/player.png");
+  // '*' is the default AgentBase symbol used by PacingAgent and collector agents.
+  g_app->RegisterEntityVisual('*', "assets/agent.png");
+  // Uncomment as worlds are integrated:
+  // g_app->RegisterEntityVisual('E', "assets/enemy.png");
+  // g_app->RegisterEntityVisual('G', "assets/goblin.png");
+
   using Meta = cse498::WebInterface::ActionMeta;
   g_app->RegisterActionMeta("start",   Meta{"Start",   "Enter", false});
   g_app->RegisterActionMeta("reset",   Meta{"Reset",   "R",     false});

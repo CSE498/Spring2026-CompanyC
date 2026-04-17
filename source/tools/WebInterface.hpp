@@ -72,6 +72,11 @@ class WebInterface : public InterfaceBase {
   void SetCellVisual(const std::string& cell_type_name,
                      std::string fill_css, std::string glyph);
 
+  /// Assign a sprite image URL to an agent glyph character.
+  /// When an entity's glyph matches, its image_url is set instead of drawing
+  /// the default filled circle.
+  void SetEntityVisual(char glyph, std::string image_url);
+
   /// Register display label, hotkey hint, and enabled-mode for an action.
   void RegisterActionMeta(const std::string& action_id, ActionMeta meta);
 
@@ -97,6 +102,7 @@ class WebInterface : public InterfaceBase {
   std::map<std::string, int>                  resources_;
   std::unordered_map<std::string, CellVisual> cell_visuals_;
   std::unordered_map<std::string, ActionMeta> action_metas_;
+  std::unordered_map<char, std::string>       entity_visuals_;  // glyph → image URL
 };
 
 }  // namespace cse498

@@ -7,6 +7,7 @@
 // See Interfaces/WebApp.hpp for the class interface and usage notes.
 
 #include "Interfaces/WebApp.hpp"
+#include "tools/WebAssetKeys.hpp"
 
 #include <emscripten.h>
 
@@ -176,9 +177,9 @@ WebApp::WebApp() {
   canvas_->AppendTo("cse498_canvas_host");
   canvas_->SetClickHandler([this](int pixel_x, int pixel_y) {
     if (!interface_) return;
-    const int cell_w = kCanvasWidthPx  / interface_->GetGridWidth();
-    const int cell_h = kCanvasHeightPx / interface_->GetGridHeight();
-    const auto cell  = canvas_->PixelToCell(pixel_x, pixel_y, cell_w, cell_h);
+    const int cell_size = std::min(kCanvasWidthPx  / interface_->GetGridWidth(),
+                                   kCanvasHeightPx / interface_->GetGridHeight());
+    const auto cell  = canvas_->PixelToCell(pixel_x, pixel_y, cell_size, cell_size);
     interface_->SelectCell(cell.first, cell.second);
     RenderWorld();
   });
@@ -211,18 +212,41 @@ void WebApp::RegisterActionMeta(const std::string& action_id,
   }
 }
 
+void WebApp::RegisterEntityVisual(char glyph, std::string image_url) {
+  if (interface_) {
+    cse498::WebCanvas::PreloadImage(image_url);
+    interface_->SetEntityVisual(glyph, std::move(image_url));
+  }
+}
+
+void WebApp::RegisterCellBackground(const std::string& cell_type_name,
+                                     std::string bg_image_url) {
+  cse498::WebCanvas::PreloadImage(bg_image_url);
+  cell_backgrounds_[cell_type_name] = std::move(bg_image_url);
+}
+
 void WebApp::Render() {
   if (!interface_) return;
   legend_by_id_.clear();
   for (const auto& entry : interface_->GetLegend()) {
     legend_by_id_[entry.id] = entry;
+    // Preload the sprite for this cell type.
+    cse498::WebCanvas::PreloadImage("assets/" + entry.key + ".png");
   }
   RenderWorld();
 }
 
 void WebApp::HandleAction(int action_code) {
+  if (!interface_ || !world_) return;
+
+  // Code 0 is a no-op redraw (used by the image preloader onload callback).
+  if (action_code == 0) {
+    RenderWorld();
+    return;
+  }
+
   const std::string action_id = ActionIdForCode(action_code);
-  if (action_id.empty() || !interface_ || !world_) return;
+  if (action_id.empty()) return;
 
   // Submit the action to the interface (stores it as pending), then advance
   // the world by one turn (world calls SelectAction → DoAction on the agent).
@@ -269,8 +293,9 @@ void WebApp::RenderWorld() {
   // Grid dimensions come from the world so this works with any WorldBase world.
   const int grid_w = interface_->GetGridWidth();
   const int grid_h = interface_->GetGridHeight();
-  const int cell_w = kCanvasWidthPx  / grid_w;
-  const int cell_h = kCanvasHeightPx / grid_h;
+  const int cell_w = std::min(kCanvasWidthPx  / grid_w,
+                              kCanvasHeightPx / grid_h);
+  const int cell_h = cell_w;
 
   // Fetch all renderable cells once and build a position-indexed lookup so
   // each grid cell is resolved in O(1) rather than with a linear scan.
@@ -296,7 +321,23 @@ void WebApp::RenderWorld() {
         const std::string fill  = entry ? entry->fill_css : kColorCellFallback;
         const std::string glyph = entry ? entry->glyph   : "?";
 
-        canvas_->DrawCell(col, row, cell_w, cell_h, fill, glyph, kColorCellText);
+        // Draw background tile first if one is registered for this cell type.
+        if (entry) {
+          const auto bg_it = cell_backgrounds_.find(entry->key);
+          if (bg_it != cell_backgrounds_.end()) {
+            canvas_->DrawImage(bg_it->second,
+                               static_cast<float>(col * cell_w),
+                               static_cast<float>(row * cell_h),
+                               static_cast<float>(cell_w),
+                               static_cast<float>(cell_h),
+                               fill);
+          }
+        }
+
+        std::string image_url;
+        if (entry) { image_url = "assets/" + entry->key + ".png"; }
+        canvas_->DrawCellImage(col, row, cell_w, cell_h,
+                               image_url, fill, glyph);
 
         if (cell.selected) {
           canvas_->HighlightCell(col, row, cell_w, cell_h);
@@ -313,20 +354,32 @@ void WebApp::RenderWorld() {
         static_cast<float>(entity.x * cell_w + cell_w / 2);
     const float center_y =
         static_cast<float>(entity.y * cell_h + cell_h / 2);
-    canvas_->DrawEntity(center_x, center_y, entity_radius, entity.fill_css,
-                        entity.glyph, kColorEntityText);
+    if (!entity.image_url.empty()) {
+      // Draw sprite scaled to the full cell, aligned to the cell top-left.
+      const float img_x = static_cast<float>(entity.x * cell_w);
+      const float img_y = static_cast<float>(entity.y * cell_h);
+      canvas_->DrawImage(entity.image_url, img_x, img_y,
+                         static_cast<float>(cell_w),
+                         static_cast<float>(cell_h),
+                         entity.fill_css);
+    } else {
+      canvas_->DrawEntity(center_x, center_y, entity_radius, entity.fill_css,
+                          entity.glyph, kColorEntityText);
+    }
   }
 
   // Draw grid lines after cells so they appear on top.
   canvas_->SetStrokeColor(kColorGridLine);
   canvas_->SetLineWidth(1.0f);
+  const float grid_px_w = static_cast<float>(grid_w * cell_w);
+  const float grid_px_h = static_cast<float>(grid_h * cell_h);
   for (int i = 0; i <= grid_w; ++i) {
     const float p = static_cast<float>(i * cell_w);
-    canvas_->DrawLine(p, 0.0f, p, static_cast<float>(kCanvasHeightPx));
+    canvas_->DrawLine(p, 0.0f, p, grid_px_h);
   }
   for (int i = 0; i <= grid_h; ++i) {
     const float p = static_cast<float>(i * cell_h);
-    canvas_->DrawLine(0.0f, p, static_cast<float>(kCanvasWidthPx), p);
+    canvas_->DrawLine(0.0f, p, grid_px_w, p);
   }
 
   canvas_->Present();
