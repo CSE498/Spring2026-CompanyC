@@ -63,7 +63,7 @@ namespace cse498
         std::cout << "|\n";
       }
       std::cout << '+' << std::string(grid.GetWidth(), '-') << "+\n";
-      std::cout << "\nUse W, A, S, D to move, B to break, E to interact, I to print inventory, or Q to quit.";
+      std::cout << "\nUse W, A, S, D to move, B to break, E to interact, I/J/K/L to throw, P to print inventory, or Q to quit.";
       std::cout << "\nYour move? ";
       std::cout.flush();
     }
@@ -80,7 +80,7 @@ namespace cse498
       return true;
     }
 
-    size_t SelectAction( WorldGrid & grid) override
+    size_t SelectAction(WorldGrid &grid) override
     {
       auto item_ids = world.GetKnownItems(*this);
       auto agent_ids = world.GetKnownAgents(*this);
@@ -126,11 +126,30 @@ namespace cse498
       case 'E':
         action_id = GetActionID("interact");
         break;
-      case 'i': 
-      case 'I': 
-        action_id = GetActionID("print_inventory"); 
+      case 'i':
+      case 'I':
+        action_id = GetActionID("throw_up");
         break;
-        exit(0); // Quit!
+
+      case 'k':
+      case 'K':
+        action_id = GetActionID("throw_down");
+        break;
+
+      case 'j':
+      case 'J':
+        action_id = GetActionID("throw_left");
+        break;
+
+      case 'l':
+      case 'L':
+        action_id = GetActionID("throw_right");
+        break;
+
+      case 'p':
+      case 'P':
+        action_id = GetActionID("print_inventory");
+        break;
       }
 
       // If we waited for input, but don't understand it, notify the user.

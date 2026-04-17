@@ -26,7 +26,7 @@ int main()
   std::random_device rd;
   std::mt19937 gen(rd());
 
-  std::uniform_int_distribution<> agent_dist(60, 80);
+  std::uniform_int_distribution<> agent_dist(0, 1);
   std::uniform_int_distribution<> coin(0, 1);
 
   for (auto i = 0; i < agent_dist(gen); ++i)

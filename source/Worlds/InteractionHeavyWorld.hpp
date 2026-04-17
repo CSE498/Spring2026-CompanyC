@@ -16,6 +16,15 @@ namespace cse498
     class InteractionHeavyWorld : public WorldBase
     {
     private:
+        // Attibutes
+        int mPlayerHP = 100;
+        int mEnemyDefaultHP = 100;
+        int mThrowDamage = 10;
+        int mThrowRange = 4;
+        int mEnemyContactDamage = 1;
+
+        // enemy tile position -> hp
+        std::map<std::pair<size_t, size_t>, int> enemy_hp;
         // Information Revolving around Boulder
         struct Boulder
         {
@@ -42,6 +51,10 @@ namespace cse498
             MOVE_LEFT,
             MOVE_RIGHT,
             INTERACT,
+            THROW_UP,
+            THROW_DOWN,
+            THROW_LEFT,
+            THROW_RIGHT,
             BREAK_BOULDER,
             PRINT_INVENTORY
         };
@@ -70,7 +83,7 @@ namespace cse498
          * @param agent The agent to configure.
          */
         void ConfigAgent(AgentBase &agent) override;
-  
+
         /**
          * @brief Configure the cell types in this world.
          */
@@ -83,10 +96,10 @@ namespace cse498
 
         /**
          * @brief Load a dungeon layout from a vector of strings using a text file.
-         * @param dungeon_layout A vector of strings representing the dungeon layout, 
+         * @param dungeon_layout A vector of strings representing the dungeon layout,
          * where each character corresponds to a cell type.
          */
-        void LoadDungeon(const std::vector<std::string>& dungeon_layout);
+        void LoadDungeon(const std::vector<std::string> &dungeon_layout);
 
     public:
         // Constructor
@@ -97,6 +110,8 @@ namespace cse498
         size_t GetGoldCount() const;
         WorldPosition GetStartPosition() const;
         WorldPosition GetRandomPosition() const;
+
+        int GetPlayerHP() const;
 
         /**
          * @brief Determine if a position is near the starting position.
@@ -117,7 +132,7 @@ namespace cse498
 
         /**
          * @brief Break a boulder at the specified location, if it exists.
-         * @param x The x-coordinate of the boulder to break.  
+         * @param x The x-coordinate of the boulder to break.
          * @param y The y-coordinate of the boulder to break.
          */
         void BreakBoulder(size_t x, size_t y);
@@ -134,6 +149,8 @@ namespace cse498
          * @param agent The agent performing the action.
          */
         int DoAction(AgentBase &agent, size_t action_id) override;
-        
+
+        void ThrowStone(size_t x, size_t y, int dx, int dy);
+        void ApplyEnemyContactDamage(const WorldPosition &player_pos);
     };
 }

@@ -22,8 +22,10 @@ namespace cse498
 
     size_t InteractionHeavyWorld::GetGoldCount() const { return mGoldCount; }
 
+    int InteractionHeavyWorld::GetPlayerHP() const { return mPlayerHP; }
+
     WorldPosition InteractionHeavyWorld::GetStartPosition() const { return mStartPosition; }
-    
+
     void InteractionHeavyWorld::ConfigAgent(AgentBase &agent)
     {
         agent.AddAction("up", MOVE_UP);
@@ -33,6 +35,10 @@ namespace cse498
         agent.AddAction("break_boulder", BREAK_BOULDER);
         agent.AddAction("interact", INTERACT);
         agent.AddAction("print_inventory", PRINT_INVENTORY);
+        agent.AddAction("throw_up", THROW_UP);
+        agent.AddAction("throw_down", THROW_DOWN);
+        agent.AddAction("throw_left", THROW_LEFT);
+        agent.AddAction("throw_right", THROW_RIGHT);
     }
 
     void InteractionHeavyWorld::ConfigureCellTypes()
@@ -62,10 +68,10 @@ namespace cse498
         // Load dungeon layout from text file
         std::vector<std::string> dungeon_layout;
 
-        std::ifstream infile("source/Worlds/interaction_world_maps/dungeon_map.txt");
+        std::ifstream infile("source/Worlds/interaction_world_maps/dungeon_map_small.txt");
         if (!infile)
         {
-            std::cerr << "Error: Could not open dungeon_map.txt\n";
+            std::cerr << "Error: Could not open dungeon_map_small.txt\n";
             return;
         }
 
@@ -89,7 +95,7 @@ namespace cse498
         PlaceBoulders();
     }
 
-    void InteractionHeavyWorld::LoadDungeon(const std::vector<std::string>& dungeon_layout)
+    void InteractionHeavyWorld::LoadDungeon(const std::vector<std::string> &dungeon_layout)
     {
         // Iterate through the layout and set cell types based on characters
         for (size_t y = 0; y < dungeon_layout.size(); ++y)
@@ -101,25 +107,29 @@ namespace cse498
 
                 switch (c)
                 {
-                    case '#':
-                        main_grid[pos] = mWallID;
-                        break;
-                    case ' ':
-                        main_grid[pos] = mFloorID;
-                        break;
-                    case 'D':
-                        main_grid[pos] = mDoorID;
-                        break;
-                    case 'X':
-                        main_grid[pos] = mExitID;
-                        break;
-                    case 'S':
-                        main_grid[pos] = mFloorID;
-                        mStartPosition = pos;
-                        break;
-                    case 'C':
-                        main_grid[pos] = mChestID;
-                        break;
+                case '#':
+                    main_grid[pos] = mWallID;
+                    break;
+                case ' ':
+                    main_grid[pos] = mFloorID;
+                    break;
+                case 'D':
+                    main_grid[pos] = mDoorID;
+                    break;
+                case 'X':
+                    main_grid[pos] = mExitID;
+                    break;
+                case 'S':
+                    main_grid[pos] = mFloorID;
+                    mStartPosition = pos;
+                    break;
+                case 'C':
+                    main_grid[pos] = mChestID;
+                    break;
+                case 'H':
+                    main_grid[pos] = mEnemyID;
+                    enemy_hp[{x, y}] = mEnemyDefaultHP;
+                    break;
                 }
             }
         }
@@ -161,7 +171,7 @@ namespace cse498
     {
         // Randomly place boulders in the world, avoiding the starting area and ensuring they are on floor cells.
         static std::mt19937 gen(std::random_device{}());
-        std::uniform_int_distribution<> dist(50, 70);
+        std::uniform_int_distribution<> dist(1, 4);
 
         int count = dist(gen);
         int placed = 0;
@@ -180,7 +190,8 @@ namespace cse498
 
     void InteractionHeavyWorld::PrintInventory() const
     {
-        std::cout << "\nCurrent Inventory:\n";
+        std::cout << "\nCurrent Stats:\n";
+        std::cout << "HP: " << mPlayerHP << "\n";
         std::cout << "Stone: " << mStoneCount << "\n";
         std::cout << "Gold: " << mGoldCount << "\n\n";
     }
@@ -198,8 +209,7 @@ namespace cse498
             center.Up(),
             center.Down(),
             center.Left(),
-            center.Right()
-        };
+            center.Right()};
 
         for (const auto &pos : neighbors)
         {
@@ -229,12 +239,12 @@ namespace cse498
             center.Up(),
             center.Down(),
             center.Left(),
-            center.Right()
-        };
+            center.Right()};
 
-        for (const auto& pos : neighbors)
+        for (const auto &pos : neighbors)
         {
-            if (!main_grid.IsValid(pos)) continue;
+            if (!main_grid.IsValid(pos))
+                continue;
 
             size_t tile = main_grid[pos];
 
@@ -242,9 +252,10 @@ namespace cse498
             if (tile == mMaterialID)
             {
                 auto it = inventory.find({pos.CellX(), pos.CellY()});
-                if (it == inventory.end()) continue;
+                if (it == inventory.end())
+                    continue;
                 mStoneCount += it->second.stone;
-                mGoldCount  += it->second.gold;
+                mGoldCount += it->second.gold;
                 inventory.erase(it);
                 main_grid[pos] = mFloorID;
                 return;
@@ -252,7 +263,7 @@ namespace cse498
 
             // Open a chest
             if (tile == mChestID)
-            {   
+            {
                 size_t gold_found = 2;
 
                 mGoldCount += gold_found;
@@ -278,6 +289,91 @@ namespace cse498
             {
                 // Placeholder
                 return;
+            }
+        }
+    }
+    void InteractionHeavyWorld::ThrowStone(size_t x, size_t y, int dx, int dy)
+    {
+        if (mStoneCount == 0)
+        {
+            std::cout << "No stones to throw.\n";
+            return;
+        }
+
+        WorldPosition pos(x, y);
+
+        for (int step = 1; step <= mThrowRange; ++step)
+        {
+            WorldPosition target(pos.CellX() + dx * step, pos.CellY() + dy * step);
+
+            if (!main_grid.IsValid(target))
+                return;
+
+            size_t tile = main_grid[target];
+
+            if (tile == mWallID || tile == mBoulderID || tile == mDoorID || tile == mChestID)
+            {
+                return; // projectile is blocked
+            }
+
+            if (tile == mEnemyID)
+            {
+                mStoneCount--;
+
+                auto key = std::make_pair(target.CellX(), target.CellY());
+                auto it = enemy_hp.find(key);
+                if (it == enemy_hp.end())
+                {
+                    enemy_hp[key] = mEnemyDefaultHP - mThrowDamage;
+                }
+                else
+                {
+                    it->second -= mThrowDamage;
+                }
+
+                int remaining_hp = enemy_hp[key];
+                std::cout << "Hit enemy for " << mThrowDamage
+                          << " damage. Enemy HP: " << remaining_hp << "\n";
+
+                if (enemy_hp[key] <= 0)
+                {
+                    std::cout << "Enemy defeated.\n";
+                    enemy_hp.erase(key);
+                    main_grid[target] = mFloorID;
+                }
+                return;
+            }
+        }
+
+        // optional: still consume a stone on a miss
+        mStoneCount--;
+        std::cout << "Stone thrown and missed.\n";
+    }
+
+    void InteractionHeavyWorld::ApplyEnemyContactDamage(const WorldPosition &player_pos)
+    {
+        std::vector<WorldPosition> neighbors = {
+            player_pos.Up(),
+            player_pos.Down(),
+            player_pos.Left(),
+            player_pos.Right()};
+
+        for (const auto &pos : neighbors)
+        {
+            if (!main_grid.IsValid(pos))
+                continue;
+
+            if (main_grid[pos] == mEnemyID)
+            {
+                mPlayerHP -= mEnemyContactDamage;
+                std::cout << "Enemy hit you! Player HP: " << mPlayerHP << "\n";
+
+                if (mPlayerHP <= 0)
+                {
+                    std::cout << "You died.\n";
+                    exit(0);
+                }
+                return; // only take damage once per turn
             }
         }
     }
@@ -313,20 +409,37 @@ namespace cse498
         case PRINT_INVENTORY:
             PrintInventory();
             return true;
+        case THROW_UP:
+            ThrowStone(cur_position.CellX(), cur_position.CellY(), 0, -1);
+            return true;
+
+        case THROW_DOWN:
+            ThrowStone(cur_position.CellX(), cur_position.CellY(), 0, 1);
+            return true;
+
+        case THROW_LEFT:
+            ThrowStone(cur_position.CellX(), cur_position.CellY(), -1, 0);
+            return true;
+
+        case THROW_RIGHT:
+            ThrowStone(cur_position.CellX(), cur_position.CellY(), 1, 0);
+            return true;
         }
 
         if (!main_grid.IsValid(new_position))
             return false;
 
-        if (main_grid[new_position] == mWallID || 
+        if (main_grid[new_position] == mWallID ||
             main_grid[new_position] == mBoulderID ||
-            main_grid[new_position] == mEnemyID || 
-            main_grid[new_position] == mDoorID || 
-            main_grid[new_position] == mChestID || 
+            main_grid[new_position] == mEnemyID ||
+            main_grid[new_position] == mDoorID ||
+            main_grid[new_position] == mChestID ||
             main_grid[new_position] == mChestOpenID)
             return false;
 
         agent.SetLocation(new_position);
+
+        ApplyEnemyContactDamage(new_position);
 
         // Check for win condition if stepping on exit
         if (main_grid[new_position] == mExitID)
@@ -334,7 +447,7 @@ namespace cse498
             if (agent.GetName() == "Player")
             {
                 std::cout << "Congratulations! You've reached the exit with "
-                    << mStoneCount << " stone and " << mGoldCount << " gold!\n";
+                          << mStoneCount << " stone and " << mGoldCount << " gold!\n";
                 exit(0);
             }
         }
