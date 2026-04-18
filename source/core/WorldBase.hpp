@@ -7,6 +7,7 @@
 #pragma once
 
 #include <cassert>
+#include <chrono>
 #include <memory>
 #include <string>
 #include <vector>
@@ -149,7 +150,8 @@ namespace cse498 {
         size_t action_id = agent_ptr->SelectAction(main_grid);
         int result = DoAction(*agent_ptr, action_id);
         if (result){
-          mActionLog.recordAction(*agent_ptr, action_id);
+          mActionLog.recordAction(agent_ptr->GetID(), action_id, std::chrono::duration_cast<std::chrono::microseconds>(
+                                  std::chrono::steady_clock::now().time_since_epoch()));
         }
         agent_ptr->SetActionResult(result);
       }
