@@ -2,6 +2,7 @@
  * BFS-based AI agent that solves SokobanWorld puzzles automatically.
  * Scans the grid on each new level, runs BFS over the combined state space,
  * and replays the solution one action per tick via SelectAction().
+ * @NOTE BEST USED ONLY FOR SOKOBAN WORLD.
  * @author Ahmed Labib
  */
 
