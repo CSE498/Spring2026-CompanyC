@@ -108,8 +108,9 @@ public:
   /**
    * @brief Initialize an agent that only has the ability to move in order to be used by UI team.
   */
+  template <typename AGENT_T>
   void AddGhostAgent() {
-    auto agent_ptr = std::make_unique<AgentBase>(agent_set.size(), "ghost", *this);
+    auto agent_ptr = std::make_unique<AGENT_T>(agent_set.size(), "ghost", *this);
     
     if (agent_ptr->Initialize() == false) {
       std::cerr << "Failed to initialize ghost agent." << std::endl;
