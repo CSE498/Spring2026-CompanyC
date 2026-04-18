@@ -1,12 +1,46 @@
 #include <algorithm>
 #include "./DynamicWorld.hpp"
 
+const std::unordered_map<std::string, size_t> ResourceTick = {
+  {"wood", 20},
+  {"steel", 40},
+  {"stone", 10},
+  {"wheat", 10}
+};
+
+// Amount of wood required to build a town hall (win condition).
+constexpr size_t townHallWoodWinCondition = 500;
+// Amount of stone required to build a town hall (win condition).
+constexpr size_t townHallStoneWinCondition = 500;
+// Amount of steel required to build a town hall (win condition).
+constexpr size_t townHallSteelWinCondition = 500;
+// Amount of wheat required to build a town hall (win condition).
+constexpr size_t townHallWheatWinCondition = 500;
+
+// Amount of wood required to build a lumberyard.
+constexpr size_t lumberyardWoodBuildCondition = 20;
+// Amount of steel required to build a lumberyard.
+constexpr size_t lumberyardSteelBuildCondition = 20;
+// Amount of stone required to build a quarry.
+constexpr size_t quarryStoneBuildCondition = 20;
+// Amount of wood required to build a quarry.
+constexpr size_t quarryWoodBuildCondition = 20;
+// Amount of stone required to build a spawner.
+constexpr size_t spawnerStoneBuildCondition = 30;
+// Amount of wheat required to build a spawner.
+constexpr size_t spawnerWheatBuildCondition = 30;
+// Amount of wheat required to build a farm.
+constexpr size_t farmWheatBuildCondition = 20;
+// Amount of wood required to build a farm.
+constexpr size_t farmWoodBuildCondition = 20;
+
 int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
   const WorldPosition cur = agent.GetLocation().AsWorldPosition();
   WorldPosition next = cur;
 
   switch (action_id) {
   case REMAIN_STILL:
+    next = cur;
     break;
   case MOVE_UP:
     next = cur.Up();
@@ -35,117 +69,117 @@ int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
   case COLLECT: {
     size_t cell = main_grid[cur];
     if (cell == mTreeId) {
-      world_global_counts["wood"] += 1;
+      ++mWorldResourceCounts[ResourceIndex("wood")]; // wood
       main_grid[cur] = mGrassId;
-      return true;
+      return 1;
     } else if (cell == mStoneId) {
-      world_global_counts["stone"] += 1;
+      ++mWorldResourceCounts[ResourceIndex("stone")]; // stone
       main_grid[cur] = mGrassId;
-      return true;
+      return 1;
     } else if (cell == mWheatId) {
-      world_global_counts["wheat"] += 1;
+      ++mWorldResourceCounts[ResourceIndex("wheat")]; // wheat
       main_grid[cur] = mGrassId;
-      return true;
+      return 1;
     }
-    return false;
+    return 0;
   }
   case BUILD_LUMBERYARD: {
     if (main_grid[cur] != mGrassId)
-      return false;
-    if (world_global_counts["wood"] < 20 || world_global_counts["steel"] < 20)
-      return false;
-    world_global_counts["wood"] -= 20;
-    world_global_counts["steel"] -= 20;
+      return 0;
+    if (mWorldResourceCounts.at(ResourceIndex("wood")) < lumberyardWoodBuildCondition || mWorldResourceCounts.at(ResourceIndex("steel")) < lumberyardSteelBuildCondition)
+      return 0;
+    mWorldResourceCounts[ResourceIndex("wood")] -= lumberyardWoodBuildCondition;
+    mWorldResourceCounts[ResourceIndex("steel")] -= lumberyardSteelBuildCondition;
     main_grid[cur] = mLumberyardId;
     Building lumberyard(mUpdateCounter);
-    lumberyard.AddResource("wood", 20);
+    lumberyard.AddResource("wood", ResourceTick.at("wood"));
     mBuildings.push_back(lumberyard);
-    return true;
+    return 1; 
   }
   case BUILD_QUARRY: {
     if (main_grid[cur] != mGrassId)
-      return false;
-    if (world_global_counts["stone"] < 20 || world_global_counts["wood"] < 20)
-      return false;
-    world_global_counts["stone"] -= 20;
-    world_global_counts["wood"] -= 20;
+      return 0;
+    if (mWorldResourceCounts.at(ResourceIndex("stone")) < quarryStoneBuildCondition || mWorldResourceCounts.at(ResourceIndex("wood")) < quarryWoodBuildCondition)
+      return 0;
+    mWorldResourceCounts[ResourceIndex("stone")] -= quarryStoneBuildCondition;
+    mWorldResourceCounts[ResourceIndex("wood")] -= quarryWoodBuildCondition;
     main_grid[cur] = mQuarryId;
     Building quarry(mUpdateCounter);
-    quarry.AddResource("steel", 40);
-    quarry.AddResource("stone", 10);
+    quarry.AddResource("steel", ResourceTick.at("steel"));
+    quarry.AddResource("stone", ResourceTick.at("stone"));
     mBuildings.push_back(quarry);
-    return true;
+    return 1;
   }
   case BUILD_SPAWNER: {
     if (main_grid[cur] != mGrassId)
-      return false;
-    if (world_global_counts["stone"] < 30 || world_global_counts["wheat"] < 30)
-      return false;
-    world_global_counts["stone"] -= 30;
-    world_global_counts["wheat"] -= 30;
+      return 0;
+    if (mWorldResourceCounts.at(ResourceIndex("stone")) < spawnerStoneBuildCondition || mWorldResourceCounts.at(ResourceIndex("wheat")) < spawnerWheatBuildCondition)
+      return 0;
+    mWorldResourceCounts[ResourceIndex("stone")] -= spawnerStoneBuildCondition;
+    mWorldResourceCounts[ResourceIndex("wheat")] -= spawnerWheatBuildCondition;
     main_grid[cur] = mSpawnerId;
     mSpawners.push_back({cur, mUpdateCounter});
-    return true;
+    return 1;
   }
   case BUILD_FARM: {
     if (main_grid[cur] != mGrassId)
-      return false;
-    if (world_global_counts["wheat"] < 20 || world_global_counts["wood"] < 20)
-      return false;
-    world_global_counts["wheat"] -= 20;
-    world_global_counts["wood"] -= 20;
+      return 0;
+    if (mWorldResourceCounts.at(ResourceIndex("wheat")) < farmWheatBuildCondition || mWorldResourceCounts.at(ResourceIndex("wood")) < farmWoodBuildCondition)
+      return 0;
+    mWorldResourceCounts[ResourceIndex("wheat")] -= farmWheatBuildCondition;
+    mWorldResourceCounts[ResourceIndex("wood")] -= farmWoodBuildCondition;
     main_grid[cur] = mFarmId;
     Building farm(mUpdateCounter);
-    farm.AddResource("wheat", 10);
+    farm.AddResource("wheat", ResourceTick.at("wheat"));
     mBuildings.push_back(farm);
-    return true;
+    return 1;
   }
   case BUILD_TOWNHALL: {
     if (main_grid[cur] != mGrassId)
-      return false;
-    if (world_global_counts["wood"] < 500 || world_global_counts["stone"] < 500 ||
-        world_global_counts["steel"] < 500 || world_global_counts["wheat"] < 500)
-      return false;
-    world_global_counts["wood"] -= 500;
-    world_global_counts["stone"] -= 500;
-    world_global_counts["steel"] -= 500;
-    world_global_counts["wheat"] -= 500;
+      return 0;
+    if (mWorldResourceCounts.at(ResourceIndex("wood")) < townHallWoodWinCondition || mWorldResourceCounts.at(ResourceIndex("stone")) < townHallStoneWinCondition ||
+        mWorldResourceCounts.at(ResourceIndex("steel")) < townHallSteelWinCondition || mWorldResourceCounts.at(ResourceIndex("wheat")) < townHallWheatWinCondition)
+      return 0;
+    mWorldResourceCounts[ResourceIndex("wood")] -= townHallWoodWinCondition;
+    mWorldResourceCounts[ResourceIndex("stone")] -= townHallStoneWinCondition;
+    mWorldResourceCounts[ResourceIndex("steel")] -= townHallSteelWinCondition;
+    mWorldResourceCounts[ResourceIndex("wheat")] -= townHallWheatWinCondition;
     main_grid[cur] = mTownhallId;
     run_over = true;
-    return true;
+    return 1;
   }
   default:
     break;
   }
 
-  if (action_id >= MOVE_UP && action_id <= MOVE_DOWN_RIGHT) {
+  if (action_id >= REMAIN_STILL && action_id <= MOVE_DOWN_RIGHT) {
     if (!main_grid.IsValid(next))
-      return false;
+      return 0;
     if (!main_grid.IsTraversable(main_grid[next]))
-      return false;
+      return 0;
     agent.SetLocation(next);
-    return true;
+    return 1;
   }
 
-  return false;
+  return 0;
 }
 
 void cse498::DynamicWorld::UpdateWorld() {
 
   mUpdateCounter++;
 
-  for(auto building : mBuildings){
+  for(const auto& building : mBuildings){
     if (building.GetResources().size() == 0) continue;
-    for (auto resource : building.GetResources()){
+    for (const auto& resource : building.GetResources()){
       const size_t ticks_since_built = mUpdateCounter - building.GetBuiltTime();
-      if (ticks_since_built % resource.second == 0) {
-        world_global_counts[resource.first] += 1;
+      if (resource.second > 0 && ticks_since_built % resource.second == 0) {
+        ++mWorldResourceCounts[ResourceIndex(resource.first)];
       }
     }
   }
 
   // Spawner logic: spawn a PacingAgent at the closest grass cell every 60 ticks
-  for (auto & [pos, built_time] : mSpawners) {
+  for (const auto & [pos, built_time] : mSpawners) {
     size_t ticks_since_built = mUpdateCounter - built_time;
     if (ticks_since_built > 0 && ticks_since_built % 60 == 0) {
       // Search outward for the nearest grass cell to place the new agent
@@ -169,5 +203,9 @@ void cse498::DynamicWorld::UpdateWorld() {
         }
       }
     }
+  }
+
+  if (mCutoffTime >= mUpdateCounter) {
+    run_over = true;
   }
 }

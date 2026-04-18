@@ -15,7 +15,7 @@ public:
   StubAgent(size_t id, const std::string & name, const cse498::WorldBase & world)
     : AgentBase(id, name, world) { }
 
-  size_t SelectAction(const cse498::WorldGrid &) override { 
+  size_t SelectAction(cse498::WorldGrid &) override { 
     std::random_device rd;
     std::mt19937 gen(rd());
 
@@ -31,7 +31,7 @@ int main(){
 
     cse498::DynamicWorld world(width, height);
 
-    constexpr int basicAgentCount= 15;
+    constexpr size_t basicAgentCount= 15;
 
     int agentPositionX = 0;
     int agentPositionY = 0;

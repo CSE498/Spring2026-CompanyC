@@ -32,7 +32,8 @@ namespace cse498 {
     item_set_t item_set;    ///< Vector of pointers to non-agent entities (ItemBase)
     agent_set_t agent_set;  ///< Vector of pointers to agent entities (AgentBase)
 
-    std::unordered_map<std::string, size_t> world_global_counts; /// Set of global resources / counts
+    std::vector<std::string> mWorldResourceNames; ///< List of resource names for this world (e.g., "wood", "stone", etc.)
+    std::vector<size_t> mWorldResourceCounts; ///< List of resource counts for this world (e.g., 10 wood, 5 stone, etc.)
 
     bool run_over = false;  ///< Are we finished executing and now shutting down?
 
@@ -96,8 +97,12 @@ namespace cse498 {
       return *agent_set[id];
     }
 
-    [[nodiscard]] const std::unordered_map<std::string, size_t> & GetWorldGlobalCounts() const { 
-      return world_global_counts;
+    [[nodiscard]] const std::vector<std::string> & GetWorldResourceNames() const {
+      return mWorldResourceNames;
+    }
+
+    [[nodiscard]] const std::vector<size_t> & GetWorldResourceCounts() const {
+      return mWorldResourceCounts;
     }
 
     [[nodiscard]] virtual size_t GetWidth() const { return main_grid.GetWidth(); }
@@ -112,6 +117,9 @@ namespace cse498 {
 
     /// Determine if the run has ended.
     [[nodiscard]] virtual bool IsRunOver() const { return run_over; }
+
+    /// Get the tick count
+    [[nodiscard]] virtual size_t GetTickCount() const { return 0; };
 
     // -- Agent Management --
 
@@ -130,7 +138,6 @@ namespace cse498 {
       agent_set.emplace_back(std::move(agent_ptr)); // Move unique ptr for agent into set.
       return agent_ref;
     }
-
 
     // -- Action Management --
 
@@ -164,9 +171,13 @@ namespace cse498 {
     virtual void Run() {
       run_over = false;
       while (!run_over) {
-        RunAgents();
-        UpdateWorld();
+        Tick();
       }
+    }
+
+    virtual void Tick() {
+      RunAgents();
+      UpdateWorld();
     }
 
 
