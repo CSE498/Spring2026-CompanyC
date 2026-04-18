@@ -271,24 +271,25 @@ private:
     std::uniform_int_distribution<int> x_dist(2, static_cast<int>(width) - 3);
     std::uniform_int_distribution<int> y_dist(2, static_cast<int>(height) - 3);
 
-    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 20);
-    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 20);
+    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 2);
+    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 3);
+    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 4);
+    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 4);
+    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 5);
 
-    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 20);
-    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 20);
+    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 2);
+    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 3);
+    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 4);
+    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 4);
+    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 5);
 
-    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 20);
-    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 20);
+    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 2);
+    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 3);
+    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 4);
+    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 4);
+    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 5);
   }
 
-  /**
-   * @brief Execute an agent action.
-   *
-   * @param agent The acting agent.
-   * @param action_id The selected action ID.
-   * @return Result/status code of the action.
-   */
-  int DoAction(AgentBase & agent, size_t action_id) override;
 
   /**
    * @brief Update the world state each tick.
