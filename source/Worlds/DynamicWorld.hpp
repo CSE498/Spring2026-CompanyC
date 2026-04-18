@@ -124,7 +124,16 @@ public:
    * @brief Calls DoAction on the metaparameter GhostAgent given an action_id
   */
   void PerformGhostAction(size_t action_id) {
+    assert(mGhostAgent != nullptr);
     DoAction(*mGhostAgent, action_id);
+  }
+
+  /**
+   * @brief Returns location object of ghost object
+  */
+  Location GetGhostLocation() {
+    assert(mGhostAgent != nullptr);
+    return mGhostAgent->GetLocation();
   }
 
   /**
