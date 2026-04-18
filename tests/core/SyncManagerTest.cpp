@@ -5,29 +5,19 @@
  */
 
 #include "catch2/catch.hpp"
+#include "../tools/TestHelpers.hpp"
 #include "../../source/core/SyncManager.hpp"
 #include "../../source/core/Database.hpp"
 #include "../../source/tools/WebSocketConnection.hpp"
 #include "../../source/tools/WebSocketServer.hpp"
 #include "../../source/tools/Serializer.hpp"
 
-#include <thread>
-#include <chrono>
 #include <filesystem>
 
 using namespace cse498;
+using cse498::test::WaitFor;
 
 namespace {
-
-template <typename Pred>
-bool WaitFor(Pred pred, int timeout_ms = 2000, int poll_interval_ms = 10) {
-    auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
-    while (!pred()) {
-        if (std::chrono::steady_clock::now() > deadline) return false;
-        std::this_thread::sleep_for(std::chrono::milliseconds(poll_interval_ms));
-    }
-    return true;
-}
 
 constexpr int SYNC_TEST_PORT = 18090;
 
@@ -1428,4 +1418,66 @@ TEST_CASE("SyncManager - Full round-trip: save, list, load", "[sync]") {
     client_sync.Stop();
     ws_server.Stop();
     std::filesystem::remove_all(tmp_dir);
+}
+
+TEST_CASE("SyncManager - OnLoadComplete fires after FULL_STATE", "[sync]") {
+    WebSocketServer server(SYNC_TEST_PORT);
+    REQUIRE(server.Start().has_value());
+
+    Database server_db;
+    SyncManager server_sync(server_db, server, "./test_onload_saves/");
+
+    Database client_db;
+    WebSocketConnection client_ws;
+
+    SyncManager client_sync(client_db, client_ws);
+
+    bool load_complete = false;
+    client_sync.OnLoadComplete([&]() { load_complete = true; });
+
+    REQUIRE(client_ws.Connect("ws://127.0.0.1:" + std::to_string(SYNC_TEST_PORT)).has_value());
+    REQUIRE(server_sync.Start().has_value());
+    REQUIRE(client_sync.Start().has_value());
+
+    REQUIRE(WaitFor([&] {
+        server.Poll();
+        client_ws.Poll();
+        return server.ClientCount() > 0;
+    }));
+
+    // Drain initial FULL_STATE from connection
+    for (int i = 0; i < 5; ++i) {
+        server.Poll(); server_sync.Poll();
+        client_ws.Poll(); client_sync.Poll();
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    (void)client_db.Store("key1", std::string("value1"));
+    (void)client_db.FlushDirty();
+    REQUIRE(client_sync.SaveGame("onload_test").has_value());
+
+    REQUIRE(WaitFor([&] {
+        server.Poll(); server_sync.Poll();
+        client_ws.Poll(); client_sync.Poll();
+        return std::filesystem::exists("./test_onload_saves/onload_test.save");
+    }));
+
+    client_db.Clear();
+    load_complete = false;
+    REQUIRE(client_sync.LoadGame("onload_test").has_value());
+
+    REQUIRE(WaitFor([&] {
+        server.Poll(); server_sync.Poll();
+        client_ws.Poll(); client_sync.Poll();
+        return load_complete;
+    }));
+
+    auto val = client_db.Load<std::string>("key1");
+    REQUIRE(val.has_value());
+    REQUIRE(*val == "value1");
+
+    client_sync.Stop();
+    server_sync.Stop();
+    server.Stop();
+    std::filesystem::remove_all("./test_onload_saves/");
 }
