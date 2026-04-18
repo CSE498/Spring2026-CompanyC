@@ -204,4 +204,8 @@ void cse498::DynamicWorld::UpdateWorld() {
       }
     }
   }
+
+  if (mCutoffTime >= mUpdateCounter) {
+    run_over = true;
+  }
 }

@@ -139,7 +139,6 @@ namespace cse498 {
       return agent_ref;
     }
 
-
     // -- Action Management --
 
     /// @brief Central function for an agent to take any action

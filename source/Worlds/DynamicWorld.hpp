@@ -54,6 +54,7 @@ public:
   DynamicWorld(size_t width, size_t height) {
     mWorldResourceNames = {"wood", "stone", "steel", "wheat"};
     mWorldResourceCounts = {0, 0, 0, 0};
+
     ConfigureCellTypes();
     GenerateWorld(width, height);
   }
@@ -84,12 +85,17 @@ public:
     }
   }
 
+  /**
+   * @brief Run the agents and update the world one time
+   */
   void Tick() override {
       RunAgents();
       UpdateWorld();
   }
 
-  // resource to index in mWorldResourceCounts
+  /**
+   * @brief Provides a mapping of resource name to index of that resource
+   */
   size_t ResourceIndex(const std::string & resource_name) const {
     assert(resource_name == "wood" || resource_name == "stone" || resource_name == "steel" || resource_name == "wheat");
     if (resource_name == "wood") return 0;
@@ -99,6 +105,30 @@ public:
     return 3;
   }
 
+  /**
+   * @brief Initialize an agent that only has the ability to move in order to be used by UI team.
+  */
+  void AddGhostAgent() {
+    auto agent_ptr = std::make_unique<AgentBase>(agent_set.size(), "ghost", *this);
+    
+    if (agent_ptr->Initialize() == false) {
+      std::cerr << "Failed to initialize ghost agent." << std::endl;
+    }
+
+    mGhostAgent = std::move(agent_ptr);
+    AddMovementFunctions(*mGhostAgent);
+  }
+
+  /**
+   * @brief Calls DoAction on the metaparameter GhostAgent given an action_id
+  */
+  void PerformGhostAction(size_t action_id) {
+    DoAction(*mGhostAgent, action_id);
+  }
+
+  /**
+   * @brief Getters for Ids
+   */
   size_t GetGrassId()      const { return mGrassId; }
   size_t GetTreeId()       const { return mTreeId; }
   size_t GetStoneId()      const { return mStoneId; }
@@ -114,6 +144,9 @@ private:
   /// @brief Counts how many times UpdateWorld() has been called.
   size_t mUpdateCounter = 0;
 
+  /// @brief The tick counter cutoff for ending the run
+  size_t mCutoffTime = 15000;
+
   /// @brief Stores all buildings currently in the world.
   std::vector<Building> mBuildings;
 
@@ -122,6 +155,9 @@ private:
 
   /// @brief Indicates whether the leader agent has been assigned.
   bool mLeaderAgentSet = false;
+
+  /// @brief An agent that only has movement capabilities (For UI purposes)
+  std::unique_ptr<AgentBase> mGhostAgent;
 
   /// @brief Cell type IDs for terrain and structures.
   size_t mGrassId = 0;
@@ -133,6 +169,17 @@ private:
   size_t mFarmId = 0;
   size_t mSpawnerId = 0;
   size_t mTownhallId = 0;
+
+  void AddMovementFunctions(AgentBase & agent) {
+    agent.AddAction("up", MOVE_UP);
+    agent.AddAction("down", MOVE_DOWN);
+    agent.AddAction("left", MOVE_LEFT);
+    agent.AddAction("right", MOVE_RIGHT);
+    agent.AddAction("up_left", MOVE_UP_LEFT);
+    agent.AddAction("up_right", MOVE_UP_RIGHT);
+    agent.AddAction("down_left", MOVE_DOWN_LEFT);
+    agent.AddAction("down_right", MOVE_DOWN_RIGHT);
+  }
 
    /** @brief Configure an agent with available actions.
    *
@@ -150,14 +197,7 @@ private:
       mLeaderAgentSet = true;
     }
 
-    agent.AddAction("up", MOVE_UP);
-    agent.AddAction("down", MOVE_DOWN);
-    agent.AddAction("left", MOVE_LEFT);
-    agent.AddAction("right", MOVE_RIGHT);
-    agent.AddAction("up_left", MOVE_UP_LEFT);
-    agent.AddAction("up_right", MOVE_UP_RIGHT);
-    agent.AddAction("down_left", MOVE_DOWN_LEFT);
-    agent.AddAction("down_right", MOVE_DOWN_RIGHT);
+    AddMovementFunctions(agent);
     agent.AddAction("collect", COLLECT);
   }
 
