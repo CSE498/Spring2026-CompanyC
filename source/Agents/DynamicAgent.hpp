@@ -1,12 +1,36 @@
 /**
  * @file DynamicAgent.hpp
- * @author Ahmed Ezaz Labib
+ * @author Ahmed Ezaz Labib, Shashank Papani
+ *
  * Agent types:
  *   - Leader: builds only
  *   - Collector (default): gathers the least-needed resource
  *   - Farmer: collects wheat only
  *   - Miner: collects stone only
  *   - Woodsman: collects wood only
+ *
+ * @example Best used to fulfill win condition of DynamicWorld:
+ * @code
+ *   world.AddAgent<cse498::DynamicAgent>("Builder")
+ *       .SetLeader(true)
+ *       .SetLocation(cse498::WorldPosition{x_pos(gen), y_pos(gen)});
+ *
+ *   world.AddAgent<cse498::DynamicAgent>("Farmer")
+ *       .SetFarmer()
+ *       .SetLocation(cse498::WorldPosition{x_pos(gen), y_pos(gen)});
+ *
+ *   world.AddAgent<cse498::DynamicAgent>("Miner")
+ *       .SetMiner()
+ *       .SetLocation(cse498::WorldPosition{x_pos(gen), y_pos(gen)});
+ *
+ *   world.AddAgent<cse498::DynamicAgent>("Woodsman")
+ *       .SetWoodsman()
+ *       .SetLocation(cse498::WorldPosition{x_pos(gen), y_pos(gen)});
+ *
+ *   world.AddAgent<cse498::DynamicAgent>("Collector")
+ *       .SetCollector()
+ *       .SetLocation(cse498::WorldPosition{x_pos(gen), y_pos(gen)});
+ * @endcode
  **/
 
 #pragma once
