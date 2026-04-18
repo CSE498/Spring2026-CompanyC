@@ -57,16 +57,21 @@ std::string DirectionToString(Direction dir) {
 
 
 void ClassicAgent::BuildTree() {
-    std::string world_type = "DynamicWorld";       //TODO: need something like world.GetWorldName(); here
-    std::shared_ptr<Node> root;
+    auto default_root = std::make_shared<Selector>("BaseSurvivalRoot");
 
-    if (world_type == "DynamicWorld") {
-        root = DynamicTreeBuilder::Build(this);
-    }
-    else if (world_type == "HeavyInteraction") {
-        //TODO: root = HeavyTreeBuilder::Build(this);
-    }
-    tree.setRoot(root);
+    auto wander_action = std::make_shared<ActionNode>(
+        "DefaultWander",
+        [](Blackboard & bb) -> Status {
+            auto it = bb.find("chosen_action");
+            if (it == bb.end() || std::get<std::string>(it->second) == "remain_still") {
+                bb["chosen_action"].emplace<std::string>("up"); // Placeholder
+            }
+            return Status::Success;
+        }
+    );
+
+    default_root->addChild(wander_action);
+    tree.setRoot(default_root);
 }
 
 
@@ -240,7 +245,8 @@ void ClassicAgent::Sense( WorldGrid& grid) {
 
     if (!explore_move.empty()) {
         const auto& bb = tree.getBlackboard();
-        if (bb.find("chosen_action") == bb.end()) {
+        auto it = bb.find("chosen_action");
+        if (it == bb.end() || std::get<std::string>(it->second) == "remain_still") {
             tree.setMemory("chosen_action", explore_move);
         }
     }
@@ -263,6 +269,13 @@ size_t ClassicAgent::GetAction() const {
     }
 
     return action_it->second;
+}
+
+size_t ClassicAgent::SelectAction(WorldGrid & grid) {
+    tree.setMemory("chosen_action", std::string("remain_still"));
+    Sense(grid);
+    tree.update();
+    return GetAction();
 }
 
 } // namespace cse498

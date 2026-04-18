@@ -40,16 +40,18 @@ opt: opt-agent
 grumpy: grumpy-agent
 
 # Shared sources for native builds
-BASE_SOURCES = \
-	Agents/ClassicAgent.cpp \
-	Agents/TendencyAgent.cpp \
-	tools/BehaviorTree.cpp \
-	tools/CompositeNodes.cpp \
-	tools/LeafNodes.cpp \
-	tools/DynamicTreeBuilder.cpp \
-	tools/PathGenerator.cpp \
-	tools/WorldPath.cpp \
-	Worlds/DynamicWorld.cpp
+# Sources shared by all build targets (native and web)
+BASE_SOURCES = Agents/ClassicAgent.cpp   \
+               Agents/TendencyAgent.cpp  \
+			   Agents/ClassicDynamicAgent.cpp \
+               tools/BehaviorTree.cpp    \
+               tools/CompositeNodes.cpp  \
+               tools/LeafNodes.cpp       \
+			   tools/DynamicTreeBuilder.cpp \
+               tools/PathGenerator.cpp   \
+               tools/WorldPath.cpp       \
+               Worlds/DynamicWorld.cpp
+>>>>>>> group-06-dev
 
 # SaveServer needs extra .cpp sources for Database + WebSocket stack
 SAVESERVER_SRCS = \
