@@ -10,7 +10,6 @@
 #include <cstdlib>
 
 #include "Interfaces/WebApp.hpp"
-
 #include "Agents/PacingAgent.hpp"
 #include "Worlds/InteractionHeavyWorld.hpp"
 #include "Worlds/MazeWorld.hpp"
@@ -38,6 +37,14 @@ int main() {
     world.AddAgent<agent_t>("Pacer 2").SetLocation(WorldPosition{6,1});
     world.AddAgent<agent_t>("Guard 1").SetHorizontal().SetLocation(WorldPosition{7,7});
     world.AddAgent<agent_t>("Guard 2").SetHorizontal().ToggleDirection().SetLocation(WorldPosition{8,8});
+  } else if (world == "dynamic") {
+    using agent_t = cse498::PacingAgent;
+    // Uncomment when DynamicWorld is implemented.
+    // auto& w = g_app->Initialize<cse498::DyanmicWorld>();
+    // w.AddAgent<agent_t>("Pacer 1").SetLocation(WorldPosition{3, 1});
+    // w.AddAgent<agent_t>("Pacer 2").SetLocation(WorldPosition{6, 1});
+    // g_app->SetPlayerVisible(false);
+    // g_app->EnableViewport(32);
   } else { // world == "stub"
     g_app->Initialize<cse498::StubWorld>();
   }

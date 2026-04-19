@@ -73,28 +73,42 @@ class WebApp {
   /// Dispatch an action code received from a JS button or keyboard event.
   void HandleAction(int action_code);
 
+  /// Hide or show the player entity on the canvas.
+  /// Pass false for an invisible observer/camera that only controls the viewport.
+  void SetPlayerVisible(bool visible);
+
+  /// Switch to viewport (camera) mode with a fixed cell pixel size.
+  /// The viewport is centered on the player position each frame.
+  /// Call after Initialize() and before Render().
+  void EnableViewport(int cell_px_size = 32);
+
  private:
   // Action codes shared between C++ dispatch and the JavaScript bridge.
   // NOTE: these integer values are part of the JS/C++ ABI and must also match
   // the world's ActionType enum — any change here must be reflected in both
   // the EM_JS key/button maps in WebApp.cpp and the world's enum.
   enum ActionCode {
-    kActionStart   = 1,
-    kActionReset   = 2,
-    kActionSave    = 3,
-    kActionLoad    = 4,
-    kActionUp      = 5,
-    kActionDown    = 6,
-    kActionLeft    = 7,
-    kActionRight   = 8,
-    kActionCollect = 9,
-    kActionBuild   = 10,
+    kActionStart     = 1,
+    kActionReset     = 2,
+    kActionSave      = 3,
+    kActionLoad      = 4,
+    kActionUp        = 5,
+    kActionDown      = 6,
+    kActionLeft      = 7,
+    kActionRight     = 8,
+    kActionCollect   = 9,
+    kActionBuild     = 10,
+    kActionUpLeft    = 11,
+    kActionUpRight   = 12,
+    kActionDownLeft  = 13,
+    kActionDownRight = 14,
   };
 
   static std::string ActionIdForCode(int code);
   static int CodeForActionId(const std::string& action_id);
 
   void RenderWorld();
+  void CenterViewportOnPlayer();
 
   // Two-layer simulation/rendering architecture:
   //   world_     — owns the grid, game rules, and all agents (including interface_)
@@ -112,6 +126,12 @@ class WebApp {
 
   // Optional background image per cell type name (drawn beneath the cell sprite).
   std::unordered_map<std::string, std::string> cell_backgrounds_;
+
+  // Viewport (camera) mode: render a fixed-cell-size window centered on player.
+  bool use_viewport_      = false;
+  int  viewport_cell_px_  = 32;  // pixels per cell when viewport mode is active
+  int  viewport_x_        = 0;   // top-left grid column currently in view
+  int  viewport_y_        = 0;   // top-left grid row currently in view
 };
 
 /// Single application instance — defined in WebApp.cpp, used by
