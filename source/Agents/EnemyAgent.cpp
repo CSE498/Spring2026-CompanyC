@@ -3,6 +3,7 @@
 #include <cmath>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "../core/WorldBase.hpp"
 #include "../tools/PathGenerator.hpp"
@@ -11,19 +12,43 @@ namespace cse498 {
 
 namespace {
 
+/**
+ * @brief Determine whether two world positions occupy the same cell.
+ * @param a First position.
+ * @param b Second position.
+ * @return True if both positions refer to the same cell.
+ */
 bool SameCell(const WorldPosition &a, const WorldPosition &b) {
   return a.CellX() == b.CellX() && a.CellY() == b.CellY();
 }
 
+/**
+ * @brief Compute the Manhattan distance between two positions.
+ * @param a First position.
+ * @param b Second position.
+ * @return The Manhattan distance.
+ */
 int ManhattanDistance(const WorldPosition &a, const WorldPosition &b) {
   return std::abs(static_cast<int>(a.CellX()) - static_cast<int>(b.CellX())) +
          std::abs(static_cast<int>(a.CellY()) - static_cast<int>(b.CellY()));
 }
 
+/**
+ * @brief Determine whether two positions are orthogonally adjacent.
+ * @param a First position.
+ * @param b Second position.
+ * @return True if the positions are adjacent.
+ */
 bool IsAdjacent(const WorldPosition &a, const WorldPosition &b) {
   return ManhattanDistance(a, b) == 1;
 }
 
+/**
+ * @brief Determine whether a cell may be traversed by an enemy.
+ * @param grid The world grid.
+ * @param pos The position to test.
+ * @return True if the cell is walkable.
+ */
 bool IsWalkableCell(const WorldGrid &grid, const WorldPosition &pos) {
   if (pos.CellX() >= grid.GetWidth() || pos.CellY() >= grid.GetHeight()) {
     return false;
@@ -36,6 +61,12 @@ bool IsWalkableCell(const WorldGrid &grid, const WorldPosition &pos) {
          cell_type != "goblin_block";
 }
 
+/**
+ * @brief Convert a single-step path segment into an action string.
+ * @param from Starting world position.
+ * @param to_point Next path point.
+ * @return The corresponding movement action, if valid.
+ */
 std::optional<std::string> ActionFromStep(const WorldPosition &from,
                                           const Point &to_point) {
   const int to_x = static_cast<int>(to_point.x);
@@ -59,6 +90,14 @@ std::optional<std::string> ActionFromStep(const WorldPosition &from,
   return std::nullopt;
 }
 
+/**
+ * @brief Compute the next patrol position along the current patrol axis.
+ * @param grid The world grid.
+ * @param current The enemy's current position.
+ * @param horizontal Whether patrol is horizontal.
+ * @param direction Patrol direction.
+ * @return The next patrol position if valid.
+ */
 std::optional<WorldPosition> GetPatrolNextPos(const WorldGrid &grid,
                                               const WorldPosition &current,
                                               bool horizontal, int direction) {
@@ -84,6 +123,11 @@ std::optional<WorldPosition> GetPatrolNextPos(const WorldGrid &grid,
   return next_pos;
 }
 
+/**
+ * @brief Build a pathfinding view from the current grid.
+ * @param grid The world grid.
+ * @return A WorldView containing blocked cells.
+ */
 WorldView BuildWorldView(const WorldGrid &grid) {
   WorldView world_view(static_cast<int>(grid.GetWidth()),
                        static_cast<int>(grid.GetHeight()));
@@ -103,38 +147,102 @@ WorldView BuildWorldView(const WorldGrid &grid) {
 
 } // namespace
 
-size_t EnemyAgent::SelectAction(WorldGrid &grid) {
-  const WorldPosition my_pos = GetLocation().AsWorldPosition();
+EnemyAgent::EnemyAgent(size_t id, const std::string &name,
+                       const WorldBase &world)
+    : AgentBase(id, name, world) {
+  symbol = 'X';
+}
 
-  // 1) Find player target
-  std::optional<WorldPosition> player_pos;
+/**
+ * @brief Set this enemy to patrol horizontally.
+ * @return Reference to this enemy agent.
+ */
+EnemyAgent &EnemyAgent::SetHorizontal() {
+  horizontal = true;
+  return *this;
+}
+
+/**
+ * @brief Set this enemy to patrol vertically.
+ * @return Reference to this enemy agent.
+ */
+EnemyAgent &EnemyAgent::SetVertical() {
+  horizontal = false;
+  return *this;
+}
+
+/**
+ * @brief Reverse the current patrol direction.
+ * @return Reference to this enemy agent.
+ */
+EnemyAgent &EnemyAgent::ToggleDirection() {
+  direction *= -1;
+  return *this;
+}
+
+/**
+ * @brief Set the enemy's vision radius.
+ * @param r Maximum Manhattan detection distance.
+ * @return Reference to this enemy agent.
+ */
+EnemyAgent &EnemyAgent::SetVisionRadius(size_t r) {
+  vision_radius = r;
+  return *this;
+}
+
+/**
+ * @brief Set the substring used to identify the player by name.
+ * @param name Target name substring.
+ * @return Reference to this enemy agent.
+ */
+EnemyAgent &EnemyAgent::SetTargetName(const std::string &name) {
+  target_name = name;
+  return *this;
+}
+
+/**
+ * @brief Verify that the enemy has the actions it needs to function.
+ * @return True if required actions are available.
+ */
+bool EnemyAgent::Initialize() {
+  return HasAction("up") && HasAction("down") && HasAction("left") &&
+         HasAction("right");
+}
+
+/**
+ * @brief Update the enemy's sensed state for the current tick.
+ * @param grid The world grid visible to the agent.
+ */
+void EnemyAgent::Sense(WorldGrid &grid) {
+  player_in_vision = false;
+  player_adjacent = false;
+  sensed_player_pos.reset();
+  chase_action.reset();
+  patrol_action.reset();
+
+  const WorldPosition my_pos = GetLocation().AsWorldPosition();
 
   std::vector<size_t> known_agents = world.GetKnownAgents(*this);
   for (size_t agent_id : known_agents) {
-    if (agent_id == GetID())
+    if (agent_id == GetID()) {
       continue;
+    }
 
     const AgentBase &other = world.GetAgent(agent_id);
-
-    // Temporary target-identification rule:
-    // any agent whose name contains target_name
-    if (other.GetName().find(target_name) != std::string::npos) {
-      player_pos = other.GetLocation().AsWorldPosition();
-      break;
+    if (other.GetName().find(target_name) == std::string::npos) {
+      continue;
     }
+
+    sensed_player_pos = other.GetLocation().AsWorldPosition();
+    break;
   }
 
-  // 2) Chase if player is in vision radius
-  if (player_pos.has_value()) {
-    const int dist = ManhattanDistance(my_pos, *player_pos);
+  if (sensed_player_pos.has_value()) {
+    const int dist = ManhattanDistance(my_pos, *sensed_player_pos);
+    player_in_vision = dist <= static_cast<int>(vision_radius);
+    player_adjacent = IsAdjacent(my_pos, *sensed_player_pos);
 
-    if (dist <= static_cast<int>(vision_radius)) {
-      // If adjacent, attack if supported by the world
-      if (IsAdjacent(my_pos, *player_pos) && HasAction("attack")) {
-        return GetActionID("attack");
-      }
-
-      // Otherwise pathfind toward the player
+    if (player_in_vision && !player_adjacent) {
       WorldView world_view = BuildWorldView(grid);
 
       PathGenerator generator;
@@ -143,23 +251,18 @@ size_t EnemyAgent::SelectAction(WorldGrid &grid) {
       WorldPath path = generator.GenerateShortestPath(
           StateGridPosition(static_cast<int>(my_pos.CellX()),
                             static_cast<int>(my_pos.CellY())),
-          StateGridPosition(static_cast<int>(player_pos->CellX()),
-                            static_cast<int>(player_pos->CellY())));
+          StateGridPosition(static_cast<int>(sensed_player_pos->CellX()),
+                            static_cast<int>(sensed_player_pos->CellY())));
 
       if (path.size() >= 2) {
-        auto action_name = ActionFromStep(my_pos, path[1]);
-        if (action_name.has_value() && HasAction(*action_name)) {
-          return GetActionID(*action_name);
-        }
+        chase_action = ActionFromStep(my_pos, path[1]);
       }
     }
   }
 
-  // 3) Patrol if not chasing
   auto next_pos = GetPatrolNextPos(grid, my_pos, horizontal, direction);
 
   if (!next_pos.has_value()) {
-    // bounce / reverse direction
     direction *= -1;
     next_pos = GetPatrolNextPos(grid, my_pos, horizontal, direction);
   }
@@ -167,14 +270,31 @@ size_t EnemyAgent::SelectAction(WorldGrid &grid) {
   if (next_pos.has_value()) {
     Point next_point{static_cast<double>(next_pos->CellX()),
                      static_cast<double>(next_pos->CellY())};
+    patrol_action = ActionFromStep(my_pos, next_point);
+  }
+}
 
-    auto action_name = ActionFromStep(my_pos, next_point);
-    if (action_name.has_value() && HasAction(*action_name)) {
-      return GetActionID(*action_name);
-    }
+/**
+ * @brief Select the next action for this enemy.
+ * @param grid The current world grid.
+ * @return The chosen action ID.
+ */
+size_t EnemyAgent::SelectAction(WorldGrid &grid) {
+  Sense(grid);
+
+  if (player_adjacent && HasAction("attack")) {
+    return GetActionID("attack");
   }
 
-  // 4) No valid move
+  if (player_in_vision && chase_action.has_value() &&
+      HasAction(*chase_action)) {
+    return GetActionID(*chase_action);
+  }
+
+  if (patrol_action.has_value() && HasAction(*patrol_action)) {
+    return GetActionID(*patrol_action);
+  }
+
   return 0;
 }
 

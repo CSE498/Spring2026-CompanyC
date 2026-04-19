@@ -51,7 +51,6 @@ BASE_SOURCES = Agents/ClassicAgent.cpp   \
                tools/PathGenerator.cpp   \
                tools/WorldPath.cpp       \
                Worlds/DynamicWorld.cpp
->>>>>>> group-06-dev
 
 # SaveServer needs extra .cpp sources for Database + WebSocket stack
 SAVESERVER_SRCS = \
