@@ -72,9 +72,8 @@ int main() {
   g_app->RegisterEntityVisual('P', "assets/player.png");
   // '*' is the default AgentBase symbol used by PacingAgent and collector agents.
   g_app->RegisterEntityVisual('*', "assets/agent.png");
-  // Uncomment as worlds are integrated:
-  // g_app->RegisterEntityVisual('E', "assets/enemy.png");
-  // g_app->RegisterEntityVisual('G', "assets/goblin.png");
+  g_app->RegisterEntityVisual('E', "assets/enemy.png");
+  g_app->RegisterEntityVisual('G', "assets/goblin.png");
 
   using Meta = cse498::WebInterface::ActionMeta;
   g_app->RegisterActionMeta("start",   Meta{"Start",   "Enter", false});
