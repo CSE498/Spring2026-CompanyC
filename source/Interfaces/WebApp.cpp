@@ -71,7 +71,8 @@ EM_JS(void, WebAppEnsureUi, (), {
       // Codes must match the ActionCode enum in WebApp.hpp.
       var map = { 'w': 5, 'arrowup': 5, 's': 6, 'arrowdown': 6,
                   'a': 7, 'arrowleft': 7, 'd': 8, 'arrowright': 8,
-                  'e': 9, 'b': 10, 'r': 2, 'enter': 1 };
+                  'e': 9, 'b': 10, 'r': 2, 'enter': 1,
+                  '-': 11, '_': 11, '=': 12, '+': 12, '0': 13};
       if (!(key in map)) return;
       ev.preventDefault();
       Module.ccall('HandleAction', null, ['number'], [map[key]]);
@@ -88,7 +89,7 @@ EM_JS(void, WebAppPopulateUiControls, (), {
 
   // Hook topbar buttons created by WebLayout.
   // Codes 1-4 must match the ActionCode enum in WebApp.hpp.
-  [1, 2, 3, 4].forEach(function(code) {
+  [1, 2, 3, 4, 11, 12, 13].forEach(function(code) {
     var btn = document.getElementById('cse498btn-' + code);
     if (!btn || btn.__cse498_bound) return;
     btn.addEventListener('click', function() {
@@ -200,6 +201,44 @@ WebApp::WebApp() {
   log_text_->SetFontFamily(kSidebarFontStack);
 }
 
+// ViewPort GetViewport action
+WebApp::ViewPort WebApp::GetViewPort(int grid_w, int grid_h) const {
+  ViewPort viewport{0, 0, grid_w, grid_h};
+  if (!interface_ || zoom_level_ <= 1) return viewport;
+
+  int view_w = std::max(3, grid_w / zoom_level_);
+  int view_h = std::max(3, grid_h / zoom_level_);
+  view_w = std::min(view_w, grid_w);
+  view_h = std::min(view_h, grid_h);
+
+  int center_x = grid_w / 2;
+  int center_y = grid_h / 2;
+  if (interface_->GetLocation().IsPosition()) {
+    const auto& pos = interface_->GetLocation().AsWorldPosition();
+    center_x = static_cast<int>(pos.CellX());
+    center_y = static_cast<int>(pos.CellY());
+  }
+
+  viewport.width = view_w;
+  viewport.height = view_h;
+  viewport.x0 = std::clamp(center_x - view_w / 2, 0, grid_w - view_w);
+  viewport.y0 = std::clamp(center_y - view_h / 2, 0, grid_h - view_h);
+  return viewport;
+}
+
+// ChangeZoom Implementation
+void WebApp::ChangeZoom(int delta) {
+  // Adjust zoom level
+  zoom_level_ += delta;
+
+  // Clamp to valid range
+  if (zoom_level_ < kMinZoomLevel) {
+    zoom_level_ = kMinZoomLevel;
+  } else if (zoom_level_ > kMaxZoomLevel) {
+    zoom_level_ = kMaxZoomLevel;
+  }
+}
+
 void WebApp::ConnectToServer(const std::string& url) {
   auto connect_result = ws_client_.Connect(url);
   if (!connect_result) return;
@@ -286,6 +325,11 @@ void WebApp::HandleAction(int action_code) {
   if (action_id == "save") { PerformSave(); return; }
   if (action_id == "load") { PerformLoad(); return; }
 
+  // Intercept Zoom In/Zoom Out meta-actions - do not advance the game clock
+  if (action_id == "zoom_out") { ChangeZoom(-1); RenderWorld(); return; }
+  if (action_id == "zoom_in") { ChangeZoom(1); RenderWorld(); return; }
+  if (action_id == "zoom_reset") { ResetZoom(); RenderWorld(); return; }
+
   // Submit the action to the interface (stores it as pending), then advance
   // the world by one turn (world calls SelectAction → DoAction on the agent).
   interface_->SubmitAction(action_id);
@@ -305,6 +349,9 @@ std::string WebApp::ActionIdForCode(int code) {
     case kActionRight:   return "right";
     case kActionCollect: return "collect";
     case kActionBuild:   return "build";
+    case kActionZoomIn:  return "zoom_in";
+    case kActionZoomOut: return "zoom_out";
+    case kActionZoomReset: return "zoom_reset";
     default:             return std::string();
   }
 }
@@ -320,6 +367,9 @@ int WebApp::CodeForActionId(const std::string& action_id) {
   if (action_id == "right")   return kActionRight;
   if (action_id == "collect") return kActionCollect;
   if (action_id == "build")   return kActionBuild;
+  if (action_id == "zoom_in") return kActionZoomIn;
+  if (action_id == "zoom_out") return kActionZoomOut;
+  if (action_id == "zoom_reset") return kActionZoomReset;
   return 0;
 }
 
@@ -333,6 +383,9 @@ void WebApp::RenderWorld() {
   const int grid_h = interface_->GetGridHeight();
   const int cell_w = kCanvasWidthPx  / grid_w;
   const int cell_h = kCanvasHeightPx / grid_h;
+
+  // ViewPort construction
+  const ViewPort viewport = GetViewPort(grid_w, grid_h);
 
   // Fetch all renderable cells once and build a position-indexed lookup so
   // each grid cell is resolved in O(1) rather than with a linear scan.

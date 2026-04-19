@@ -252,6 +252,15 @@ void WebLayout::createShell()
     Node* loadBtn = createElement(topbar, "button", "cse498btn-4");
     loadBtn->element.set("textContent", std::string("Load"));
 
+    Node* zoomOutBtn = createElement(topbar, "button", "cse498btn-11");
+    zoomOutBtn->element.set("textContent", std::string("Zoom -"));
+
+    Node* zoomInBtn = createElement(topbar, "button", "cse498btn-12");
+    zoomInBtn->element.set("textContent", std::string("Zoom +"));
+
+    Node* zoomResetBtn = createElement(topbar, "button", "cse498btn-13");
+    zoomResetBtn->element.set("textContent", std::string("Zoom Reset"));
+
     // Sidebar containers
     createElement(sidebar, "div", "cse498_actions");
     createElement(sidebar, "div", "cse498_hud_host");

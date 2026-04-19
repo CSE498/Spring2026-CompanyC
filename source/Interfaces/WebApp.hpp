@@ -100,7 +100,27 @@ class WebApp {
     kActionRight   = 8,
     kActionCollect = 9,
     kActionBuild   = 10,
+    kActionZoomIn  = 11,
+    kActionZoomOut = 12,
+    kActionZoomReset = 13
   };
+
+  // ViewPort Struct for the Zoom Functionality
+  struct ViewPort {
+    int x0 = 0;       // Position of the camera relative to the Canvas
+    int y0 = 0;
+    int width = 0;    // Width & Height of the ViewPort (controlled by the User)
+    int height = 0;
+  };
+
+  int zoom_level_ = 1;
+  static constexpr int kMinZoomLevel = 1;
+  static constexpr int kMaxZoomLevel = 4;
+
+  [[nodiscard]] ViewPort GetViewPort(int grid_w, int grid_h) const;
+  void ChangeZoom(int delta);
+  void ResetZoom() { zoom_level_ = kMinZoomLevel; };
+
 
   static std::string ActionIdForCode(int code);
   static int CodeForActionId(const std::string& action_id);
