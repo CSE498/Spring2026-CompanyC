@@ -41,15 +41,23 @@
  *
  *   const auto buffered = logger.getBufferedLogs();
  *
+ *   // Optional: route each formatted line to custom code (e.g. remote sink, metrics).
+ *   logger.addOutputHandler([](const std::string & line) { (void)line; });
+ *
  * @note Status: PROPOSAL
  **/
 
 #pragma once
 
+#include <atomic>
 #include <fstream>
+#include <functional>
 #include <mutex>
+#include <sstream>
 #include <string>
+#include <type_traits>
 #include <vector>
+#include <utility>
 
 namespace cse498 {
 
@@ -74,6 +82,9 @@ namespace cse498 {
     int         agentId = -1;   ///< Optional agent identifier (-1 = unused)
     long long   tick    = -1;   ///< Optional tick/frame (-1 = unused)
   };
+
+  /// Receives each fully formatted log line (same string sent to console/file/buffer).
+  using OutputLineHandler = std::function<void(const std::string & line)>;
 
   /// \brief Unified logging utility for Group 23.
   class OutputManager {
@@ -109,6 +120,13 @@ namespace cse498 {
     /// \brief Clear all buffered log lines.
     void clearBuffer();
 
+    /// \brief Register a callable invoked for every emitted line (after level filtering).
+    /// Empty handlers are ignored. Runs under the same mutex as other sinks; keep work short.
+    void addOutputHandler(OutputLineHandler handler);
+
+    /// \brief Remove all handlers added with addOutputHandler.
+    void clearOutputHandlers();
+
     // Convenience wrappers for common log levels.
 
     void logNormal(const std::string & message,
@@ -125,8 +143,56 @@ namespace cse498 {
              const std::string & message,
              const LogContext & ctx = LogContext{});
 
+    /// \brief Template overload for logging arbitrary single values.
+    ///
+    /// The value is converted to a string using `operator<<` into an
+    /// `std::ostringstream`, then routed through the same formatting and
+    /// sink pipeline as the standard `log(LogLevel, std::string, LogContext)`.
+    template <typename T>
+    void log(LogLevel level, const T &message, const LogContext &ctx = LogContext{})
+    {
+      log(level, argsToString(message), ctx);
+    }
+
+    /// \brief Variadic formatted logging (concatenation).
+    ///
+    /// All arguments are appended (no delimiter) using `operator<<` into an
+    /// `std::ostringstream`. This is useful for mixing strings and numeric
+    /// values.
+    ///
+    /// Runs the same level filtering, timestamp/metadata formatting, and sink
+    /// routing as the standard `log()` method.
+    template <typename... Args>
+    requires(sizeof...(Args) > 0)
+    void logf(LogLevel level, Args &&...args)
+    {
+      log(level, argsToString(std::forward<Args>(args)...), LogContext{});
+    }
+
+    /// \brief Variadic formatted logging with LogContext.
+    template <typename... Args>
+    requires(sizeof...(Args) > 0)
+    void logf(LogLevel level, const LogContext &ctx, Args &&...args)
+    {
+      log(level, argsToString(std::forward<Args>(args)...), ctx);
+    }
+
+    /// \brief Convenience variadic overload (same behavior as `logf`).
+    ///
+    /// This overload exists primarily so you can write:
+    ///   `logger.log(LogLevel::Debug, "Value:", x, "Status:", status);`
+    /// without needing to call `logf`.
+    template <typename... Args>
+    requires(sizeof...(Args) > 1)
+    void log(LogLevel level, Args &&...args)
+    {
+      log(level, argsToString(std::forward<Args>(args)...), LogContext{});
+    }
+
   private:
-    LogLevel level = LogLevel::Normal;
+    // Log level is atomic so that it can be read without taking the mutex
+    // in fast paths (e.g., early filtering in log()).
+    std::atomic<LogLevel> level{LogLevel::Normal};
     bool timestamps_enabled = false;
     bool metadata_enabled = false;
 
@@ -137,15 +203,25 @@ namespace cse498 {
 
     mutable std::mutex mutex;
     std::vector<std::string> buffer;
+    std::vector<OutputLineHandler> output_handlers;
 
     // Internal helpers; all expect mutex to be held by caller.
-    [[nodiscard]] bool ShouldLogUnlocked(LogLevel msg_level) const;
-    [[nodiscard]] std::string FormatMessageUnlocked(LogLevel msg_level,
+    [[nodiscard]] bool shouldLogUnlocked(LogLevel msg_level) const;
+    [[nodiscard]] std::string formatMessageUnlocked(LogLevel msg_level,
                                                     const std::string & message,
                                                     const LogContext & ctx) const;
-    void WriteLineUnlocked(const std::string & line);
-    [[nodiscard]] static const char * LevelToString(LogLevel level);
-    [[nodiscard]] bool IsTargetEnabledUnlocked(OutputTarget target) const;
+    void writeLineUnlocked(const std::string & line);
+    [[nodiscard]] static const char * levelToString(LogLevel level);
+    [[nodiscard]] bool isTargetEnabledUnlocked(OutputTarget target) const;
+
+    // Centralized conversion for template-based logging: uses stream insertion.
+    template <typename... Args>
+    static std::string argsToString(Args &&...args)
+    {
+      std::ostringstream out;
+      (out << ... << std::forward<Args>(args));
+      return out.str();
+    }
   };
 
 } 

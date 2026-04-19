@@ -1,138 +1,80 @@
-
-//note:implementation may change based on stats preferred by company.
-
 #pragma once
-#include <chrono>
-#include <string>
-#include <unordered_map>
-#include <cstddef>
-#include <cassert>
-namespace cse498
-{
-  class Timer {
-  private:
-    using Clock = std::chrono::steady_clock;
-    struct TimerEntry {
-      bool running = false; //tracks if start() called w/o matching stop()
-      Clock::time_point start{};
 
-      //stats for completed runs
-      std::size_t count=0;
-      double totalSeconds=0.0;
-      double lastSeconds=0.0;
-      double minSeconds=0.0;
-      double maxSeconds=0.0;
-    };
+#include <cstddef>       // size_t
+#include <chrono>        // steady_clock, time_point, dur
+#include <string>        // string
+#include <unordered_map> // unordered_map
+#include <utility>       // pair
+#include <vector>        // vector
+#include <type_traits>   // is_void_v
 
-    std::unordered_map<std::string,TimerEntry> mTimers; ///timers keyed by name
+namespace cse498{
 
-  public:
+class Timer {
+public:
+  // snapshot of 1 timer's stats
+  struct Stats {
+    std::size_t count = 0;     //num of completed measurements
+    double totalSeconds = 0.0; //sum of completed durs
+    double lastSeconds = 0.0;  //most recent completed dur
+    double minSeconds = 0.0;   //fastest completed dur
+    double maxSeconds = 0.0;   //slowest completed dur
+  };
+
     Timer() = default;
     ~Timer() = default;
-
-    //peer review fix; define copy and move behavior
-    Timer(const Timer&) = delete; 
+    Timer(const Timer&) = delete;
     Timer& operator=(const Timer&) = delete;
     Timer(Timer&&) noexcept = default;
     Timer& operator=(Timer&&) noexcept = default;
 
-    void Start(const std::string& name)  
-    { //begin timing in named section; const& avoids copying name
-      auto& entry= mTimers[name]; 
-      assert(!entry.running &&"Timer::Start called while timer is already running");
-      entry.running =true;
-      entry.start = Clock::now();
+  void Start(const std::string& name);// start (or create) a named timer
+  void Stop(const std::string& name);// stop a running timer + record duration/statistics
+  void Reset(const std::string& name); // remove one timer + its stored stats
+  void ResetAll(); // clear all timers + stats
+
+  bool HasData(const std::string& name) const;// true if timer has >= 1 completed measurement
+  double Last(const std::string& name) const; // most recent duration (0.0 if none)
+  double Min(const std::string& name) const; // fastest duration (0.0 if none)
+  double Max(const std::string& name) const;  // slowest duration (0.0 if none)
+  double Average(const std::string& name) const; // avg duration over runs (0.0 if none)
+  std::size_t Count(const std::string& name) const; // number of completed runs (0 if none)
+
+  // optional helper API to make Timer easier to integrate later on... may change based on company discussion/preference.
+  Stats GetStats(const std::string& name) const;
+  std::vector<std::pair<std::string, Stats>> GetAllStats() const;
+
+  // Time a function/lambda under a name.
+  // Works for both void and non-void returns. Utilized ChatGPT for this chunk: originally lambda only supported non void returns. Need to look into this more to 1. understand 2. test functionality
+  template <typename Func, typename... Args>
+  auto TimeCall(const std::string& name, Func&& fn, Args&&... args) {
+    Start(name);
+
+    // always call stop even on early exit/exceptions
+    struct StopGuard {
+      Timer& timer;
+      const std::string& n;
+      ~StopGuard() { timer.Stop(n); }
+    } guard{*this, name};
+
+    if constexpr (std::is_void_v<decltype(fn(std::forward<Args>(args)...))>) {
+      fn(std::forward<Args>(args)...);
+      return; // void
+    } else {
+      return fn(std::forward<Args>(args)...); // non-void
     }
+  }
 
-    void Stop(const std::string& name)
-    { 
-      //stop timing and record duration
-      auto it= mTimers.find(name);
-      assert(it !=mTimers.end()&& "Timer::Stop called for unknown timer name");
-      auto& entry =it->second; //ref to timerentry for the name
-      assert(entry.running&& "Timer::Stop called while timer is not running"); 
+private:
+  using Clock = std::chrono::steady_clock;
 
-      const auto end= Clock::now();
-      const std::chrono::duration<double> elapsed= end-entry.start;
-      const double seconds =elapsed.count();
-
-      entry.running = false; //no longer running, then record stats. (most recent dur,avg)
-      entry.lastSeconds =seconds;
-      entry.totalSeconds+= seconds; 
-      entry.count +=1;
-
-      if (entry.count==1)
-      { 
-        //if this was first run
-        entry.minSeconds =seconds;
-        entry.maxSeconds =seconds;
-      } 
-
-      else 
-      { 
-        //if not first run, update min and max as needed
-        if (seconds < entry.minSeconds)entry.minSeconds = seconds;
-        if (seconds> entry.maxSeconds) entry.maxSeconds =seconds;
-      }
-    }
-
-    void Reset(const std::string& name) 
-    {
-       //clear stored result for timer
-      mTimers.erase(name);
-    }
-
-    void ResetAll()
-    { 
-      //clear ALL timers and stats
-      mTimers.clear();
-    }
-
-    bool HasData(const std::string& name)const 
-    { 
-      //true if timer has 1 measurement
-      auto it = mTimers.find(name);
-      return (it != mTimers.end())&& (it->second.count > 0);
-    }
-
-    double Last(const std::string& name) const
-    { 
-      //most recent recorded dur; returns 0.0 if no data.
-      auto it = mTimers.find(name);
-      if (it == mTimers.end()|| it->second.count== 0) return 0.0;
-      return it->second.lastSeconds;
-    }
-
-    double Min(const std::string& name) const
-    { 
-      //fastest run in sec; returns 0 if no data
-      auto it = mTimers.find(name);
-      if (it == mTimers.end() ||it->second.count == 0) return 0.0;
-      return it->second.minSeconds;
-    }
-
-    double Max(const std::string& name)const 
-    { 
-      //slowest run in sec; returns 0 if no data
-      auto it =mTimers.find(name);
-      if(it ==mTimers.end() ||it->second.count == 0) return 0.0;
-      return it->second.maxSeconds;
-    }
-
-    double Average(const std::string& name)const 
-    { 
-      //avg dur across all runs in sec; returns 0 if no data
-      auto it = mTimers.find(name);
-      if (it == mTimers.end()|| it->second.count == 0) return 0.0;
-      return it->second.totalSeconds/static_cast<double>(it->second.count);
-    }
-
-    std::size_t Count(const std::string& name)const
-    { 
-      //# of completed runs; returns 0 if no data
-      auto it= mTimers.find(name);
-      if (it ==mTimers.end()) return 0;
-      return it->second.count;
-    }
+  struct Entry {
+    bool running = false;          // true between Start and Stop
+    Clock::time_point start{};     // start time for current run
+    Stats stats{};                // accumulated stats for completed runs
   };
-}
+
+  std::unordered_map<std::string, Entry> mTimers;
+};
+
+} // namespace cse498

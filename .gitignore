@@ -38,6 +38,10 @@
 *.app
 run_tests
 source/simple
+source/agent
+source/SaveServer
+source/Group09
+web/
 
 # debug information files
 *.dwo
@@ -52,6 +56,7 @@ group24_demo.wasm
 # Test binaries
 webtextbox_tests
 webtextbox_tests_grumpy
+tests/web/build/
 
 # macOS debug symbols
 *.dSYM/
@@ -60,6 +65,10 @@ webtextbox_tests_grumpy
 .claude
 docs/superpowers/
 
+
+# Save server data
+saves/
+test_saves/
 
 # IDE files
 .vscode/

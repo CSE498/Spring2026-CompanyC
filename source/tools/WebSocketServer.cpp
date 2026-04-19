@@ -236,10 +236,14 @@ std::expected<void, WebSocketError> WebSocketServer::Broadcast(const std::vector
     std::string payload(data.begin(), data.end());
     std::lock_guard<std::mutex> lock(mImpl->clientsMutex);
 
+    bool any_failed = false;
     for (auto& [id, ws] : mImpl->clients) {
-        ws->sendBinary(payload);
+        if (!ws->sendBinary(payload).success) {
+            any_failed = true;
+        }
     }
 
+    if (any_failed) return std::unexpected(WebSocketError::SendFailed);
     return {};
 }
 
@@ -247,10 +251,14 @@ std::expected<void, WebSocketError> WebSocketServer::Broadcast(const std::string
     if (!mImpl || !mImpl->running) return std::unexpected(WebSocketError::InvalidState);
     std::lock_guard<std::mutex> lock(mImpl->clientsMutex);
 
+    bool any_failed = false;
     for (auto& [id, ws] : mImpl->clients) {
-        ws->send(data);
+        if (!ws->send(data).success) {
+            any_failed = true;
+        }
     }
 
+    if (any_failed) return std::unexpected(WebSocketError::SendFailed);
     return {};
 }
 
