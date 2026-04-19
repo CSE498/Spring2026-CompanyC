@@ -36,24 +36,44 @@
 *.exe
 *.out
 *.app
+run_tests
+source/simple
+source/agent
+source/SaveServer
+source/Group09
+web/
 
 # debug information files
 *.dwo
 
-# macOS
-.DS_Store
-
 # Emscripten build outputs
 # webtextbox_demo.js
 # webtextbox_demo.wasm
+group24_demo.html
+group24_demo.js
+group24_demo.wasm
 
 # Test binaries
 webtextbox_tests
 webtextbox_tests_grumpy
+tests/web/build/
 
 # macOS debug symbols
 *.dSYM/
+
+# LLM Files
+.claude
+docs/superpowers/
+
+
+# Save server data
+saves/
+test_saves/
+
+# IDE files
+.vscode/
+.idea
 **/.DS_Store
 
-# JetBrains IDE
-.idea
+#clang
+.clangd

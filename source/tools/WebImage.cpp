@@ -1,22 +1,22 @@
-
 /**
- * This file is part of the Spring 2026, CSE 498, section 2, course project.
- * @brief Main WebImage implementation, including Emscripten JS bridge and native stubs.
- * citations - ChatGPT LLM (OpenAI) was used to help generate parts of this file. The code was then reviewed and heavily edited by the author to ensure correctness and suitability for the project.
+ * @file WebImage.cpp
  * @author Sadwal Patel
+ * @brief Implementation of the WebImage wrapper, including the Emscripten
+ *        JavaScript bridge and native no-op stubs used for local testing.
+ *
  * Copyright (c) 2026 Sadwal Patel
  * SPDX-License-Identifier: MIT
- **/
+ *
+ * citations - ChatGPT LLM (OpenAI) was used to help generate parts of this file.
+ * The code was then reviewed and heavily edited by the author to ensure
+ * correctness and suitability for the project.
+ */
 
-
-
-
-
-
-#include "WebImage.h"
+#include "WebImage.hpp"
 
 #include <algorithm>
 #include <cassert>
+#include <functional>
 #include <utility>
 
 #ifdef __EMSCRIPTEN__
@@ -25,19 +25,21 @@
 
 namespace cse498 {
 
-namespace {
+// -----------------------------------------------------------------------------
+// Helper bridge functions
+//
+// These helpers intentionally live in namespace cse498 instead of an anonymous
+// namespace so that Group 24 can reuse the same bridge style across web tools.
+// -----------------------------------------------------------------------------
 
-// -----------------------------
-// JS bridge (Emscripten only)
-// -----------------------------
 #ifdef __EMSCRIPTEN__
 
-EM_JS(int, cse498_webimage_create, (), {
+EM_JS(int, WebImageCreateBridge, (), {
   if (!Module.__cse498WebImage) {
     Module.__cse498WebImage = { nextId: 1, map: new Map() };
   }
-  var st = Module.__cse498WebImage;
 
+  var st = Module.__cse498WebImage;
   var id = st.nextId++;
   var img = document.createElement('img');
 
@@ -53,9 +55,10 @@ EM_JS(int, cse498_webimage_create, (), {
   return id;
 });
 
-EM_JS(void, cse498_webimage_destroy, (int handle), {
+EM_JS(void, WebImageDestroyBridge, (int handle), {
   var st = Module.__cse498WebImage;
   if (!st) return;
+
   var img = st.map.get(handle);
   if (!img) return;
 
@@ -63,17 +66,20 @@ EM_JS(void, cse498_webimage_destroy, (int handle), {
   st.map.delete(handle);
 });
 
-EM_JS(void, cse498_webimage_detach, (int handle), {
+EM_JS(void, WebImageDetachBridge, (int handle), {
   var st = Module.__cse498WebImage;
   if (!st) return;
+
   var img = st.map.get(handle);
   if (!img) return;
+
   if (img.parentNode) img.remove();
 });
 
-EM_JS(void, cse498_webimage_attach, (int handle, const char* parent_id_ptr), {
+EM_JS(void, WebImageAttachBridge, (int handle, const char* parent_id_ptr), {
   var st = Module.__cse498WebImage;
   if (!st) return;
+
   var img = st.map.get(handle);
   if (!img) return;
 
@@ -84,348 +90,427 @@ EM_JS(void, cse498_webimage_attach, (int handle, const char* parent_id_ptr), {
   }
   if (!parent) parent = document.body;
 
-  if (img.parentNode !== parent) parent.appendChild(img);
+  if (img.parentNode !== parent) {
+    parent.appendChild(img);
+  }
 });
 
-EM_JS(void, cse498_webimage_set_src, (int handle, const char* src_ptr), {
+EM_JS(void, WebImageSetSourceBridge, (int handle, const char* src_ptr), {
   var st = Module.__cse498WebImage;
   if (!st) return;
+
   var img = st.map.get(handle);
   if (!img) return;
 
-  var s = src_ptr ? UTF8ToString(src_ptr) : "";
-  if (s.length === 0) img.removeAttribute("src");
-  else img.src = s;
+  var source = src_ptr ? UTF8ToString(src_ptr) : "";
+  if (source.length === 0) img.removeAttribute("src");
+  else img.src = source;
 });
 
-EM_JS(void, cse498_webimage_set_alt, (int handle, const char* alt_ptr), {
+EM_JS(void, WebImageSetAltBridge, (int handle, const char* alt_ptr), {
   var st = Module.__cse498WebImage;
   if (!st) return;
+
   var img = st.map.get(handle);
   if (!img) return;
 
-  var a = alt_ptr ? UTF8ToString(alt_ptr) : "";
-  img.alt = a;
+  var alt = alt_ptr ? UTF8ToString(alt_ptr) : "";
+  img.alt = alt;
 });
 
-EM_JS(void, cse498_webimage_set_pos, (int handle, double left_px, double top_px), {
+EM_JS(void, WebImageSetPositionBridge, (int handle, double left_px, double top_px), {
   var st = Module.__cse498WebImage;
   if (!st) return;
+
   var img = st.map.get(handle);
   if (!img) return;
+
   img.style.left = left_px.toFixed(3) + "px";
-  img.style.top  = top_px.toFixed(3) + "px";
+  img.style.top = top_px.toFixed(3) + "px";
 });
 
-EM_JS(void, cse498_webimage_set_size, (int handle, double w_px, double h_px), {
+EM_JS(void, WebImageSetSizeBridge, (int handle, double width_px, double height_px), {
   var st = Module.__cse498WebImage;
   if (!st) return;
+
   var img = st.map.get(handle);
   if (!img) return;
 
-  if (w_px > 0) img.style.width = w_px.toFixed(3) + "px";
+  if (width_px > 0) img.style.width = width_px.toFixed(3) + "px";
   else img.style.width = "";
 
-  if (h_px > 0) img.style.height = h_px.toFixed(3) + "px";
+  if (height_px > 0) img.style.height = height_px.toFixed(3) + "px";
   else img.style.height = "";
 });
 
-EM_JS(void, cse498_webimage_set_visible, (int handle, int visible), {
+EM_JS(void, WebImageSetVisibleBridge, (int handle, int visible), {
   var st = Module.__cse498WebImage;
   if (!st) return;
+
   var img = st.map.get(handle);
   if (!img) return;
+
   img.style.display = visible ? "block" : "none";
 });
 
-EM_JS(void, cse498_webimage_set_opacity, (int handle, double opacity), {
+EM_JS(void, WebImageSetOpacityBridge, (int handle, double opacity), {
   var st = Module.__cse498WebImage;
   if (!st) return;
+
   var img = st.map.get(handle);
   if (!img) return;
+
   img.style.opacity = "" + opacity;
 });
 
-EM_JS(void, cse498_webimage_set_zindex, (int handle, int z), {
+EM_JS(void, WebImageSetZIndexBridge, (int handle, int z_index), {
   var st = Module.__cse498WebImage;
   if (!st) return;
-  var img = st.map.get(handle);
-  if (!img) return;
-  img.style.zIndex = "" + z;
-});
 
-EM_JS(void, cse498_webimage_set_id, (int handle, const char* id_ptr), {
-  var st = Module.__cse498WebImage;
-  if (!st) return;
   var img = st.map.get(handle);
   if (!img) return;
 
-  var v = id_ptr ? UTF8ToString(id_ptr) : "";
-  if (v.length === 0) img.removeAttribute("id");
-  else img.id = v;
+  img.style.zIndex = "" + z_index;
 });
 
-EM_JS(void, cse498_webimage_class_add, (int handle, const char* c_ptr), {
+EM_JS(void, WebImageSetIdBridge, (int handle, const char* id_ptr), {
   var st = Module.__cse498WebImage;
   if (!st) return;
-  var img = st.map.get(handle);
-  if (!img) return;
-  var c = c_ptr ? UTF8ToString(c_ptr) : "";
-  if (c.length > 0) img.classList.add(c);
-});
 
-EM_JS(void, cse498_webimage_class_remove, (int handle, const char* c_ptr), {
-  var st = Module.__cse498WebImage;
-  if (!st) return;
-  var img = st.map.get(handle);
-  if (!img) return;
-  var c = c_ptr ? UTF8ToString(c_ptr) : "";
-  if (c.length > 0) img.classList.remove(c);
-});
-
-EM_JS(void, cse498_webimage_style_set, (int handle, const char* prop_ptr, const char* val_ptr), {
-  var st = Module.__cse498WebImage;
-  if (!st) return;
   var img = st.map.get(handle);
   if (!img) return;
 
-  var p = prop_ptr ? UTF8ToString(prop_ptr) : "";
-  var v = val_ptr ? UTF8ToString(val_ptr) : "";
-  if (p.length === 0) return;
-  img.style[p] = v;
+  var id_string = id_ptr ? UTF8ToString(id_ptr) : "";
+  if (id_string.length === 0) img.removeAttribute("id");
+  else img.id = id_string;
 });
 
-EM_JS(void, cse498_webimage_style_clear, (int handle, const char* prop_ptr), {
+EM_JS(void, WebImageAddCssClassBridge, (int handle, const char* css_class_ptr), {
   var st = Module.__cse498WebImage;
   if (!st) return;
+
   var img = st.map.get(handle);
   if (!img) return;
 
-  var p = prop_ptr ? UTF8ToString(prop_ptr) : "";
-  if (p.length === 0) return;
-  img.style[p] = "";
+  var css_class = css_class_ptr ? UTF8ToString(css_class_ptr) : "";
+  if (css_class.length > 0) img.classList.add(css_class);
 });
 
-#else  // __EMSCRIPTEN__ not defined
+EM_JS(void, WebImageRemoveCssClassBridge, (int handle, const char* css_class_ptr), {
+  var st = Module.__cse498WebImage;
+  if (!st) return;
 
-// -----------------------------
-// Native stubs (test-friendly)
-// -----------------------------
-int NextNativeHandle() {
-  static int next = 1;
-  return next++;
+  var img = st.map.get(handle);
+  if (!img) return;
+
+  var css_class = css_class_ptr ? UTF8ToString(css_class_ptr) : "";
+  if (css_class.length > 0) img.classList.remove(css_class);
+});
+
+EM_JS(void, WebImageSetStyleBridge, (int handle, const char* property_ptr, const char* value_ptr), {
+  var st = Module.__cse498WebImage;
+  if (!st) return;
+
+  var img = st.map.get(handle);
+  if (!img) return;
+
+  var property = property_ptr ? UTF8ToString(property_ptr) : "";
+  var value = value_ptr ? UTF8ToString(value_ptr) : "";
+  if (property.length === 0) return;
+
+  img.style[property] = value;
+});
+
+EM_JS(void, WebImageClearStyleBridge, (int handle, const char* property_ptr), {
+  var st = Module.__cse498WebImage;
+  if (!st) return;
+
+  var img = st.map.get(handle);
+  if (!img) return;
+
+  var property = property_ptr ? UTF8ToString(property_ptr) : "";
+  if (property.length === 0) return;
+
+  img.style[property] = "";
+});
+
+#else
+
+int NextNativeWebImageHandle() {
+  static int next_handle = 1;
+  return next_handle++;
 }
-int cse498_webimage_create() { return NextNativeHandle(); }
-void cse498_webimage_destroy(int) {}
-void cse498_webimage_detach(int) {}
-void cse498_webimage_attach(int, const char*) {}
-void cse498_webimage_set_src(int, const char*) {}
-void cse498_webimage_set_alt(int, const char*) {}
-void cse498_webimage_set_pos(int, double, double) {}
-void cse498_webimage_set_size(int, double, double) {}
-void cse498_webimage_set_visible(int, int) {}
-void cse498_webimage_set_opacity(int, double) {}
-void cse498_webimage_set_zindex(int, int) {}
-void cse498_webimage_set_id(int, const char*) {}
-void cse498_webimage_class_add(int, const char*) {}
-void cse498_webimage_class_remove(int, const char*) {}
-void cse498_webimage_style_set(int, const char*, const char*) {}
-void cse498_webimage_style_clear(int, const char*) {}
+
+int WebImageCreateBridge() { return NextNativeWebImageHandle(); }
+void WebImageDestroyBridge(int) {}
+void WebImageDetachBridge(int) {}
+void WebImageAttachBridge(int, const char*) {}
+void WebImageSetSourceBridge(int, const char*) {}
+void WebImageSetAltBridge(int, const char*) {}
+void WebImageSetPositionBridge(int, double, double) {}
+void WebImageSetSizeBridge(int, double, double) {}
+void WebImageSetVisibleBridge(int, int) {}
+void WebImageSetOpacityBridge(int, double) {}
+void WebImageSetZIndexBridge(int, int) {}
+void WebImageSetIdBridge(int, const char*) {}
+void WebImageAddCssClassBridge(int, const char*) {}
+void WebImageRemoveCssClassBridge(int, const char*) {}
+void WebImageSetStyleBridge(int, const char*, const char*) {}
+void WebImageClearStyleBridge(int, const char*) {}
 
 #endif
 
-bool Contains_(const std::vector<std::string>& v, const std::string& s) {
-  return std::find(v.begin(), v.end(), s) != v.end();
+namespace {
+
+template <typename ValueT, typename SyncFn, typename EqualFn = std::equal_to<ValueT>>
+bool AssignIfChanged(ValueT& slot, ValueT next, SyncFn&& sync_fn,
+                     EqualFn equal_fn = EqualFn{}) {
+  if (equal_fn(slot, next)) {
+    return false;
+  }
+
+  slot = std::move(next);
+  std::forward<SyncFn>(sync_fn)();
+  return true;
 }
 
 }  // namespace
 
-// -----------------------------
+bool ContainsString(const std::vector<std::string>& values,
+                    const std::string& target) {
+  return std::any_of(values.begin(), values.end(),
+                     [&target](const std::string& value) {
+                       return value == target;
+                     });
+}
+
+// -----------------------------------------------------------------------------
 // WebImage implementation
-// -----------------------------
+// -----------------------------------------------------------------------------
 
 WebImage::WebImage() = default;
 
 WebImage::WebImage(std::string src, std::string alt_text)
     : src_(std::move(src)), alt_text_(std::move(alt_text)) {}
 
-WebImage::~WebImage() {
-  Destroy();
-}
+WebImage::~WebImage() { Destroy(); }
 
-WebImage::WebImage(WebImage&& other) noexcept {
-  MoveFrom_(std::move(other));
-}
+WebImage::WebImage(WebImage&& other) noexcept { MoveFrom_(std::move(other)); }
 
 WebImage& WebImage::operator=(WebImage&& other) noexcept {
-  if (this == &other) return *this;
+  if (this == &other) {
+    return *this;
+  }
+
   Destroy();
   MoveFrom_(std::move(other));
   return *this;
 }
 
 void WebImage::MoveFrom_(WebImage&& other) noexcept {
-  handle_ = other.handle_;
-  created_ = other.created_;
+  handle_ = std::exchange(other.handle_, 0);
+  created_ = std::exchange(other.created_, false);
 
   src_ = std::move(other.src_);
   alt_text_ = std::move(other.alt_text_);
-  left_px_ = other.left_px_;
-  top_px_ = other.top_px_;
-  width_px_ = other.width_px_;
-  height_px_ = other.height_px_;
-  visible_ = other.visible_;
-  opacity_ = other.opacity_;
-  z_index_ = other.z_index_;
+  left_px_ = std::exchange(other.left_px_, kDefaultLeftPx);
+  top_px_ = std::exchange(other.top_px_, kDefaultTopPx);
+  width_px_ = std::exchange(other.width_px_, kAutoSizePx);
+  height_px_ = std::exchange(other.height_px_, kAutoSizePx);
+  visible_ = std::exchange(other.visible_, true);
+  opacity_ = std::exchange(other.opacity_, kDefaultOpacity);
+  z_index_ = std::exchange(other.z_index_, kDefaultZIndex);
 
   parent_id_ = std::move(other.parent_id_);
   element_id_ = std::move(other.element_id_);
   classes_ = std::move(other.classes_);
   styles_ = std::move(other.styles_);
-
-  other.handle_ = 0;
-  other.created_ = false;
 }
 
-double WebImage::Clamp01_(double v) noexcept {
-  if (v < 0.0) return 0.0;
-  if (v > 1.0) return 1.0;
-  return v;
+double WebImage::Clamp01_(double value) noexcept {
+  return std::clamp(value, kMinOpacity, kMaxOpacity);
 }
 
 void WebImage::EnsureCreated() {
-  if (created_) return;
+  if (created_) {
+    return;
+  }
 
-  handle_ = static_cast<std::int32_t>(cse498_webimage_create());
+  handle_ = static_cast<std::int32_t>(WebImageCreateBridge());
   created_ = (handle_ != 0);
 
-  // If creation failed, keep state but don't crash.
-  if (!created_) return;
+  if (!created_) {
+    return;
+  }
 
   SyncAllToDom_();
 }
 
 void WebImage::RemoveFromDom() {
-  if (!created_) return;
-  cse498_webimage_detach(handle_);
+  WithCreatedHandle_([](std::int32_t handle) { WebImageDetachBridge(handle); });
 }
 
 void WebImage::Destroy() {
-  if (!created_) return;
-  cse498_webimage_destroy(handle_);
+  if (!created_) {
+    return;
+  }
+
+  WebImageDestroyBridge(handle_);
   handle_ = 0;
   created_ = false;
 }
 
 bool WebImage::IsCreated() const noexcept { return created_; }
+
 std::int32_t WebImage::GetHandle() const noexcept { return handle_; }
 
 void WebImage::SetSource(std::string src) {
-  src_ = std::move(src);
-  SyncSource_();
+  AssignIfChanged(src_, std::move(src), [this]() { SyncSource_(); });
 }
 
 const std::string& WebImage::GetSource() const noexcept { return src_; }
 
 void WebImage::SetAltText(std::string alt_text) {
-  alt_text_ = std::move(alt_text);
-  SyncAlt_();
+  AssignIfChanged(alt_text_, std::move(alt_text), [this]() { SyncAlt_(); });
 }
 
 const std::string& WebImage::GetAltText() const noexcept { return alt_text_; }
 
 void WebImage::SetPositionPx(double left_px, double top_px) {
+  if (left_px_ == left_px && top_px_ == top_px) {
+    return;
+  }
+
   left_px_ = left_px;
   top_px_ = top_px;
   SyncGeometry_();
 }
 
 double WebImage::GetLeftPx() const noexcept { return left_px_; }
+
 double WebImage::GetTopPx() const noexcept { return top_px_; }
 
 void WebImage::SetSizePx(double width_px, double height_px) {
-  width_px_ = width_px;
-  height_px_ = height_px;
+  assert(width_px >= 0.0);
+  assert(height_px >= 0.0);
+
+  const double sanitized_width = std::max(kAutoSizePx, width_px);
+  const double sanitized_height = std::max(kAutoSizePx, height_px);
+  if (width_px_ == sanitized_width && height_px_ == sanitized_height) {
+    return;
+  }
+
+  width_px_ = sanitized_width;
+  height_px_ = sanitized_height;
   SyncGeometry_();
 }
 
 double WebImage::GetWidthPx() const noexcept { return width_px_; }
+
 double WebImage::GetHeightPx() const noexcept { return height_px_; }
 
 void WebImage::SetVisible(bool visible) {
-  visible_ = visible;
-  SyncVisibility_();
+  AssignIfChanged(visible_, visible, [this]() { SyncVisibility_(); });
 }
 
 bool WebImage::IsVisible() const noexcept { return visible_; }
 
 void WebImage::SetOpacity(double opacity_0_to_1) {
-  // Treat invalid opacity as user input, not a "this should never happen" invariant.
-  opacity_ = Clamp01_(opacity_0_to_1);
-  SyncOpacity_();
+  const double clamped_opacity = Clamp01_(opacity_0_to_1);
+  AssignIfChanged(opacity_, clamped_opacity, [this]() { SyncOpacity_(); });
 }
 
 double WebImage::GetOpacity() const noexcept { return opacity_; }
 
 void WebImage::SetZIndex(int z_index) {
-  z_index_ = z_index;
-  SyncZIndex_();
+  AssignIfChanged(z_index_, z_index, [this]() { SyncZIndex_(); });
 }
 
 int WebImage::GetZIndex() const noexcept { return z_index_; }
 
 void WebImage::SetParentElementId(std::string parent_id) {
-  parent_id_ = std::move(parent_id);
-  SyncParent_();
+  AssignIfChanged(parent_id_, std::move(parent_id), [this]() { SyncParent_(); });
 }
 
-const std::string& WebImage::GetParentElementId() const noexcept { return parent_id_; }
+const std::string& WebImage::GetParentElementId() const noexcept {
+  return parent_id_;
+}
 
 void WebImage::SetElementId(std::string element_id) {
-  element_id_ = std::move(element_id);
-  SyncId_();
+  AssignIfChanged(element_id_, std::move(element_id), [this]() { SyncId_(); });
 }
 
 const std::string& WebImage::GetElementId() const noexcept { return element_id_; }
 
 void WebImage::AddCssClass(const std::string& css_class) {
-  if (css_class.empty()) return;
-  if (Contains_(classes_, css_class)) return;
+  if (css_class.empty() || ContainsString(classes_, css_class)) {
+    return;
+  }
 
   classes_.push_back(css_class);
-  if (created_) cse498_webimage_class_add(handle_, css_class.c_str());
+  WithCreatedHandle_([&css_class](std::int32_t handle) {
+    WebImageAddCssClassBridge(handle, css_class.c_str());
+  });
 }
 
 void WebImage::RemoveCssClass(const std::string& css_class) {
-  if (css_class.empty()) return;
+  if (css_class.empty()) {
+    return;
+  }
 
-  auto it = std::find(classes_.begin(), classes_.end(), css_class);
-  if (it == classes_.end()) return;
+  const auto class_it =
+      std::find_if(classes_.begin(), classes_.end(),
+                   [&css_class](const std::string& existing_class) {
+                     return existing_class == css_class;
+                   });
+  if (class_it == classes_.end()) {
+    return;
+  }
 
-  if (created_) cse498_webimage_class_remove(handle_, css_class.c_str());
-  classes_.erase(it);
+  WithCreatedHandle_([&css_class](std::int32_t handle) {
+    WebImageRemoveCssClassBridge(handle, css_class.c_str());
+  });
+  classes_.erase(class_it);
 }
 
 bool WebImage::HasCssClass(const std::string& css_class) const {
-  return Contains_(classes_, css_class);
+  return ContainsString(classes_, css_class);
 }
 
 void WebImage::SetStyle(const std::string& property, const std::string& value) {
-  if (property.empty()) return;
-  styles_[property] = value;
+  if (property.empty()) {
+    return;
+  }
 
-  if (created_) cse498_webimage_style_set(handle_, property.c_str(), value.c_str());
+  const auto style_it = styles_.find(property);
+  if (style_it != styles_.end() && style_it->second == value) {
+    return;
+  }
+
+  styles_[property] = value;
+  WithCreatedHandle_([&property, &value](std::int32_t handle) {
+    WebImageSetStyleBridge(handle, property.c_str(), value.c_str());
+  });
 }
 
 void WebImage::ClearStyle(const std::string& property) {
-  if (property.empty()) return;
+  if (property.empty()) {
+    return;
+  }
 
-  styles_.erase(property);
-  if (created_) cse498_webimage_style_clear(handle_, property.c_str());
+  const auto erased_count = styles_.erase(property);
+  if (erased_count == 0) {
+    return;
+  }
+
+  WithCreatedHandle_([&property](std::int32_t handle) {
+    WebImageClearStyleBridge(handle, property.c_str());
+  });
 }
 
 void WebImage::SyncAllToDom_() {
   assert(created_);
+
   SyncParent_();
   SyncId_();
   SyncSource_();
@@ -439,60 +524,74 @@ void WebImage::SyncAllToDom_() {
 }
 
 void WebImage::SyncSource_() {
-  if (!created_) return;
-  cse498_webimage_set_src(handle_, src_.c_str());
+  WithCreatedHandle_([this](std::int32_t handle) {
+    WebImageSetSourceBridge(handle, src_.c_str());
+  });
 }
 
 void WebImage::SyncAlt_() {
-  if (!created_) return;
-  cse498_webimage_set_alt(handle_, alt_text_.c_str());
+  WithCreatedHandle_([this](std::int32_t handle) {
+    WebImageSetAltBridge(handle, alt_text_.c_str());
+  });
 }
 
 void WebImage::SyncGeometry_() {
-  if (!created_) return;
-  cse498_webimage_set_pos(handle_, left_px_, top_px_);
-  cse498_webimage_set_size(handle_, width_px_, height_px_);
+  WithCreatedHandle_([this](std::int32_t handle) {
+    WebImageSetPositionBridge(handle, left_px_, top_px_);
+    WebImageSetSizeBridge(handle, width_px_, height_px_);
+  });
 }
 
 void WebImage::SyncVisibility_() {
-  if (!created_) return;
-  cse498_webimage_set_visible(handle_, visible_ ? 1 : 0);
+  WithCreatedHandle_([this](std::int32_t handle) {
+    WebImageSetVisibleBridge(handle, visible_ ? 1 : 0);
+  });
 }
 
 void WebImage::SyncOpacity_() {
-  if (!created_) return;
-  cse498_webimage_set_opacity(handle_, opacity_);
+  WithCreatedHandle_([this](std::int32_t handle) {
+    WebImageSetOpacityBridge(handle, opacity_);
+  });
 }
 
 void WebImage::SyncZIndex_() {
-  if (!created_) return;
-  cse498_webimage_set_zindex(handle_, z_index_);
+  WithCreatedHandle_([this](std::int32_t handle) {
+    WebImageSetZIndexBridge(handle, z_index_);
+  });
 }
 
 void WebImage::SyncParent_() {
-  if (!created_) return;
-  const char* pid = parent_id_.empty() ? nullptr : parent_id_.c_str();
-  cse498_webimage_attach(handle_, pid);
+  const char* parent_id_ptr = parent_id_.empty() ? nullptr : parent_id_.c_str();
+  WithCreatedHandle_([parent_id_ptr](std::int32_t handle) {
+    WebImageAttachBridge(handle, parent_id_ptr);
+  });
 }
 
 void WebImage::SyncId_() {
-  if (!created_) return;
-  cse498_webimage_set_id(handle_, element_id_.c_str());
+  WithCreatedHandle_([this](std::int32_t handle) {
+    WebImageSetIdBridge(handle, element_id_.c_str());
+  });
 }
 
 void WebImage::SyncClasses_() {
-  if (!created_) return;
-  // We don’t have a "set all classes" bridge; we apply classes incrementally.
-  for (const auto& c : classes_) {
-    if (!c.empty()) cse498_webimage_class_add(handle_, c.c_str());
-  }
+  WithCreatedHandle_([this](std::int32_t handle) {
+    std::for_each(classes_.begin(), classes_.end(),
+                  [handle](const std::string& css_class) {
+                    if (!css_class.empty()) {
+                      WebImageAddCssClassBridge(handle, css_class.c_str());
+                    }
+                  });
+  });
 }
 
 void WebImage::SyncStyles_() {
-  if (!created_) return;
-  for (const auto& kv : styles_) {
-    cse498_webimage_style_set(handle_, kv.first.c_str(), kv.second.c_str());
-  }
+  WithCreatedHandle_([this](std::int32_t handle) {
+    std::for_each(styles_.begin(), styles_.end(),
+                  [handle](const std::pair<const std::string, std::string>& entry) {
+                    WebImageSetStyleBridge(handle, entry.first.c_str(),
+                                           entry.second.c_str());
+                  });
+  });
 }
 
 }  // namespace cse498

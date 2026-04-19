@@ -1,0 +1,101 @@
+#include "../../third-party/Catch/single_include/catch2/catch.hpp"
+
+#include "../../source/tools/StateGrid.hpp"
+#include "../../source/tools/StateGridPosition.hpp"
+
+TEST_CASE("StateGrid basic functionality", "[StateGrid]")
+{
+    cse498::StateGrid sg1(20, 20);
+    cse498::StateGrid sg2;
+
+    SECTION("Default constructor creates empty grid")
+    {
+        CHECK(sg2.GetHeight() == 0);
+        CHECK(sg2.GetWidth() == 0);
+    }
+
+    SECTION("Parameterized constructor sets correct dimensions")
+    {
+        CHECK(sg1.GetHeight() == 20);
+        CHECK(sg1.GetWidth() == 20);
+    }
+
+    SECTION("InBounds works correctly")
+    {
+        CHECK(sg1.InBounds(cse498::StateGridPosition(0,0)) == true);
+        CHECK(sg1.InBounds(cse498::StateGridPosition(19,19)) == true);
+
+        CHECK(sg1.InBounds(cse498::StateGridPosition(20,0)) == false);
+        CHECK(sg1.InBounds(cse498::StateGridPosition(0,20)) == false);
+        CHECK(sg1.InBounds(cse498::StateGridPosition(100,100)) == false);
+    }
+
+    SECTION("SetState and GetState store and retrieve correctly")
+    {
+        cse498::StateGridPosition pos(9,9);
+
+        cse498::State state;
+        state.mStateID = 1;
+        state.mIsAccessible = true;
+
+        sg1.SetState(pos, state);
+
+        cse498::State retrieved = sg1.GetState(pos);
+
+        CHECK(retrieved.mStateID == 1);
+        CHECK(retrieved.mIsAccessible == true);
+    }
+
+    SECTION("Multiple states do not interfere with each other")
+    {
+        cse498::StateGridPosition pos1(2,3);
+        cse498::StateGridPosition pos2(5,6);
+
+        cse498::State state1;
+        state1.mStateID = 42;
+        state1.mIsAccessible = true;
+
+        cse498::State state2;
+        state2.mStateID = 99;
+        state2.mIsAccessible = false;
+
+        sg1.SetState(pos1, state1);
+        sg1.SetState(pos2, state2);
+
+        auto r1 = sg1.GetState(pos1);
+        auto r2 = sg1.GetState(pos2);
+
+        CHECK(r1.mStateID == 42);
+        CHECK(r1.mIsAccessible == true);
+
+        CHECK(r2.mStateID == 99);
+        CHECK(r2.mIsAccessible == false);
+    }
+
+    SECTION("Edge positions work correctly")
+    {
+        cse498::StateGridPosition topLeft(0,0);
+        cse498::StateGridPosition bottomRight(19,19);
+
+        cse498::State state;
+        state.mStateID = 7;
+        state.mIsAccessible = true;
+
+        sg1.SetState(topLeft, state);
+        sg1.SetState(bottomRight, state);
+
+        CHECK(sg1.GetState(topLeft).mStateID == 7);
+        CHECK(sg1.GetState(bottomRight).mStateID == 7);
+    }
+
+    SECTION("Default state values are correct")
+    {
+        cse498::StateGridPosition pos(5,5);
+
+        auto state = sg1.GetState(pos);
+
+        CHECK(state.mStateID == 0);
+        CHECK(state.mIsAccessible == false);
+    }
+}
+
