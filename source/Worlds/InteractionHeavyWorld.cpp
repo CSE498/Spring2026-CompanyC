@@ -1,6 +1,7 @@
 /*
  * @file InteractionHeavyWorld.cpp
  * @author Truong Phan
+ * @author Jose Hernandez
  *
  * This is the implementation file for the Interaction Heavy-Simulation world.
  * @brief A World that consists of various resources that agents can interact with (e.g., break, collect, etc.).
@@ -14,6 +15,9 @@ namespace cse498
 {
     InteractionHeavyWorld::InteractionHeavyWorld()
     {
+        SetWorldResourceNames({"HP", "Stone", "Gold"});
+        SyncResourceVector();
+
         ConfigureCellTypes();
         GenerateWorld();
     }
@@ -33,12 +37,18 @@ namespace cse498
         agent.AddAction("left", MOVE_LEFT);
         agent.AddAction("right", MOVE_RIGHT);
         agent.AddAction("break_boulder", BREAK_BOULDER);
-        agent.AddAction("interact", INTERACT);
+        agent.AddAction("collect", COLLECT);
         agent.AddAction("print_inventory", PRINT_INVENTORY);
         agent.AddAction("throw_up", THROW_UP);
         agent.AddAction("throw_down", THROW_DOWN);
         agent.AddAction("throw_left", THROW_LEFT);
         agent.AddAction("throw_right", THROW_RIGHT);
+    }
+    void InteractionHeavyWorld::SyncResourceVector()
+    {
+        SetWorldResourceCount(RESOURCE_HP, mPlayerHP);
+        SetWorldResourceCount(RESOURCE_STONE, static_cast<int>(mStoneCount));
+        SetWorldResourceCount(RESOURCE_GOLD, static_cast<int>(mGoldCount));
     }
 
     void InteractionHeavyWorld::ConfigureCellTypes()
@@ -229,7 +239,7 @@ namespace cse498
         }
     }
 
-    void InteractionHeavyWorld::Interact(size_t x, size_t y)
+    void InteractionHeavyWorld ::Collect(size_t x, size_t y)
     {
         // Check the four adjacent cells for interactable objects (e.g., materials, chests, doors, enemies)
         WorldPosition center(x, y);
@@ -258,6 +268,7 @@ namespace cse498
                 mGoldCount += it->second.gold;
                 inventory.erase(it);
                 main_grid[pos] = mFloorID;
+                SyncResourceVector();
                 return;
             }
 
@@ -268,6 +279,7 @@ namespace cse498
 
                 mGoldCount += gold_found;
                 main_grid[pos] = mChestOpenID;
+                SyncResourceVector();
                 return;
             }
 
@@ -280,6 +292,7 @@ namespace cse498
                 {
                     mGoldCount -= required_gold;
                     main_grid[pos] = mDoorOpenID;
+                    SyncResourceVector();
                 }
                 return;
             }
@@ -319,7 +332,7 @@ namespace cse498
             if (tile == mEnemyID)
             {
                 mStoneCount--;
-
+                SyncResourceVector();
                 auto key = std::make_pair(target.CellX(), target.CellY());
                 auto it = enemy_hp.find(key);
                 if (it == enemy_hp.end())
@@ -347,6 +360,7 @@ namespace cse498
 
         // optional: still consume a stone on a miss
         mStoneCount--;
+        SyncResourceVector();
         std::cout << "Stone thrown and missed.\n";
     }
 
@@ -366,6 +380,7 @@ namespace cse498
             if (main_grid[pos] == mEnemyID)
             {
                 mPlayerHP -= mEnemyContactDamage;
+                SyncResourceVector();
                 std::cout << "Enemy hit you! Player HP: " << mPlayerHP << "\n";
 
                 if (mPlayerHP <= 0)
@@ -403,8 +418,8 @@ namespace cse498
         case BREAK_BOULDER:
             BreakBoulder(cur_position.CellX(), cur_position.CellY());
             return true;
-        case INTERACT:
-            Interact(cur_position.CellX(), cur_position.CellY());
+        case COLLECT:
+            Collect(cur_position.CellX(), cur_position.CellY());
             return true;
         case PRINT_INVENTORY:
             PrintInventory();
