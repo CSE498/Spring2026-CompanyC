@@ -74,6 +74,10 @@ void WebInterface::RegisterActionMeta(const std::string& action_id,
   action_metas_[action_id] = std::move(meta);
 }
 
+void WebInterface::SetPlayerVisible(bool visible) {
+  player_visible_ = visible;
+}
+
 std::vector<LegendEntry> WebInterface::GetLegend() const {
   const WorldGrid& grid   = world.GetGrid();
   const auto&      ctypes = grid.GetCellTypes();
@@ -136,6 +140,7 @@ std::vector<RenderableEntity> WebInterface::GetEntities() const {
   for (const size_t id : agent_ids) {
     const AgentBase& agent = world.GetAgent(id);
     if (!agent.GetLocation().IsPosition()) continue;
+    if (agent.IsInterface() && !player_visible_) continue;
 
     const WorldPosition& pos = agent.GetLocation().AsWorldPosition();
     RenderableEntity ent;

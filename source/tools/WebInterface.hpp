@@ -80,6 +80,10 @@ class WebInterface : public InterfaceBase {
   /// Register display label, hotkey hint, and enabled-mode for an action.
   void RegisterActionMeta(const std::string& action_id, ActionMeta meta);
 
+  /// Hide (false) or show (true) the player entity in GetEntities().
+  /// Set false for an invisible observer/camera agent.
+  void SetPlayerVisible(bool visible);
+
   // -- Rendering data accessors (called by WebMain each frame) --
 
   [[nodiscard]] std::vector<LegendEntry>      GetLegend()           const;
@@ -103,6 +107,7 @@ class WebInterface : public InterfaceBase {
   std::unordered_map<std::string, CellVisual> cell_visuals_;
   std::unordered_map<std::string, ActionMeta> action_metas_;
   std::unordered_map<char, std::string>       entity_visuals_;  // glyph → image URL
+  bool                                        player_visible_ = true;
 };
 
 }  // namespace cse498
