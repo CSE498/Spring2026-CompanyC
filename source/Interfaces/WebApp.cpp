@@ -290,6 +290,7 @@ void WebApp::HandleAction(int action_code) {
   // the world by one turn (world calls SelectAction → DoAction on the agent).
   interface_->SubmitAction(action_id);
   world_->RunAgents();
+  world_->UpdateWorld();
   RenderWorld();
 }
 
@@ -402,6 +403,25 @@ void WebApp::RenderWorld() {
            << "Resources\n";
   for (const auto& entry : hud.resources) {
     hud_text << "- " << entry.first << ": " << entry.second << "\n";
+  }
+
+  const auto& ws = hud.world_score;
+  if (!ws.lines.empty() || ws.headline.has_value() || ws.numeric_score.has_value()) {
+    hud_text << "\n--- Score ---\n";
+    if (ws.headline.has_value() && !ws.headline->empty()) {
+      hud_text << *ws.headline << "\n";
+    }
+    for (const auto& row : ws.lines) {
+      if (row.first.empty()) {
+        hud_text << row.second << "\n";
+      } else {
+        hud_text << row.first << ": " << row.second << "\n";
+      }
+    }
+    if (ws.numeric_score.has_value()) {
+      hud_text << (ws.numeric_score_is_final ? "Final score: " : "Score: ")
+               << *ws.numeric_score << "\n";
+    }
   }
 
   hud_text_->SetText(hud_text.str());

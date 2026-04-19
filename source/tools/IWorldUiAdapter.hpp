@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+#include "../core/WorldScore.hpp"
+
 namespace cse498 {
 
 enum class UiMode {
@@ -53,6 +55,7 @@ struct HudState {
   std::string selected_cell;
   int tick = 0;
   std::map<std::string, int> resources;
+  WorldScoreDisplay world_score;
 };
 
 class IWorldUiAdapter {

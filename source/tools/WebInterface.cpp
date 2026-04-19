@@ -193,6 +193,7 @@ HudState WebInterface::GetHudState() const {
   hud.selected_cell  = sel_str;
   hud.tick           = tick_;
   hud.resources      = resources_;
+  hud.world_score    = world.GetWorldScoreDisplay();
   return hud;
 }
 

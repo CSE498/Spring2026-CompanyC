@@ -14,6 +14,7 @@
 #include "AgentBase.hpp"
 #include "ItemBase.hpp"
 #include "WorldGrid.hpp"
+#include "WorldScore.hpp"
 #include "../tools/ActionLog.hpp"
 #include "../tools/Timer.hpp"
 
@@ -112,6 +113,11 @@ namespace cse498 {
 
     /// Determine if the run has ended.
     [[nodiscard]] virtual bool IsRunOver() const { return run_over; }
+
+    /// World-specific score / progress for the HUD (default: empty).
+    [[nodiscard]] virtual WorldScoreDisplay GetWorldScoreDisplay() const {
+      return WorldScoreDisplay{};
+    }
 
     // -- Agent Management --
 

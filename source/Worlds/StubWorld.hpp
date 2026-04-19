@@ -7,10 +7,12 @@
 
 #pragma once
 
+#include <chrono>
 #include <map>
 #include <string>
 
 #include "../core/WorldBase.hpp"
+#include "../core/WorldScore.hpp"
 
 namespace cse498 {
 
@@ -67,6 +69,8 @@ class StubWorld : public WorldBase {
   /// Restore base + custom state from the Database.
   void LoadState(const std::string& world_name);
 
+  [[nodiscard]] WorldScoreDisplay GetWorldScoreDisplay() const override;
+
  private:
   static constexpr int kWidth  = 10;
   static constexpr int kHeight = 10;
@@ -82,6 +86,19 @@ class StubWorld : public WorldBase {
   std::map<std::string, int> resources_;
 
   Database* db_ = nullptr;
+
+  /// Resource-based scoring (see GetWorldScoreDisplay).
+  static constexpr int kCollectibleGoal_ = 5;  ///< trees+stone+wheat cells on the map
+  int resources_collected_count_ = 0;
+  int move_actions_ = 0;
+  int build_actions_ = 0;
+  bool objective_complete_ = false;
+  bool session_clock_running_ = false;
+  std::chrono::steady_clock::time_point session_start_{};
+
+  [[nodiscard]] int ComputeStubScore_() const;
+  [[nodiscard]] long long ElapsedSeconds_() const;
+  void ResetScoringState_();
 
   /// Load the initial (or reset) grid layout from a character string map.
   void InitializeGrid_();

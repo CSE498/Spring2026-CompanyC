@@ -1,5 +1,7 @@
 #include "Worlds/StubWorld.hpp"
 
+#include <algorithm>
+#include <chrono>
 #include <string>
 
 #include "core/AgentBase.hpp"
@@ -30,6 +32,7 @@ StubWorld::StubWorld() {
   resources_["wood"]  = 1;
   resources_["stone"] = 0;
   resources_["wheat"] = 0;
+  ResetScoringState_();
 }
 
 // ---------------------------------------------------------------------------
@@ -68,6 +71,8 @@ int StubWorld::DoAction(AgentBase& agent, size_t action_id) {
       return 0;
     }
     started_ = true;
+    session_clock_running_ = true;
+    session_start_ = std::chrono::steady_clock::now();
     agent.Notify("live", "mode_change");
     agent.Notify("Simulation started.", "status");
     return 1;
@@ -75,6 +80,7 @@ int StubWorld::DoAction(AgentBase& agent, size_t action_id) {
 
   case RESET: {
     started_ = false;
+    ResetScoringState_();
     resources_["wood"]  = 1;
     resources_["stone"] = 0;
     resources_["wheat"] = 0;
@@ -135,6 +141,7 @@ int StubWorld::DoAction(AgentBase& agent, size_t action_id) {
     }
 
     agent.SetLocation(next);
+    ++move_actions_;
     // Keep the selection cursor in sync with the player position.
     if (auto* wi = dynamic_cast<WebInterface*>(&agent)) {
       wi->SelectCell(static_cast<int>(next.CellX()),
@@ -203,6 +210,7 @@ int StubWorld::DoAction(AgentBase& agent, size_t action_id) {
 
     main_grid[static_cast<size_t>(sx), static_cast<size_t>(sy)] = built_id_;
     --resources_["wood"];
+    ++build_actions_;
     SendResources_(agent);
     agent.Notify("Built a structure on the selected tile.", "status");
     agent.Notify("", "tick");
@@ -254,18 +262,30 @@ bool StubWorld::TryCollectAt_(AgentBase& agent, int x, int y) {
   if (cell == tree_id_) {
     cell = grass_id_;
     ++resources_["wood"];
+    ++resources_collected_count_;
+    if (resources_collected_count_ >= kCollectibleGoal_) {
+      objective_complete_ = true;
+    }
     agent.Notify("Collected wood.", "status");
     return true;
   }
   if (cell == stone_id_) {
     cell = grass_id_;
     ++resources_["stone"];
+    ++resources_collected_count_;
+    if (resources_collected_count_ >= kCollectibleGoal_) {
+      objective_complete_ = true;
+    }
     agent.Notify("Collected stone.", "status");
     return true;
   }
   if (cell == wheat_id_) {
     cell = grass_id_;
     ++resources_["wheat"];
+    ++resources_collected_count_;
+    if (resources_collected_count_ >= kCollectibleGoal_) {
+      objective_complete_ = true;
+    }
     agent.Notify("Collected wheat.", "status");
     return true;
   }
@@ -287,6 +307,12 @@ void StubWorld::SaveState(const std::string& world_name) {
 
   // custom fields
   (void)db_->Store("world:" + world_name + ":started", started_);
+  (void)db_->Store("world:" + world_name + ":resources_collected_count",
+                   resources_collected_count_);
+  (void)db_->Store("world:" + world_name + ":move_actions", move_actions_);
+  (void)db_->Store("world:" + world_name + ":build_actions", build_actions_);
+  (void)db_->Store("world:" + world_name + ":objective_complete",
+                   objective_complete_);
   for (const auto& [name, count] : resources_) {
     (void)db_->Store("world:" + world_name + ":resources:" + name, count);
   }
@@ -302,6 +328,18 @@ void StubWorld::LoadState(const std::string& world_name) {
   // restore custom fields
   if (auto val = db_->Load<bool>("world:" + world_name + ":started"))
     started_ = *val;
+  if (auto val = db_->Load<int>("world:" + world_name + ":resources_collected_count"))
+    resources_collected_count_ = *val;
+  if (auto val = db_->Load<int>("world:" + world_name + ":move_actions"))
+    move_actions_ = *val;
+  if (auto val = db_->Load<int>("world:" + world_name + ":build_actions"))
+    build_actions_ = *val;
+  if (auto val = db_->Load<bool>("world:" + world_name + ":objective_complete"))
+    objective_complete_ = *val;
+  if (started_) {
+    session_clock_running_ = true;
+    session_start_ = std::chrono::steady_clock::now();
+  }
   for (auto& [name, count] : resources_) {
     if (auto val = db_->Load<int>("world:" + world_name + ":resources:" + name))
       count = *val;
@@ -311,6 +349,54 @@ void StubWorld::LoadState(const std::string& world_name) {
   for (const auto& agent : agent_set) {
     SendResources_(*agent);
   }
+}
+
+void StubWorld::ResetScoringState_() {
+  resources_collected_count_ = 0;
+  move_actions_ = 0;
+  build_actions_ = 0;
+  objective_complete_ = false;
+  session_clock_running_ = false;
+  session_start_ = {};
+}
+
+long long StubWorld::ElapsedSeconds_() const {
+  if (!session_clock_running_) return 0;
+  const auto now = std::chrono::steady_clock::now();
+  return std::chrono::duration_cast<std::chrono::seconds>(now - session_start_)
+      .count();
+}
+
+int StubWorld::ComputeStubScore_() const {
+  if (!session_clock_running_) return 0;
+  const int elapsed = static_cast<int>(std::max<long long>(0, ElapsedSeconds_()));
+  int s = 200 + 18 * resources_collected_count_ + 2 * move_actions_ +
+          12 * build_actions_ - 2 * elapsed;
+  return std::max(0, s);
+}
+
+WorldScoreDisplay StubWorld::GetWorldScoreDisplay() const {
+  WorldScoreDisplay out;
+  out.lines.emplace_back("Objective",
+                         "Collect all " + std::to_string(kCollectibleGoal_) +
+                             " resources on the map");
+  if (!started_ && !session_clock_running_) {
+    return out;
+  }
+  out.lines.emplace_back("Resources collected",
+                         std::to_string(resources_collected_count_) + " / " +
+                             std::to_string(kCollectibleGoal_));
+  out.lines.emplace_back("Time (s)", std::to_string(ElapsedSeconds_()));
+  out.lines.emplace_back(
+      "Actions",
+      "moves " + std::to_string(move_actions_) + ", builds " +
+          std::to_string(build_actions_));
+  out.numeric_score = ComputeStubScore_();
+  out.numeric_score_is_final = objective_complete_;
+  if (objective_complete_) {
+    out.headline = "Objective complete — all resources collected.";
+  }
+  return out;
 }
 
 }  // namespace cse498

@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cmath>
 #include "./DynamicWorld.hpp"
 
 int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
@@ -111,6 +112,8 @@ int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
     world_global_counts["steel"] -= 500;
     world_global_counts["wheat"] -= 500;
     main_grid[cur] = mTownhallId;
+    mTownhallBuilt = true;
+    mTownhallCompletionTicks = mUpdateCounter + 1;
     run_over = true;
     return true;
   }
@@ -128,6 +131,36 @@ int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
   }
 
   return false;
+}
+
+namespace {
+
+[[nodiscard]] int DynamicEfficiencyScore_(size_t ticks) {
+  if (ticks == 0) return 0;
+  // Fewer ticks => higher score; decays smoothly as ticks grow.
+  const double base = 250000.0;
+  const double scaled = base / (1.0 + 0.02 * static_cast<double>(ticks));
+  return static_cast<int>(std::lround(std::max(0.0, scaled)));
+}
+
+}  // namespace
+
+cse498::WorldScoreDisplay cse498::DynamicWorld::GetWorldScoreDisplay() const {
+  WorldScoreDisplay out;
+  out.lines.emplace_back("Simulation ticks (elapsed)",
+                         std::to_string(mUpdateCounter));
+  if (!mTownhallBuilt) {
+    out.lines.emplace_back(
+        "",
+        "Build the Townhall to finish — no score until then.");
+    return out;
+  }
+  out.headline = "Simulation complete — Townhall built.";
+  out.lines.emplace_back("Ticks to build Townhall",
+                         std::to_string(mTownhallCompletionTicks));
+  out.numeric_score = DynamicEfficiencyScore_(mTownhallCompletionTicks);
+  out.numeric_score_is_final = true;
+  return out;
 }
 
 void cse498::DynamicWorld::UpdateWorld() {

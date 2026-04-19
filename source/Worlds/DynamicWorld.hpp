@@ -5,6 +5,7 @@
 #include <algorithm>
 
 #include "../core/WorldBase.hpp"
+#include "../core/WorldScore.hpp"
 #include "../core/Building.hpp"
 #include "../Agents/PacingAgent.hpp"
 
@@ -63,6 +64,8 @@ public:
     }
   }
 
+  [[nodiscard]] WorldScoreDisplay GetWorldScoreDisplay() const override;
+
 protected:
 
   /**
@@ -99,6 +102,10 @@ protected:
   size_t mFarmId = 0;
   size_t mSpawnerId = 0;
   size_t mTownhallId = 0;
+
+  /// Set when BUILD_TOWNHALL succeeds; used for tick-efficiency scoring.
+  bool mTownhallBuilt = false;
+  size_t mTownhallCompletionTicks = 0;
 
   /**
    * @brief Configure an agent with available actions.
