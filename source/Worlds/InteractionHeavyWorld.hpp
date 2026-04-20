@@ -44,6 +44,8 @@ namespace cse498
 
         std::vector<WorldPosition> mEnemySpawnPositions;
 
+        bool mTimerStarted = false;
+
     protected:
         // Action types for this world
         enum ActionType

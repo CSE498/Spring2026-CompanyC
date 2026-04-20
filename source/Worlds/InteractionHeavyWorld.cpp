@@ -392,6 +392,7 @@ namespace cse498
 
                 if (mPlayerHP <= 0)
                 {
+                    GetTimer().Stop("Game::Session");
                     std::cout << "You died.\n";
                     exit(0);
                 }
@@ -402,6 +403,18 @@ namespace cse498
 
     int InteractionHeavyWorld::DoAction(AgentBase &agent, size_t action_id)
     {
+        if (!mTimerStarted && agent.GetName() == "Player")
+        {
+            if (action_id == MOVE_UP ||
+                action_id == MOVE_DOWN ||
+                action_id == MOVE_LEFT ||
+                action_id == MOVE_RIGHT)
+            {
+                GetTimer().Start("Game::Session");
+                mTimerStarted = true;
+            }
+        }
+
         WorldPosition cur_position = agent.GetLocation().AsWorldPosition();
         WorldPosition new_position;
 
@@ -466,6 +479,8 @@ namespace cse498
         {
             if (agent.GetName() == "Player")
             {
+                GetTimer().Stop("Game::Session");
+
                 std::cout << "Congratulations! You've reached the exit with "
                           << mStoneCount << " stone and " << mGoldCount << " gold!\n";
                 exit(0);
