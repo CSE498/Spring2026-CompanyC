@@ -3,7 +3,7 @@
 
 const std::unordered_map<std::string, size_t> ResourceTick = {
   {"wood", 20},
-  {"steel", 40},
+  {"steel", 10},
   {"stone", 10},
   {"wheat", 10}
 };
