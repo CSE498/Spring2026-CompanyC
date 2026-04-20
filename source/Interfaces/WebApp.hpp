@@ -104,6 +104,10 @@ class WebApp {
   /// The callback should read world state from the Database.
   void SetLoadCallback(std::function<void()> cb) { load_callback_ = std::move(cb); }
 
+  /// Configure automatic simulation tick interval in milliseconds.
+  /// Values are clamped to a small positive minimum for safety.
+  void SetAutoTickMs(int ms);
+
  private:
   // Action codes shared between C++ dispatch and the JavaScript bridge.
   // NOTE: these integer values are part of the JS/C++ ABI and must also match
@@ -133,6 +137,12 @@ class WebApp {
   bool TryGetPlayerCell(std::pair<int, int>& out_cell) const;
   std::pair<int, int> GetAttemptedMoveCell(
       int action_code, const std::pair<int, int>& from_cell) const;
+  
+  // Auto tick loop
+  void AdvanceSimulationTick();
+  void StartAutoTickLoop();
+  void StopAutoTickLoop();
+  void ScheduleAutoTickStart(int delay_ms);
 
   void RenderWorld();
   void CenterViewportOnPlayer();
@@ -173,6 +183,10 @@ class WebApp {
   std::function<void()> load_callback_;
 
   long poll_timer_id_ = 0;
+  long auto_tick_timer_id_ = 0;
+  long auto_tick_start_timeout_id_ = 0;
+  int auto_tick_ms_ = 500;
+  bool auto_tick_running_ = false;
 
   void PerformSave();
   void PerformLoad();

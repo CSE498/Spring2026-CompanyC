@@ -20,6 +20,17 @@ using namespace cse498;
 int main() {
   g_app = std::make_unique<WebApp>();
 
+  int tick_ms = 500;
+  const std::string tick_ms_param = GetUrlParam("tick_ms");
+  if (!tick_ms_param.empty()) {
+    try {
+      tick_ms = std::stoi(tick_ms_param);
+    } catch (...) {
+      tick_ms = 500;
+    }
+  }
+  g_app->SetAutoTickMs(tick_ms);
+
   std::string world = GetUrlParam("world");
 
   if (world == "interaction") {

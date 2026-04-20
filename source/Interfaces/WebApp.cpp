@@ -7,6 +7,7 @@
   // See Interfaces/WebApp.hpp for the class interface and usage notes.
 
   #include "Interfaces/WebApp.hpp"
+  #include "tools/AutoTickPolicy.hpp"
   #include "tools/WebAssetKeys.hpp"
   #include "tools/WebPopup.hpp"
 
@@ -175,6 +176,11 @@
     btn.disabled = !enabled;
   });
 
+  // Check if a popup is visible, so not to start auto tick
+  EM_JS(int, WebAppIsPopupVisible, (), {
+    return document.getElementById('cse498_popup_overlay') ? 1 : 0;
+  });
+
   // Read a URL query parameter.  Returns a malloc'd C string or null.
   EM_JS(char*, GetUrlParam_impl, (const char* name), {
     var params = new URLSearchParams(window.location.search);
@@ -267,6 +273,75 @@
         [](void* ud) { static_cast<WebApp*>(ud)->sync_.Poll(); },
         100.0,
         this);
+    #endif
+  }
+  // Making sure the auto tick loop is working
+
+  void WebApp::SetAutoTickMs(int ms) {
+    auto_tick_ms_ = cse498::ClampAutoTickIntervalMs(ms);
+    if (!auto_tick_running_) return;
+    StopAutoTickLoop();
+    StartAutoTickLoop();
+  }
+
+  void WebApp::AdvanceSimulationTick() {
+    if (!interface_ || !world_) return;
+    world_->RunAgents();
+    world_->UpdateWorld();
+    if (use_viewport_) CenterViewportOnPlayer();
+    RenderWorld();
+  }
+
+  void WebApp::StartAutoTickLoop() {
+    if (auto_tick_running_) return;
+    auto_tick_running_ = true;
+    #ifdef __EMSCRIPTEN__
+    auto_tick_timer_id_ = emscripten_set_interval(
+        [](void* ud) { static_cast<WebApp*>(ud)->AdvanceSimulationTick(); },
+        static_cast<double>(auto_tick_ms_),
+        this);
+    #endif
+  }
+
+  void WebApp::StopAutoTickLoop() {
+    #ifdef __EMSCRIPTEN__
+    if (auto_tick_start_timeout_id_ != 0) {
+      emscripten_clear_timeout(auto_tick_start_timeout_id_);
+      auto_tick_start_timeout_id_ = 0;
+    }
+    #endif
+    if (!auto_tick_running_) return;
+    #ifdef __EMSCRIPTEN__
+    if (auto_tick_timer_id_ != 0) {
+      emscripten_clear_interval(auto_tick_timer_id_);
+      auto_tick_timer_id_ = 0;
+    }
+    #endif
+    auto_tick_running_ = false;
+  }
+
+  void WebApp::ScheduleAutoTickStart(int delay_ms) {
+    #ifdef __EMSCRIPTEN__
+    if (auto_tick_start_timeout_id_ != 0) {
+      emscripten_clear_timeout(auto_tick_start_timeout_id_);
+      auto_tick_start_timeout_id_ = 0;
+    }
+    auto_tick_start_timeout_id_ = emscripten_set_timeout(
+        [](void* ud) {
+          auto* app = static_cast<WebApp*>(ud);
+          app->auto_tick_start_timeout_id_ = 0;
+          if (cse498::DecideAutoTickStart(WebAppIsPopupVisible() != 0) ==
+              cse498::AutoTickStartDecision::WaitForPopupClose) {
+            app->ScheduleAutoTickStart(100);
+            return;
+          }
+          app->StartAutoTickLoop();
+        },
+        static_cast<double>(std::max(1, delay_ms)),
+        this);
+    #else
+    (void)delay_ms;
+    StartAutoTickLoop();
     #endif
   }
 
@@ -411,16 +486,19 @@ return;
 const std::string action_id = ActionIdForCode(action_code);
 if (action_id.empty()) return;
 
+    if (action_code == kActionReset) {
+      StopAutoTickLoop();
+    }
+
     // Submit the action to the interface (stores it as pending), then advance
     // the world by one turn (world calls SelectAction → DoAction on the agent).
     interface_->SubmitAction(action_id);
-    world_->RunAgents();
+    AdvanceSimulationTick();
     if (action_code == kActionStart) {
       // Timed only: 1.5 seconds (see "popup_timed" format: ms|text)
       interface_->Notify("1500|Game starts now!", "popup_timed");
+      ScheduleAutoTickStart(3500);
     }
-    if (use_viewport_) CenterViewportOnPlayer();
-    RenderWorld();
   }
 
   void WebApp::CenterViewportOnPlayer() {
