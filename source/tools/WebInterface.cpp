@@ -6,6 +6,8 @@
 #include "core/WorldBase.hpp"
 #include "core/WorldGrid.hpp"
 
+#include <utility>
+
 namespace cse498 {
 
 WebInterface::WebInterface(size_t id, const std::string& name,
@@ -38,7 +40,13 @@ void WebInterface::Notify(const std::string& message,
     }
   } else if (msg_type == "world_name") {
     world_name_ = message;
+  } else if (msg_type == "popup") {
+    popup_queue_.push_back(message);
   }
+}
+
+std::vector<std::string> WebInterface::TakePendingPopups() {
+  return std::exchange(popup_queue_, {});
 }
 
 void WebInterface::SubmitAction(const std::string& action_id) {

@@ -36,6 +36,7 @@ WEB_SOURCES = web_main.cpp \
               tools/WebLayout.cpp \
               tools/WebCanvas.cpp \
               tools/WebTextbox.cpp \
+              tools/WebPopup.cpp \
               tools/WebInterface.cpp \
               Worlds/StubWorld.cpp
 

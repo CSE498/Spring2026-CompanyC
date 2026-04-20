@@ -8,6 +8,7 @@
 
 #include "Interfaces/WebApp.hpp"
 #include "tools/WebAssetKeys.hpp"
+#include "tools/WebPopup.hpp"
 
 #include <emscripten.h>
 
@@ -263,6 +264,9 @@ void WebApp::HandleAction(int action_code) {
   // the world by one turn (world calls SelectAction → DoAction on the agent).
   interface_->SubmitAction(action_id);
   world_->RunAgents();
+  if (action_code == kActionStart) {
+    interface_->Notify("Game started!", "popup");
+  }
   if (use_viewport_) CenterViewportOnPlayer();
   RenderWorld();
 }
@@ -457,6 +461,10 @@ void WebApp::RenderWorld() {
     if (code != 0) {
       WebAppSetActionEnabled(code, static_cast<int>(action.enabled));
     }
+  }
+
+  for (const std::string& popup : interface_->TakePendingPopups()) {
+    cse498::EnqueueWebPopup(popup);
   }
 }
 
