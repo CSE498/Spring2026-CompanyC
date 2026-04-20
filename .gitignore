@@ -50,6 +50,7 @@ group24_demo.wasm
 # Test binaries
 webtextbox_tests
 webtextbox_tests_grumpy
+webpopup_tests
 
 # macOS debug symbols
 *.dSYM/
