@@ -1,3 +1,12 @@
+/**
+ * @file EnemyAgent.hpp
+ * @author Joshua Thomas
+ * @brief Declaration of an enemy agent that patrols and chases the player.
+ * @details Defines an agent that follows a patrol path until the player enters
+ * its vision radius, at which point it attempts to chase and attack.
+ * AI was used in the generation of this class, but it was been heavily
+ * reviewed/tested
+ */
 #pragma once
 
 #include <optional>

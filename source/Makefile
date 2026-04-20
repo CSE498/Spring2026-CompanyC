@@ -107,6 +107,7 @@ WEB_SOURCES = \
 	Agents/ClassicAgent.cpp \
 	Agents/TendencyAgent.cpp \
 	Agents/EnemyAgent.cpp \
+	Agents/GoblinAgent.cpp \
 	tools/BehaviorTree.cpp \
 	tools/CompositeNodes.cpp \
 	tools/LeafNodes.cpp \
