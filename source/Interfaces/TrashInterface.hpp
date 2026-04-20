@@ -124,7 +124,7 @@ namespace cse498
         exit(0);
       case 'e':
       case 'E':
-        action_id = GetActionID("interact");
+        action_id = GetActionID("collect");
         break;
       case 'i':
       case 'I':

@@ -51,7 +51,7 @@ namespace cse498
         agent.AddAction("left", MOVE_LEFT);
         agent.AddAction("right", MOVE_RIGHT);
         agent.AddAction("break_boulder", BREAK_BOULDER);
-        agent.AddAction("interact", INTERACT);
+        agent.AddAction("collect", COLLECT);
         agent.AddAction("print_inventory", PRINT_INVENTORY);
         agent.AddAction("throw_up", THROW_UP);
         agent.AddAction("throw_down", THROW_DOWN);
@@ -258,7 +258,7 @@ namespace cse498
         }
     }
 
-    void InteractionHeavyWorld::Interact(size_t x, size_t y)
+    void InteractionHeavyWorld::Collect(size_t x, size_t y)
     {
         // Check the four adjacent cells for interactable objects (e.g., materials, chests, doors, enemies)
         WorldPosition center(x, y);
@@ -425,8 +425,8 @@ namespace cse498
         case BREAK_BOULDER:
             BreakBoulder(cur_position.CellX(), cur_position.CellY());
             return true;
-        case INTERACT:
-            Interact(cur_position.CellX(), cur_position.CellY());
+        case COLLECT:
+            Collect(cur_position.CellX(), cur_position.CellY());
             return true;
         case PRINT_INVENTORY:
             PrintInventory();
