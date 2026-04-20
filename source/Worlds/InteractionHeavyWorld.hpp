@@ -53,6 +53,7 @@ namespace cse498 {
         size_t mGoldOreID;
         size_t mDiamondOreID;
         size_t mExitID;
+        size_t mPlayerID;
 
         // Helper functions for world generation
         void ConfigureCellTypes() 
@@ -66,6 +67,8 @@ namespace cse498 {
             mGoldOreID = main_grid.AddCellType("gold_ore", "Gold ore resource", 'G', false);
             mDiamondOreID = main_grid.AddCellType("diamond_ore", "Diamond ore resource", 'D', false);
             mExitID = main_grid.AddCellType("exit", "Exit cell", 'E', true);
+
+            mPlayerID = main_grid.AddCellType("player","Player character",'P', true);
         }
 
         // Helper function to randomly scatter resources in the world
@@ -181,8 +184,13 @@ namespace cse498 {
             if (!main_grid.IsValid(new_position)) { return false; }
             if (main_grid[new_position] == mWallID ||  main_grid[new_position] == mBoulderID) { return false; }
 
+            if (agent.GetName() == "Player") {
+                main_grid[cur_position] = mFloorID;
+                main_grid[new_position] = mPlayerID;
+            }
             // Set the agent to its new postion.
             agent.SetLocation(new_position);
+        
 
             return true;
         }

@@ -15,6 +15,7 @@
 #include "Agents/PacingAgent.hpp"
 #include "Agents/SmartAgent.hpp"
 #include "Agents/TendencyAgent.hpp"
+#include "Agents/HunterAgent.hpp"
 
 #include "Worlds/DynamicWorld.hpp"
 #include "Worlds/InteractionHeavyWorld.hpp"
@@ -65,7 +66,7 @@ int main() {
 
     using world_t = cse498::DynamicWorld;
     auto & world = g_app->Initialize<world_t>();
-    world.AddAgent<StubAgent>("Leader").SetLocation(Location{{0, 0}});
+    world.AddAgent<TendencyAgent>("Leader").SetLocation(Location{{0, 0}});
 
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -74,16 +75,14 @@ int main() {
  
     for (int i = 0; i < basicAgentCount; i++) {
         std::string name = "Basic Agent " + std::to_string(i+1);
-        world.AddAgent<StubAgent>(name).SetLocation(cse498::WorldPosition{x_pos(gen), y_pos(gen)});
+        world.AddAgent<TendencyAgent>(name).SetLocation(cse498::WorldPosition{x_pos(gen), y_pos(gen)});
     }
   } else if (run_mode == "interaction") {
     using world_t = cse498::InteractionHeavyWorld;
-    using agent_t = cse498::PacingAgent;
+    using agent_t = cse498::HunterAgent;
     auto & world = g_app->Initialize<world_t>();
     world.AddAgent<agent_t>("Pacer 1").SetLocation(WorldPosition{3,1});
     world.AddAgent<agent_t>("Pacer 2").SetLocation(WorldPosition{6,1});
-    world.AddAgent<agent_t>("Guard 1").SetHorizontal().SetLocation(WorldPosition{7,7});
-    world.AddAgent<agent_t>("Guard 2").SetHorizontal().ToggleDirection().SetLocation(WorldPosition{8,8});
   } else if (run_mode == "maze") {
     using agent_t = cse498::PacingAgent;
     auto & world = g_app->Initialize<cse498::MazeWorld>();

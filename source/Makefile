@@ -38,7 +38,8 @@ BASE_SOURCES = Agents/ClassicAgent.cpp   \
                tools/LeafNodes.cpp       \
                tools/PathGenerator.cpp   \
                tools/WorldPath.cpp       \
-               Worlds/DynamicWorld.cpp
+               Worlds/DynamicWorld.cpp   \
+               Agents/HunterAgent.cpp
 
 # ── Web / Emscripten build ────────────────────────────────────────────────────
 WEB_SOURCES = web_main.cpp            \

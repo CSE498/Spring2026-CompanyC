@@ -64,3 +64,4 @@ webtextbox_tests_grumpy
 
 #clang
 .clangd
+source/emsdk
