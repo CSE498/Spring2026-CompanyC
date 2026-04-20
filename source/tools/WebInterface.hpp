@@ -73,6 +73,10 @@ class WebInterface : public InterfaceBase {
   /// Return the currently highlighted cell coordinates.
   [[nodiscard]] std::pair<int, int> GetSelectedCell() const;
 
+  /// Return custom text, if any, that the world wants shown in the single
+  /// resources/details panel.
+  [[nodiscard]] const std::string& GetPanelText() const;
+
   // -- Visual configuration (set up after AddAgent, before first render) --
 
   /// Assign CSS color and glyph to a named cell type.
@@ -111,6 +115,7 @@ class WebInterface : public InterfaceBase {
   std::string status_message_;
   std::string world_name_     = "World";
   std::map<std::string, int>                  resources_;
+  std::string                                 panel_text_;
   std::unordered_map<std::string, CellVisual> cell_visuals_;
   std::unordered_map<std::string, ActionMeta> action_metas_;
   std::unordered_map<char, std::string>       entity_visuals_;  // glyph → image URL

@@ -15,6 +15,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 #include "tools/IWorldUiAdapter.hpp"
 #include "tools/WebCanvas.hpp"
@@ -70,7 +71,7 @@ class WebApp {
   /// e.g., RegisterCellBackground("tree", "assets/grass.png") draws grass
   /// under every tree cell before the tree sprite is drawn on top.
   void RegisterCellBackground(const std::string& cell_type_name,
-                               std::string bg_image_url);
+                              std::string bg_image_url);
 
   /// Build the legend cache and draw the first frame.
   /// Must be called after Initialize() and all SetCellVisual()/RegisterActionMeta() calls.
@@ -87,6 +88,7 @@ class WebApp {
   /// The viewport is centered on the player position each frame.
   /// Call after Initialize() and before Render().
   void EnableViewport(int cell_px_size = 32);
+
   /// Access the persistence Database.
   cse498::Database& GetDatabase() { return db_; }
 
@@ -127,6 +129,11 @@ class WebApp {
   static std::string ActionIdForCode(int code);
   static int CodeForActionId(const std::string& action_id);
 
+  bool IsMovementAction(int action_code) const;
+  bool TryGetPlayerCell(std::pair<int, int>& out_cell) const;
+  std::pair<int, int> GetAttemptedMoveCell(
+      int action_code, const std::pair<int, int>& from_cell) const;
+
   void RenderWorld();
   void CenterViewportOnPlayer();
   void CenterViewportOnCell(int cell_x, int cell_y);
@@ -151,11 +158,12 @@ class WebApp {
 
   // Viewport (camera) mode: render a fixed-cell-size window centered on player.
   bool use_viewport_      = false;
-  int focus_col_ = -1;
-  int focus_row_ = -1;
+  int  focus_col_         = -1;
+  int  focus_row_         = -1;
   int  viewport_cell_px_  = 32;  // pixels per cell when viewport mode is active
   int  viewport_x_        = 0;   // top-left grid column currently in view
   int  viewport_y_        = 0;   // top-left grid row currently in view
+
   // --- Persistence stack (Phase 8a) ---
   cse498::Database db_;
   cse498::WebSocketConnection ws_client_;

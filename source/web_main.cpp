@@ -37,16 +37,11 @@ int main() {
     world.AddAgent<agent_t>("Pacer 2").SetLocation(WorldPosition{6,1});
     world.AddAgent<agent_t>("Guard 1").SetHorizontal().SetLocation(WorldPosition{7,7});
     world.AddAgent<agent_t>("Guard 2").SetHorizontal().ToggleDirection().SetLocation(WorldPosition{8,8});
-  } else if (world == "dynamic") {
-    using agent_t = cse498::PacingAgent;
-    // Uncomment when DynamicWorld is implemented.
-    // auto& w = g_app->Initialize<cse498::DyanmicWorld>();
-    // w.AddAgent<agent_t>("Pacer 1").SetLocation(WorldPosition{3, 1});
-    // w.AddAgent<agent_t>("Pacer 2").SetLocation(WorldPosition{6, 1});
-    // g_app->SetPlayerVisible(false);
-    // g_app->EnableViewport(32);
   } else { // world == "stub"
-    g_app->Initialize<cse498::StubWorld>();
+    auto& stub = g_app->Initialize<cse498::StubWorld>();
+    stub.SetDatabase(&g_app->GetDatabase());
+    g_app->SetSaveCallback([&stub]() { stub.SaveState("stub_world"); });
+    g_app->SetLoadCallback([&stub]() { stub.LoadState("stub_world"); });
   }
 
   g_app->SetCellVisual("grass",       "#8fd17f", ".");
@@ -61,23 +56,17 @@ int main() {
   g_app->SetCellVisual("tree",        "#3f8f3f", "T");
   g_app->SetCellVisual("wheat",       "#f4d35e", "W");
 
-  // Background tiles drawn beneath resource/object cell sprites.
-  // Group 7 (outdoor): grass under trees, wheat, stone, wood.
   g_app->RegisterCellBackground("tree",  "assets/grass.png");
   g_app->RegisterCellBackground("wheat", "assets/grass.png");
   g_app->RegisterCellBackground("stone", "assets/grass.png");
   g_app->RegisterCellBackground("wood",  "assets/grass.png");
-  // Group 8 (dungeon): floor/dirt under ores and boulders.
   g_app->RegisterCellBackground("boulder",     "assets/floor.png");
   g_app->RegisterCellBackground("gold_ore",    "assets/floor.png");
   g_app->RegisterCellBackground("iron_ore",    "assets/floor.png");
   g_app->RegisterCellBackground("diamond_ore", "assets/floor.png");
   g_app->RegisterCellBackground("exit",        "assets/floor.png");
 
-  // Entity sprites: maps the agent glyph symbol to an asset PNG.
-  // 'P' is set by WebApp::Initialize for the human player.
   g_app->RegisterEntityVisual('P', "assets/player.png");
-  // '*' is the default AgentBase symbol used by PacingAgent and collector agents.
   g_app->RegisterEntityVisual('*', "assets/agent.png");
   g_app->RegisterEntityVisual('E', "assets/enemy.png");
   g_app->RegisterEntityVisual('G', "assets/goblin.png");

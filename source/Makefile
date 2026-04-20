@@ -81,25 +81,25 @@ GROUP09_SRCS = \
 	tools/Datum.cpp
 
 # ── Web / Emscripten build ────────────────────────────────────────────────────
-WEB_SOURCES = web_main.cpp                    \
-              Interfaces/WebApp.cpp           \
-              tools/WebLayout.cpp             \
-              tools/WebCanvas.cpp             \
-              tools/WebTextbox.cpp            \
-              tools/WebButton.cpp             \
-              tools/WebPopup.cpp              \
-              tools/WebInterface.cpp          \
-              tools/WebSocketConnection.cpp   \
-              tools/SQLiteConnection.cpp      \
-              tools/Serializer.cpp            \
-              tools/StringCompressor.cpp      \
-              tools/StringDiff.cpp            \
-              tools/DataGrid.cpp              \
-              tools/Datum.cpp                 \
-              core/Database.cpp               \
-              core/SyncManager.cpp            \
-              core/WorldHelpers.cpp           \
-              Worlds/StubWorld.cpp            \
+WEB_SOURCES = web_main.cpp                  \
+              Interfaces/WebApp.cpp         \
+              tools/WebLayout.cpp           \
+              tools/WebCanvas.cpp           \
+              tools/WebTextbox.cpp          \
+              tools/WebButton.cpp           \
+              tools/WebPopup.cpp            \
+              tools/WebInterface.cpp        \
+              tools/WebSocketConnection.cpp \
+              tools/SQLiteConnection.cpp    \
+              tools/Serializer.cpp          \
+              tools/StringCompressor.cpp    \
+              tools/StringDiff.cpp          \
+              tools/DataGrid.cpp            \
+              tools/Datum.cpp               \
+              core/Database.cpp             \
+              core/SyncManager.cpp          \
+              core/WorldHelpers.cpp         \
+              Worlds/StubWorld.cpp          \
               $(BASE_SOURCES)
 
 FLAGS_web_base = -std=c++23 -I. \
