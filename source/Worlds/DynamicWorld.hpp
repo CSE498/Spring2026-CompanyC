@@ -204,7 +204,9 @@ private:
     }
 
     AddMovementFunctions(agent);
-    agent.AddAction("collect", COLLECT);
+    if(agent.GetName() != "Player"){
+      agent.AddAction("collect", COLLECT);
+    }
   }
 
   /**
