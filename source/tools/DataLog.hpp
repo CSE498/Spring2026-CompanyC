@@ -1,81 +1,156 @@
 /**
  * @file DataLog.hpp
- * @author Muhammad Chohan
+ * @author Group 23
  *
- * @brief Tracks a series of useful data values over time and returns statistics
- *        such as mean, median, min, and max.
+ * @brief Tracks logged samples and provides simple summary statistics.
+ *
+ * DataLog defaults to double for the common numeric use case:
+ *   DataLog log;              // same as DataLog<double>
+ *
+ * The sample type can be overridden when another value type needs to be
+ * stored, such as world positions for external analysis:
+ *   DataLog<WorldPosition> positions;
  */
 #pragma once
 
+#include <algorithm>
+#include <cmath>
+#include <concepts>
 #include <cstddef>
+#include <numeric>
+#include <type_traits>
 #include <vector>
 
 namespace cse498 {
 
+/// Defaults to double 
+template <typename T = double>
 class DataLog {
  private:
-  /// Stores the logged values used by the statistical queries.
-  std::vector<double> mDataValues;
-  double mSum = 0.0; // currently tracked for calculating mean 
-  double mMin = 0.0;
-  double mMax = 0.0;
+  /// Stores the logged values
+  std::vector<T> mDataValues;
 
  public:
-  DataLog() = default;
+  constexpr DataLog() = default;
 
   /**
-   * @brief Add a data value to the log
+   * @brief Add a value to the log.
    *
-   * @param value The finite value to add
-   *
-   * @throws std::invalid_argument If value is NaN or infinite.
+   * Floating-point NaN and infinity values are ignored. Other value types are
+   * stored as-is.
    */
-  void Add(double value);
+  void Add(const T& value) {
+    if constexpr (std::is_floating_point_v<T>) {
+      if (!std::isfinite(value)) {
+        return;
+      }
+    }
+
+    mDataValues.push_back(value);
+  }
 
   /**
-   * @brief Return the mean of values.
+   * @brief Return the mean of logged values.
    *
-   * @throws std::logic_error If the log is empty.
+   * Intended for numeric sample types. Non-numeric logs can still use Add(),
+   * Values(), Count(), IsEmpty(), and Clear() for external analysis.
+   *
+   * Returns 0.0 if the log is empty.
    */
-  [[nodiscard]] double Mean() const;
+  [[nodiscard]] double Mean() const
+    requires std::is_arithmetic_v<T>
+  {
+    if (mDataValues.empty()) {
+      return 0.0;
+    }
+    const double sum = std::accumulate(mDataValues.begin(), mDataValues.end(), 0.0);
+    return sum / mDataValues.size();
+  }
 
   /**
-   * @brief Return the median of values.
+   * @brief Return the median of logged values.
    *
-   * @throws std::logic_error If the log is empty.
+   * Intended for numeric sample types.
+   *
+   * Returns 0.0 if the log is empty.
    */
-  [[nodiscard]] double Median() const;
+  [[nodiscard]] double Median() const
+    requires std::is_arithmetic_v<T>
+  {
+    if (mDataValues.empty()) {
+      return 0.0;
+    }
+
+    std::vector<T> partitioned_values = mDataValues;
+    const auto middle_it = partitioned_values.begin() + (partitioned_values.size() / 2);
+    std::nth_element(partitioned_values.begin(), middle_it, partitioned_values.end());
+
+    if (partitioned_values.size() % 2 == 1) {
+      return *middle_it;
+    }
+
+    const double upper = *middle_it;
+    const double lower = *std::max_element(partitioned_values.begin(), middle_it);
+    return std::midpoint(lower, upper);
+  }
 
   /**
-   * @brief Return the minimum value.
+   * @brief Return the minimum logged value.
    *
-   * @throws std::logic_error If the log is empty.
+   * Available for sample types with a total ordering.
+   *
+   * Returns T{} if the log is empty.
    */
-  [[nodiscard]] double Min() const;
+  [[nodiscard]] T Min() const
+    requires std::totally_ordered<T>
+  {
+    if (mDataValues.empty()) {
+      return T{};
+    }
+    return *std::min_element(mDataValues.begin(), mDataValues.end());
+  }
 
   /**
-   * @brief Return the maximum value.
+   * @brief Return the maximum logged value.
    *
-   * @throws std::logic_error If the log is empty.
+   * Available for sample types with a total ordering.
+   *
+   * Returns T{} if the log is empty.
    */
-  [[nodiscard]] double Max() const;
+  [[nodiscard]] T Max() const
+    requires std::totally_ordered<T>
+  {
+    if (mDataValues.empty()) {
+      return T{};
+    }
+    return *std::max_element(mDataValues.begin(), mDataValues.end());
+  }
+
+  /**
+   * @brief Access all logged values.
+   */
+  [[nodiscard]] constexpr const std::vector<T>& Values() const noexcept {
+    return mDataValues;
+  }
 
   /**
    * @brief Number of values currently in the log.
    */
-  [[nodiscard]] std::size_t Count() const noexcept;
+  [[nodiscard]] constexpr std::size_t Count() const noexcept {
+    return mDataValues.size();
+  }
 
   /**
    * @brief Returns true if log is empty, else false.
    */
-  [[nodiscard]] bool IsEmpty() const noexcept;
+  [[nodiscard]] constexpr bool IsEmpty() const noexcept {
+    return mDataValues.empty();
+  }
 
   /**
-   * @brief Removes all logged values and resets tracked statistics.
+   * @brief Removes all logged values.
    */
-  void Clear() noexcept;
-
-  // More functions may be added later for other useful statistics.
+  constexpr void Clear() noexcept { mDataValues.clear(); }
 };
 
-}  
+}  // namespace cse498
