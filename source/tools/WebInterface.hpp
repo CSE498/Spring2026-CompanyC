@@ -8,6 +8,7 @@
 
 #include "core/InterfaceBase.hpp"
 #include "tools/IWorldUiAdapter.hpp"
+#include "tools/WebPopup.hpp"
 
 namespace cse498 {
 
@@ -51,13 +52,15 @@ class WebInterface : public InterfaceBase {
   /// Called by the world to deliver status messages and resource/mode updates.
   /// @param message  Notification payload (format depends on msg_type).
   /// @param msg_type One of: "status", "mode_change", "tick", "tick_reset",
-  ///                         "resource" ("key:value"), "world_name", "popup".
+  ///                         "resource" ("key:value"), "world_name",
+  ///                         "popup", "popup_timed", "popup_timed_ok".
+  /// For "popup_timed" / "popup_timed_ok", message format is optional
+  /// "<milliseconds>|<body>" (default 1500 ms if no pipe).
   void Notify(const std::string& message,
               const std::string& msg_type) override;
 
-  /// Removes and returns all queued popup messages (e.g. for modal display).
-  /// Order is FIFO. Called by the web shell after each frame/action.
-  [[nodiscard]] std::vector<std::string> TakePendingPopups();
+  /// Removes and returns all queued popups (message + options). FIFO.
+  [[nodiscard]] std::vector<WebPopupRequest> TakePendingPopups();
 
   // -- UI control --
 
@@ -112,7 +115,7 @@ class WebInterface : public InterfaceBase {
   std::unordered_map<std::string, ActionMeta> action_metas_;
   std::unordered_map<char, std::string>       entity_visuals_;  // glyph → image URL
   bool                                        player_visible_ = true;
-  std::vector<std::string>                    popup_queue_;
+  std::vector<WebPopupRequest>                popup_queue_;
 };
 
 }  // namespace cse498

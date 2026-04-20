@@ -12,6 +12,7 @@
  */
 #include "tools/WebPopup.hpp"
 
+#include <algorithm>
 #include <string>
 
 #ifdef __EMSCRIPTEN__
@@ -27,7 +28,7 @@
 
 namespace cse498::popup_detail {
 
-std::queue<std::string>             g_queue;
+std::queue<WebPopupRequest>         g_queue;
 bool                                g_showing = false;
 std::unique_ptr<WebTextbox>         g_text;
 std::unique_ptr<WebButton>          g_ok;
@@ -43,6 +44,7 @@ EM_JS(void, cse498_popup_create_shell, (), {
   overlay.id = 'cse498_popup_overlay';
   overlay.setAttribute('role', 'dialog');
   overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('tabindex', '-1');
   overlay.style.cssText = [
     'position:fixed', 'inset:0', 'z-index:10000',
     'display:flex', 'align-items:center', 'justify-content:center',
@@ -107,6 +109,10 @@ EM_JS(void, cse498_popup_create_shell, (), {
 });
 
 EM_JS(void, cse498_popup_remove_shell, (), {
+  if (window.__cse498PopupTimer) {
+    clearTimeout(window.__cse498PopupTimer);
+    window.__cse498PopupTimer = null;
+  }
   var overlay = document.getElementById('cse498_popup_overlay');
   if (overlay && window.__cse498PopupOverlayClick) {
     overlay.removeEventListener('click', window.__cse498PopupOverlayClick);
@@ -125,6 +131,28 @@ EM_JS(void, cse498_popup_focus_el, (const char* id_ptr), {
   if (el) el.focus();
 });
 
+EM_JS(void, cse498_popup_focus_overlay, (), {
+  var o = document.getElementById('cse498_popup_overlay');
+  if (o) o.focus();
+});
+
+EM_JS(void, cse498_popup_btn_host_visible, (int show), {
+  var h = document.getElementById('cse498_popup_btn_host');
+  if (h) h.style.display = show ? 'flex' : 'none';
+});
+
+EM_JS(void, cse498_popup_arm_timer, (int ms), {
+  if (window.__cse498PopupTimer) {
+    clearTimeout(window.__cse498PopupTimer);
+    window.__cse498PopupTimer = null;
+  }
+  if (ms <= 0) return;
+  window.__cse498PopupTimer = setTimeout(function() {
+    window.__cse498PopupTimer = null;
+    Module.ccall('cse498_popup_dismiss', null, [], []);
+  }, ms);
+});
+
 // Defer dismiss to the next event turn so WebButton is not destroyed during Click().
 EM_JS(void, cse498_popup_schedule_dismiss, (), {
   setTimeout(function() {
@@ -132,14 +160,18 @@ EM_JS(void, cse498_popup_schedule_dismiss, (), {
   }, 0);
 });
 
-void ShowOnePopup(std::string message) {
+void ShowOnePopup(WebPopupRequest req) {
+  WebPopupOptions opts = req.options;
+  if (!opts.show_ok_button && !opts.auto_dismiss) {
+    opts.show_ok_button = true;
+  }
   g_showing = true;
   cse498_popup_create_shell();
 
   g_text = std::make_unique<WebTextbox>();
   g_text->SetParentId("cse498_popup_msg_host");
   g_text->Create();
-  g_text->SetText(std::move(message));
+  g_text->SetText(std::move(req.message));
   g_text->ApplyFlowLayoutStyles();
   g_text->SetFontFamily(
       "system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, "
@@ -152,18 +184,26 @@ void ShowOnePopup(std::string message) {
   g_text->SetWordWrap("break-word");
   g_text->SetBackgroundColor("transparent");
 
-  g_ok = std::make_unique<WebButton>("OK");
-  g_ok->SetBorderWidth(0);
-  g_ok->SetBackgroundColor("#18453B");
-  g_ok->SetTextColor("#ffffff");
-  g_ok->SetBorderRadius(999);
-  g_ok->SetSize(168, 46);
-  // AppendTo before SetOnClick: AttachEventListener uses getElementById, which
-  // only works after the button is in the document.
-  g_ok->AppendTo("cse498_popup_btn_host");
-  g_ok->SetOnClick([]() { cse498_popup_schedule_dismiss(); });
+  if (opts.show_ok_button) {
+    cse498_popup_btn_host_visible(1);
+    g_ok = std::make_unique<WebButton>("OK");
+    g_ok->SetBorderWidth(0);
+    g_ok->SetBackgroundColor("#18453B");
+    g_ok->SetTextColor("#ffffff");
+    g_ok->SetBorderRadius(999);
+    g_ok->SetSize(168, 46);
+    g_ok->AppendTo("cse498_popup_btn_host");
+    g_ok->SetOnClick([]() { cse498_popup_schedule_dismiss(); });
+    cse498_popup_focus_el(g_ok->GetElementID().c_str());
+  } else {
+    cse498_popup_btn_host_visible(0);
+    cse498_popup_focus_overlay();
+  }
 
-  cse498_popup_focus_el(g_ok->GetElementID().c_str());
+  if (opts.auto_dismiss) {
+    const int ms = std::max(1, opts.auto_dismiss_ms);
+    cse498_popup_arm_timer(ms);
+  }
 }
 
 void PopupDismiss() {
@@ -178,13 +218,13 @@ void PopupDismiss() {
 void TryShowNextPopup() {
   if (g_showing) return;
   if (g_queue.empty()) return;
-  std::string next = std::move(g_queue.front());
+  WebPopupRequest next = std::move(g_queue.front());
   g_queue.pop();
   ShowOnePopup(std::move(next));
 }
 
-void EnqueuePush(const std::string& message) {
-  g_queue.push(message);
+void EnqueuePush(WebPopupRequest req) {
+  g_queue.push(std::move(req));
   TryShowNextPopup();
 }
 
@@ -203,11 +243,12 @@ void cse498_popup_dismiss(void) {
 
 namespace cse498 {
 
-void EnqueueWebPopup(const std::string& message) {
+void EnqueueWebPopup(const std::string& message, const WebPopupOptions& options) {
 #ifdef __EMSCRIPTEN__
-  popup_detail::EnqueuePush(message);
+  popup_detail::EnqueuePush(WebPopupRequest{message, options});
 #else
   (void)message;
+  (void)options;
 #endif
 }
 

@@ -1,13 +1,39 @@
+/**
+ * Spring 2026, CSE 498 Sec 2 - Company C
+ * WebPopup — modal messages using WebTextbox + WebButton on a thin DOM shell.
+ *
+ * Citation - LLM (OpenAI) was used to help generate parts of this file,
+ * and maintain consistency with the project. The code was then reviewed
+ * and heavily edited by the author to ensure correctness and suitability
+ * for the project.
+ * @author Prijam Khanal
+ * Copyright (c) 2026 Prijam Khanal
+ * SPDX-License-Identifier: MIT
+ */
+ 
 #pragma once
 
 #include <string>
 
 namespace cse498 {
 
-/// Queues a modal dialog in the browser (Emscripten). The message body uses
-/// WebTextbox and the dismiss control uses WebButton on a minimal DOM shell.
-/// Each message is shown one at a time; the next appears after dismissal.
-/// On native builds this is a no-op so tests compile without a browser.
-void EnqueueWebPopup(const std::string& message);
+/// Controls how a popup is dismissed: OK button, automatic timer, or both.
+struct WebPopupOptions {
+  bool show_ok_button   = true;   ///< Show the primary dismiss button
+  bool auto_dismiss     = false;  ///< Close automatically after a delay
+  int  auto_dismiss_ms  = 2000;   ///< Used when auto_dismiss is true (>= 1 ms)
+};
+
+/// One queued popup: message plus behavior (for WebInterface → WebApp → EnqueueWebPopup).
+struct WebPopupRequest {
+  std::string     message;
+  WebPopupOptions options;
+};
+
+/// Queues a modal in the browser (Emscripten). Message uses WebTextbox; OK uses
+/// WebButton when show_ok_button is true. Timer uses setTimeout when auto_dismiss
+/// is true. On native builds this is a no-op.
+void EnqueueWebPopup(const std::string&              message,
+                     const WebPopupOptions& options = {});
 
 }  // namespace cse498

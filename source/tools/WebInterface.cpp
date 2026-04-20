@@ -6,7 +6,31 @@
 #include "core/WorldBase.hpp"
 #include "core/WorldGrid.hpp"
 
+#include <algorithm>
 #include <utility>
+
+namespace {
+
+cse498::WebPopupRequest ParseTimedPopupMessage(const std::string& message,
+                                                bool show_ok) {
+  cse498::WebPopupOptions opt;
+  opt.show_ok_button  = show_ok;
+  opt.auto_dismiss    = true;
+  opt.auto_dismiss_ms = 1500;
+  std::string text = message;
+  const size_t p = message.find('|');
+  if (p != std::string::npos) {
+    try {
+      const int ms = std::stoi(message.substr(0, p));
+      opt.auto_dismiss_ms = std::max(1, ms);
+    } catch (...) {
+    }
+    text = message.substr(p + 1);
+  }
+  return cse498::WebPopupRequest{std::move(text), opt};
+}
+
+}  // namespace
 
 namespace cse498 {
 
@@ -41,11 +65,15 @@ void WebInterface::Notify(const std::string& message,
   } else if (msg_type == "world_name") {
     world_name_ = message;
   } else if (msg_type == "popup") {
-    popup_queue_.push_back(message);
+    popup_queue_.push_back(WebPopupRequest{message, WebPopupOptions{}});
+  } else if (msg_type == "popup_timed") {
+    popup_queue_.push_back(ParseTimedPopupMessage(message, false));
+  } else if (msg_type == "popup_timed_ok") {
+    popup_queue_.push_back(ParseTimedPopupMessage(message, true));
   }
 }
 
-std::vector<std::string> WebInterface::TakePendingPopups() {
+std::vector<WebPopupRequest> WebInterface::TakePendingPopups() {
   return std::exchange(popup_queue_, {});
 }
 

@@ -265,7 +265,8 @@ void WebApp::HandleAction(int action_code) {
   interface_->SubmitAction(action_id);
   world_->RunAgents();
   if (action_code == kActionStart) {
-    interface_->Notify("Game starts now!", "popup");
+    // Timed only: 1.5 seconds (see "popup_timed" format: ms|text)
+    interface_->Notify("1500|Game starts now!", "popup_timed");
   }
   if (use_viewport_) CenterViewportOnPlayer();
   RenderWorld();
@@ -463,8 +464,8 @@ void WebApp::RenderWorld() {
     }
   }
 
-  for (const std::string& popup : interface_->TakePendingPopups()) {
-    cse498::EnqueueWebPopup(popup);
+  for (const cse498::WebPopupRequest& popup : interface_->TakePendingPopups()) {
+    cse498::EnqueueWebPopup(popup.message, popup.options);
   }
 }
 
