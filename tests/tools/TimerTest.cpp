@@ -5,12 +5,11 @@
 #include <chrono>
 #include <thread>
 #include <string>
+#include <stdexcept>
 
 using namespace cse498;
 
-//edge cases to add 
-//start(A) called twice without stopping
-//stop(A) called before Start(A) 
+
 TEST_CASE("Timer records named durations and simple stats", "[core]")
 {
   Timer timer; //create fresh timer instance for each test case run
@@ -25,6 +24,47 @@ TEST_CASE("Timer records named durations and simple stats", "[core]")
     CHECK(timer.Min("A") == 0.0);
     CHECK(timer.Max("A") == 0.0);
     CHECK(timer.Average("A") == 0.0);
+  }
+  SECTION("Reset on an unknown timer does nothing") //added from peer review
+  {
+    CHECK(timer.HasData("NeverStarted") == false);
+    CHECK(timer.Count("NeverStarted") == 0);
+
+    timer.Reset("NeverStarted"); // should not crash or change anything
+
+    CHECK(timer.HasData("NeverStarted") == false);
+    CHECK(timer.Count("NeverStarted") == 0);
+    CHECK(timer.Last("NeverStarted") == 0.0);
+    CHECK(timer.Min("NeverStarted") == 0.0);
+    CHECK(timer.Max("NeverStarted") == 0.0);
+    CHECK(timer.Average("NeverStarted") == 0.0);
+  }
+
+  SECTION("Stop on an unknown timer name is a programmer error (asserts in debug)")
+ {
+  // This Timer intentionally enforces correct usage:
+  // - Start(name) creates/starts a timer
+  // - Stop(name) requires that name already exists and is running
+  //
+  // Calling Stop() on a name that was never started will trigger an assert in debug builds.
+  //
+  // Manual check (DEBUG ONLY):
+  // timer.Stop("NeverStarted");  // should hit assert
+  SUCCEED();
+ }
+
+  SECTION("Querying a timer while it is still running returns no completed data") //added from peer review
+  {
+    timer.Start("A");
+
+    CHECK(timer.HasData("A") == false);
+    CHECK(timer.Count("A") == 0);
+    CHECK(timer.Last("A") == 0.0);
+    CHECK(timer.Min("A") == 0.0);
+    CHECK(timer.Max("A") == 0.0);
+    CHECK(timer.Average("A") == 0.0);
+
+    timer.Stop("A");
   }
 
   SECTION("Single timing run updates count and last") //testing one start/stop
@@ -120,5 +160,49 @@ TEST_CASE("Timer records named durations and simple stats", "[core]")
     CHECK(timer.HasData("B") == false);
     CHECK(timer.Count("A") == 0);
     CHECK(timer.Count("B") == 0);
+  }
+  //TIME CALL TESTS
+  SECTION("TimeCall supports void lambdas")  //TimeCall w/ void Lambda
+  {
+  int x = 0;
+  timer.TimeCall("VoidCall", [&] {
+    x += 1;
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  });
+
+  CHECK(x == 1);
+  REQUIRE(timer.HasData("VoidCall") == true);
+  CHECK(timer.Count("VoidCall") == 1);
+  CHECK(timer.Last("VoidCall") > 0.0);
+  }
+
+  SECTION("TimeCall returns non-void results") //TimeCall returns value (nonvoid)
+  {
+  int result = timer.TimeCall("ReturnCall", [&] {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    return 42;
+  });
+
+  CHECK(result == 42);
+  REQUIRE(timer.HasData("ReturnCall") == true);
+  CHECK(timer.Count("ReturnCall") == 1);
+  CHECK(timer.Last("ReturnCall") > 0.0);
+  }
+
+  SECTION("TimeCall still records timing when lambda throws") //StopGuard works
+  {
+  try {
+    timer.TimeCall("ThrowCall", [&]() -> void {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      throw std::runtime_error("boom");
+    });
+    FAIL("Expected exception");
+  } catch (const std::runtime_error&) {
+    // expected
+  }
+
+  REQUIRE(timer.HasData("ThrowCall") == true);
+  CHECK(timer.Count("ThrowCall") == 1);
+  CHECK(timer.Last("ThrowCall") > 0.0);
   }
 }

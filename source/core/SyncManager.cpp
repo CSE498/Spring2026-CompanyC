@@ -34,8 +34,16 @@ struct SyncManager::Impl {
     std::queue<std::pair<uint64_t, std::vector<uint8_t>>> incomingMessages;
     std::string savesDir = "./saves/";
     std::function<void(const std::vector<SaveInfo>&)> onSaveListCallback;
+    std::function<void()> onLoadCompleteCallback;
+    std::function<void(const std::string&)> logHandler = [](const std::string& msg) {
+        std::cout << msg;
+    };
 
     explicit Impl(Database& database) : db(database) {}
+
+    void Log(const std::string& msg) {
+        if (logHandler) logHandler(msg);
+    }
 };
 
 
@@ -485,38 +493,38 @@ void SyncManager::Poll() {
                 else if (msg_type == SyncMessageType::SAVE) {
                     auto decoded_save = DecodeSavePayload(payload);
                     if (!decoded_save.has_value()) {
-                        std::cout << "[SyncManager] Failed to decode SAVE payload\n";
+                        mImpl->Log("[SyncManager] Failed to decode SAVE payload\n");
 
                     } else {
                         auto& [name, state_bytes] = *decoded_save;
                         if (!ValidateSaveName(name)) {
-                            std::cout << "[SyncManager] Rejected invalid save name '" << name << "'\n";
+                            mImpl->Log("[SyncManager] Rejected invalid save name '" + name + "'\n");
                         } else if (!WriteSaveFile(mImpl->savesDir, name, state_bytes)) {
-                            std::cout << "[SyncManager] Failed to write save '" << name << "'\n";
+                            mImpl->Log("[SyncManager] Failed to write save '" + name + "'\n");
                         } else {
-                            std::cout << "[SyncManager] Saved '" << name << "' (" << state_bytes.size() << " bytes)\n";
+                            mImpl->Log("[SyncManager] Saved '" + name + "' (" + std::to_string(state_bytes.size()) + " bytes)\n");
                         }
                     }
                 }
                 else if (msg_type == SyncMessageType::LOAD) {
                     auto name_result = DecodeLoadPayload(payload);
                     if (!name_result.has_value()) {
-                        std::cout << "[SyncManager] Failed to decode LOAD payload\n";
+                        mImpl->Log("[SyncManager] Failed to decode LOAD payload\n");
 
                     } else {
                         auto& name = *name_result;
 
                         if (!ValidateSaveName(name)) {
-                            std::cout << "[SyncManager] Rejected invalid load name '" << name << "'\n";
+                            mImpl->Log("[SyncManager] Rejected invalid load name '" + name + "'\n");
                         } else {
                             auto file_bytes = ReadSaveFile(mImpl->savesDir, name);
                             if (file_bytes.empty()) {
-                                std::cout << "[SyncManager] LOAD requested for unknown save '" << name << "'\n";
+                                mImpl->Log("[SyncManager] LOAD requested for unknown save '" + name + "'\n");
                             } else {
                                 auto frame = EncodeMessage(SyncMessageType::FULL_STATE, file_bytes);
                                 if (frame.has_value()) {
                                     (void)mImpl->server->Send(client_id, *frame);
-                                    std::cout << "[SyncManager] Loaded '" << name << "' (" << file_bytes.size() << " bytes) for client " << client_id << "\n";
+                                    mImpl->Log("[SyncManager] Loaded '" + name + "' (" + std::to_string(file_bytes.size()) + " bytes) for client " + std::to_string(client_id) + "\n");
                                 }
                             }
                         }
@@ -529,14 +537,15 @@ void SyncManager::Poll() {
 
                     if (frame.has_value()) {
                         (void)mImpl->server->Send(client_id, *frame);
-                        std::cout << "[SyncManager] Sent save list (" << saves.size() << " saves) to client " << client_id << "\n";
+                        mImpl->Log("[SyncManager] Sent save list (" + std::to_string(saves.size()) + " saves) to client " + std::to_string(client_id) + "\n");
                     }
                 }
 
             } else {
                 if (msg_type == SyncMessageType::FULL_STATE || msg_type == SyncMessageType::SYNC_RESPONSE) {
                     ApplyFullStatePayload(mImpl->db, payload);
-                    
+                    if (mImpl->onLoadCompleteCallback) mImpl->onLoadCompleteCallback();
+
                 } else if (msg_type == SyncMessageType::DELTA) {
                     ApplyDeltaPayload(mImpl->db, payload);
 
@@ -641,45 +650,232 @@ void SyncManager::OnSaveListReceived(std::function<void(const std::vector<SaveIn
     }
 }
 
+void SyncManager::OnLoadComplete(std::function<void()> callback) {
+    if (mImpl) {
+        mImpl->onLoadCompleteCallback = std::move(callback);
+    }
+}
+
+void SyncManager::SetLogHandler(std::function<void(const std::string&)> handler) {
+    if (mImpl) {
+        mImpl->logHandler = std::move(handler);
+    }
+}
+
 } // namespace cse498
 
 #else // __EMSCRIPTEN__
 
 #include "SyncManager.hpp"
 #include "Database.hpp"
+#include "../tools/WebSocketConnection.hpp"
 #include "../tools/Serializer.hpp"
+
+#include <iostream>
+#include <queue>
 
 namespace cse498 {
 
-struct SyncManager::Impl {};
+namespace {
 
-SyncManager::SyncManager(Database& db, WebSocketServer&) : mImpl(std::make_unique<Impl>()) { (void)db; }
-SyncManager::SyncManager(Database& db, WebSocketServer&, std::string) : mImpl(std::make_unique<Impl>()) { (void)db; }
-SyncManager::SyncManager(Database& db, WebSocketConnection&) : mImpl(std::make_unique<Impl>()) { (void)db; }
-SyncManager::~SyncManager() = default;
+bool ValidateSaveName(const std::string& name) {
+    if (name.empty()) return false;
+    for (char c : name) {
+        if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_' && c != '-') {
+            return false;
+        }
+    }
+    return true;
+}
+
+void ApplyFullStatePayload(Database& db, const std::vector<uint8_t>& payload) {
+    Serializer s;
+    std::string data(payload.begin(), payload.end());
+    size_t pos = 0;
+
+    auto count_opt = s.DeserializeAt<int>(data, pos);
+    if (!count_opt) return;
+    int count = *count_opt;
+
+    std::vector<std::tuple<std::string, std::vector<uint8_t>, std::string>> entries;
+    entries.reserve(count);
+
+    for (int i = 0; i < count; ++i) {
+        auto key = s.DeserializeAt<std::string>(data, pos);
+        auto tag = s.DeserializeAt<std::string>(data, pos);
+        auto blob_str = s.DeserializeAt<std::string>(data, pos);
+        if (!key || !tag || !blob_str) return;
+
+        std::vector<uint8_t> blob(blob_str->begin(), blob_str->end());
+        entries.emplace_back(std::move(*key), std::move(blob), std::move(*tag));
+    }
+
+    db.Clear();
+    (void)db.ImportAll(entries);
+}
+
+} // namespace
+
+struct SyncManager::Impl {
+    enum class Mode { Server, Client };
+    Mode mode;
+    bool running = false;
+
+    Database& db;
+
+    WebSocketConnection* client = nullptr;
+
+    std::queue<std::vector<uint8_t>> incomingMessages;
+
+    std::function<void(const std::vector<SaveInfo>&)> onSaveListCallback;
+    std::function<void()> onLoadCompleteCallback;
+    std::function<void(const std::string&)> logHandler = [](const std::string& msg) {
+        std::cout << msg;
+    };
+
+    explicit Impl(Database& database) : db(database) {}
+
+    void Log(const std::string& msg) {
+        if (logHandler) logHandler(msg);
+    }
+};
+
+SyncManager::SyncManager(Database& db, WebSocketServer&) : mImpl(std::make_unique<Impl>(db)) {
+    mImpl->mode = Impl::Mode::Server;
+}
+
+SyncManager::SyncManager(Database& db, WebSocketServer&, std::string) : mImpl(std::make_unique<Impl>(db)) {
+    mImpl->mode = Impl::Mode::Server;
+}
+
+SyncManager::SyncManager(Database& db, WebSocketConnection& client) : mImpl(std::make_unique<Impl>(db)) {
+    mImpl->mode = Impl::Mode::Client;
+    mImpl->client = &client;
+}
+
+SyncManager::~SyncManager() {
+    if (mImpl && mImpl->running) Stop();
+}
+
 SyncManager::SyncManager(SyncManager&&) noexcept = default;
-SyncManager& SyncManager::operator=(SyncManager&&) noexcept = default;
+
+SyncManager& SyncManager::operator=(SyncManager&& other) noexcept {
+    if (this != &other) {
+        if (mImpl && mImpl->running) Stop();
+        mImpl = std::move(other.mImpl);
+    }
+    return *this;
+}
 
 std::expected<void, SyncError> SyncManager::Start() {
-    return std::unexpected(SyncError::NotStarted);
+    if (!mImpl) return std::unexpected(SyncError::NotStarted);
+    if (mImpl->running) return std::unexpected(SyncError::AlreadyStarted);
+    if (mImpl->mode != Impl::Mode::Client) return std::unexpected(SyncError::NotStarted);
+
+    mImpl->client->OnMessage([this](const std::vector<uint8_t>& data) {
+        mImpl->incomingMessages.push(data);
+    });
+
+    mImpl->running = true;
+    return {};
 }
-void SyncManager::Stop() {}
-void SyncManager::Poll() {}
-bool SyncManager::IsRunning() const { return false; }
+
+void SyncManager::Stop() {
+    if (mImpl) mImpl->running = false;
+}
+
+void SyncManager::Poll() {
+    if (!mImpl || !mImpl->running) return;
+
+    mImpl->client->Poll();
+
+    std::queue<std::vector<uint8_t>> local;
+    std::swap(local, mImpl->incomingMessages);
+
+    while (!local.empty()) {
+        auto& raw = local.front();
+
+        auto decoded = DecodeMessage(raw);
+        if (!decoded.has_value()) { local.pop(); continue; }
+
+        auto [msg_type, payload] = std::move(*decoded);
+
+        if (msg_type == SyncMessageType::FULL_STATE || msg_type == SyncMessageType::SYNC_RESPONSE) {
+            ApplyFullStatePayload(mImpl->db, payload);
+            if (mImpl->onLoadCompleteCallback) mImpl->onLoadCompleteCallback();
+
+        } else if (msg_type == SyncMessageType::SAVE_LIST) {
+            auto list = DecodeSaveListPayload(payload);
+            if (list.has_value() && mImpl->onSaveListCallback) {
+                mImpl->onSaveListCallback(*list);
+            }
+        }
+
+        local.pop();
+    }
+}
+
+bool SyncManager::IsRunning() const { return mImpl && mImpl->running; }
 bool SyncManager::IsServer() const { return false; }
+
 std::expected<void, SyncError> SyncManager::SendUpdate(const std::string&) {
     return std::unexpected(SyncError::NotStarted);
 }
-std::expected<void, SyncError> SyncManager::SaveGame(const std::string&) {
-    return std::unexpected(SyncError::NotStarted);
+
+std::expected<void, SyncError> SyncManager::SaveGame(const std::string& name) {
+    if (!mImpl || !mImpl->running) return std::unexpected(SyncError::NotStarted);
+    if (mImpl->mode != Impl::Mode::Client) return std::unexpected(SyncError::NotStarted);
+    if (!ValidateSaveName(name)) return std::unexpected(SyncError::EncodeFailed);
+
+    auto payload = EncodeSavePayload(name, mImpl->db);
+    auto frame = EncodeMessage(SyncMessageType::SAVE, payload);
+    if (!frame.has_value()) return std::unexpected(SyncError::EncodeFailed);
+
+    auto result = mImpl->client->Send(*frame);
+    if (!result.has_value()) return std::unexpected(SyncError::WebSocketError);
+
+    return {};
 }
-std::expected<void, SyncError> SyncManager::LoadGame(const std::string&) {
-    return std::unexpected(SyncError::NotStarted);
+
+std::expected<void, SyncError> SyncManager::LoadGame(const std::string& name) {
+    if (!mImpl || !mImpl->running) return std::unexpected(SyncError::NotStarted);
+    if (mImpl->mode != Impl::Mode::Client) return std::unexpected(SyncError::NotStarted);
+    if (!ValidateSaveName(name)) return std::unexpected(SyncError::EncodeFailed);
+
+    auto payload = EncodeLoadPayload(name);
+    auto frame = EncodeMessage(SyncMessageType::LOAD, payload);
+    if (!frame.has_value()) return std::unexpected(SyncError::EncodeFailed);
+
+    auto result = mImpl->client->Send(*frame);
+    if (!result.has_value()) return std::unexpected(SyncError::WebSocketError);
+
+    return {};
 }
+
 std::expected<void, SyncError> SyncManager::RequestSaveList() {
-    return std::unexpected(SyncError::NotStarted);
+    if (!mImpl || !mImpl->running) return std::unexpected(SyncError::NotStarted);
+    if (mImpl->mode != Impl::Mode::Client) return std::unexpected(SyncError::NotStarted);
+
+    auto frame = EncodeMessage(SyncMessageType::LIST_SAVES, {});
+    if (!frame.has_value()) return std::unexpected(SyncError::EncodeFailed);
+
+    auto result = mImpl->client->Send(*frame);
+    if (!result.has_value()) return std::unexpected(SyncError::WebSocketError);
+
+    return {};
 }
-void SyncManager::OnSaveListReceived(std::function<void(const std::vector<SaveInfo>&)>) {}
+
+void SyncManager::OnSaveListReceived(std::function<void(const std::vector<SaveInfo>&)> callback) {
+    if (mImpl) mImpl->onSaveListCallback = std::move(callback);
+}
+
+void SyncManager::OnLoadComplete(std::function<void()> callback) {
+    if (mImpl) mImpl->onLoadCompleteCallback = std::move(callback);
+}
+
+void SyncManager::SetLogHandler(std::function<void(const std::string&)> handler) {
+    if (mImpl) mImpl->logHandler = std::move(handler);
+}
 
 std::expected<std::vector<uint8_t>, SyncError> SyncManager::EncodeMessage(SyncMessageType type, const std::vector<uint8_t>& payload) {
     uint64_t length = static_cast<uint64_t>(payload.size());
@@ -700,10 +896,12 @@ std::expected<std::vector<uint8_t>, SyncError> SyncManager::EncodeMessage(SyncMe
     return frame;
 }
 
+static constexpr uint8_t MAX_MSG_TYPE = static_cast<uint8_t>(SyncMessageType::SAVE_LIST);
+
 std::expected<std::pair<SyncMessageType, std::vector<uint8_t>>, SyncError> SyncManager::DecodeMessage(const std::vector<uint8_t>& frame) {
     if (frame.size() < 9) return std::unexpected(SyncError::DecodeFailed);
     uint8_t raw_type = frame[0];
-    if (raw_type > 8) return std::unexpected(SyncError::InvalidMessage);
+    if (raw_type > MAX_MSG_TYPE) return std::unexpected(SyncError::InvalidMessage);
     auto type = static_cast<SyncMessageType>(raw_type);
     
     uint64_t length = (static_cast<uint64_t>(frame[1]) << 56)

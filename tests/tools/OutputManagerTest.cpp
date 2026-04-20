@@ -3,6 +3,7 @@
 #include "../../source/tools/OutputManager.hpp"
 #include "TestHelpers.hpp"
 
+#include <cstdio>
 #include <fstream>
 #include <string>
 #include <thread>
@@ -82,6 +83,15 @@ TEST_CASE("Log level Debug: Normal + Verbose + Debug in buffer", "[OutputManager
   REQUIRE(logs[0].find("NORMAL") != std::string::npos);
   REQUIRE(logs[1].find("VERBOSE") != std::string::npos);
   REQUIRE(logs[2].find("DEBUG") != std::string::npos);
+}
+
+TEST_CASE("getLevel reflects last setLevel value", "[OutputManager][levels]")
+{
+  OutputManager om;
+  om.setLevel(LogLevel::Verbose);
+  REQUIRE(om.getLevel() == LogLevel::Verbose);
+  om.setLevel(LogLevel::Silent);
+  REQUIRE(om.getLevel() == LogLevel::Silent);
 }
 
 // ----- Targets: buffer only --------------------------------------------------
@@ -320,11 +330,57 @@ TEST_CASE("File target enabled but open failed: buffer still works", "[OutputMan
   om.enableTarget(OutputTarget::Console, false);
   om.setLevel(LogLevel::Normal);
 
-  om.openLogFile("/invalid/path/xyz.log");
+  REQUIRE_FALSE(om.openLogFile("/invalid/path/xyz.log"));
   om.logNormal("buffer-still-works");
   auto logs = om.getBufferedLogs();
   REQUIRE(logs.size() == 1u);
   REQUIRE(logs[0].find("buffer-still-works") != std::string::npos);
+}
+
+TEST_CASE("openLogFile called twice reopens destination", "[OutputManager][file]")
+{
+  RemoveTempLogFile();
+  OutputManager om;
+  om.enableTarget(OutputTarget::File, true);
+  om.enableTarget(OutputTarget::Console, false);
+  om.setLevel(LogLevel::Normal);
+
+  const std::string first_path = TempLogPath();
+  const std::string second_path = TempLogPath() + ".second";
+
+  REQUIRE(om.openLogFile(first_path));
+  om.logNormal("first-file-only");
+  REQUIRE(om.openLogFile(second_path));
+  om.logNormal("second-file-only");
+  om.closeLogFile();
+
+  std::ifstream first(first_path);
+  REQUIRE(first);
+  std::string line1;
+  REQUIRE(std::getline(first, line1));
+  REQUIRE(line1.find("first-file-only") != std::string::npos);
+  REQUIRE_FALSE(std::getline(first, line1)); // no second message in first file
+
+  std::ifstream second(second_path);
+  REQUIRE(second);
+  std::string line2;
+  REQUIRE(std::getline(second, line2));
+  REQUIRE(line2.find("second-file-only") != std::string::npos);
+
+  std::remove(first_path.c_str());
+  std::remove(second_path.c_str());
+}
+
+TEST_CASE("closeLogFile with no open file is a no-op", "[OutputManager][file]")
+{
+  OutputManager om;
+  om.enableTarget(OutputTarget::Buffer, true);
+  om.enableTarget(OutputTarget::Console, false);
+  om.closeLogFile();
+  om.logNormal("after-close-noop");
+  const auto logs = om.getBufferedLogs();
+  REQUIRE(logs.size() == 1u);
+  REQUIRE(logs[0].find("after-close-noop") != std::string::npos);
 }
 
 // ----- Buffer APIs -----------------------------------------------------------
@@ -378,6 +434,80 @@ TEST_CASE("Buffer works with multiple targets enabled", "[OutputManager][buffer]
   REQUIRE(logs[0].find("both") != std::string::npos);
   om.closeLogFile();
   RemoveTempLogFile();
+}
+
+// ----- Custom output handlers (lambdas / std::function) ----------------------
+
+TEST_CASE("addOutputHandler: receives formatted lines when other targets off", "[OutputManager][handlers]")
+{
+  OutputManager om;
+  om.setLevel(LogLevel::Normal);
+  om.enableTarget(OutputTarget::Console, false);
+  om.enableTarget(OutputTarget::File, false);
+  om.enableTarget(OutputTarget::Buffer, false);
+
+  std::vector<std::string> captured;
+  om.addOutputHandler([&captured](const std::string & line) { captured.push_back(line); });
+
+  om.logNormal("handler-msg");
+  REQUIRE(captured.size() == 1u);
+  REQUIRE(captured[0].find("handler-msg") != std::string::npos);
+  REQUIRE(captured[0].find("NORMAL") != std::string::npos);
+}
+
+TEST_CASE("addOutputHandler: Silent level does not invoke handler", "[OutputManager][handlers]")
+{
+  OutputManager om;
+  om.setLevel(LogLevel::Silent);
+  om.enableTarget(OutputTarget::Buffer, false);
+  om.enableTarget(OutputTarget::Console, false);
+
+  int calls = 0;
+  om.addOutputHandler([&calls](const std::string &) { ++calls; });
+  om.logNormal("x");
+  REQUIRE(calls == 0);
+}
+
+TEST_CASE("addOutputHandler: multiple handlers run in registration order", "[OutputManager][handlers]")
+{
+  OutputManager om;
+  om.setLevel(LogLevel::Debug);
+  om.enableTarget(OutputTarget::Console, false);
+  om.enableTarget(OutputTarget::Buffer, false);
+
+  std::string order;
+  om.addOutputHandler([&order](const std::string &) { order += 'A'; });
+  om.addOutputHandler([&order](const std::string &) { order += 'B'; });
+  om.logDebug("z");
+  REQUIRE(order == "AB");
+}
+
+TEST_CASE("clearOutputHandlers removes callbacks", "[OutputManager][handlers]")
+{
+  OutputManager om;
+  om.setLevel(LogLevel::Normal);
+  om.enableTarget(OutputTarget::Console, false);
+
+  int calls = 0;
+  om.addOutputHandler([&calls](const std::string &) { ++calls; });
+  om.logNormal("a");
+  REQUIRE(calls == 1);
+  om.clearOutputHandlers();
+  om.logNormal("b");
+  REQUIRE(calls == 1);
+}
+
+TEST_CASE("addOutputHandler: empty std::function is ignored", "[OutputManager][handlers]")
+{
+  OutputManager om;
+  om.setLevel(LogLevel::Normal);
+  om.enableTarget(OutputTarget::Console, false);
+  om.enableTarget(OutputTarget::Buffer, true);
+
+  OutputLineHandler empty;
+  om.addOutputHandler(empty);
+  om.logNormal("ok");
+  REQUIRE(om.getBufferedLogs().size() == 1u);
 }
 
 // ----- Thread safety (basic) -------------------------------------------------

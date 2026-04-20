@@ -9,6 +9,7 @@
 #include "Interfaces/WebApp.hpp"
 
 #include <emscripten.h>
+#include <emscripten/eventloop.h>
 
 #include <cstdlib>
 #include <map>
@@ -16,6 +17,8 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#include "core/SyncManager.hpp"
 
 
 namespace {
@@ -197,6 +200,61 @@ WebApp::WebApp() {
   log_text_->SetFontFamily(kSidebarFontStack);
 }
 
+void WebApp::ConnectToServer(const std::string& url) {
+  auto connect_result = ws_client_.Connect(url);
+  if (!connect_result) return;
+
+  auto start_result = sync_.Start();
+  if (!start_result) return;
+
+  sync_.OnLoadComplete([this]() {
+    if (load_callback_) load_callback_();
+    if (interface_) interface_->Notify("Game loaded!", "status");
+    RenderWorld();
+  });
+
+  #ifdef __EMSCRIPTEN__
+  poll_timer_id_ = emscripten_set_interval(
+      [](void* ud) { static_cast<WebApp*>(ud)->sync_.Poll(); },
+      100.0,
+      this);
+  #endif
+}
+
+void WebApp::PerformSave() {
+  if (!sync_.IsRunning()) {
+    if (interface_) interface_->Notify("Not connected to server.", "status");
+    RenderWorld();
+    return;
+  }
+
+  if (save_callback_) save_callback_();
+
+  auto result = sync_.SaveGame("test_save");
+  if (result) {
+    if (interface_) interface_->Notify("Game saved!", "status");
+  } else {
+    if (interface_) interface_->Notify("Save failed.", "status");
+  }
+  RenderWorld();
+}
+
+void WebApp::PerformLoad() {
+  if (!sync_.IsRunning()) {
+    if (interface_) interface_->Notify("Not connected to server.", "status");
+    RenderWorld();
+    return;
+  }
+
+  auto result = sync_.LoadGame("test_save");
+  if (result) {
+    if (interface_) interface_->Notify("Loading...", "status");
+  } else {
+    if (interface_) interface_->Notify("Load failed.", "status");
+  }
+  RenderWorld();
+}
+
 void WebApp::SetCellVisual(const std::string& cell_type_name,
                             std::string fill_css, std::string glyph) {
   if (interface_) {
@@ -223,6 +281,10 @@ void WebApp::Render() {
 void WebApp::HandleAction(int action_code) {
   const std::string action_id = ActionIdForCode(action_code);
   if (action_id.empty() || !interface_ || !world_) return;
+
+  // Intercept save/load meta-actions — these should not advance the game clock.
+  if (action_id == "save") { PerformSave(); return; }
+  if (action_id == "load") { PerformLoad(); return; }
 
   // Submit the action to the interface (stores it as pending), then advance
   // the world by one turn (world calls SelectAction → DoAction on the agent).
