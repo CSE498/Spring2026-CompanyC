@@ -25,6 +25,7 @@ namespace cse498
         int mThrowDamage = 10;
         int mThrowRange = 4;
         int mEnemyContactDamage = 1;
+        bool mTimerStarted = false;
 
         // ---------------------------------------------------------------------
         // Resource and inventory state

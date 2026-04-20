@@ -47,6 +47,7 @@ BASE_SOURCES = Agents/ClassicAgent.cpp   \
                tools/CompositeNodes.cpp  \
                tools/LeafNodes.cpp       \
                tools/PathGenerator.cpp   \
+               tools/Timer.cpp           \
                tools/WorldPath.cpp       \
                Worlds/DynamicWorld.cpp	 \
 			   Worlds/InteractionHeavyWorld.cpp
