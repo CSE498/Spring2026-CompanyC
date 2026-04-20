@@ -37,6 +37,9 @@ namespace cse498
         ///Returns the last point
         const Point& end() const;
 
+        size_t size() const { return mPoints.size(); }
+        const Point& operator[](size_t i) const { return mPoints[i]; }
+
     private:
         ///Ordered list of path points
         std::vector<Point> mPoints;

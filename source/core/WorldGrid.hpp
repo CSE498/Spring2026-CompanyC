@@ -6,16 +6,17 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cassert>
 #include <fstream>
 #include <iostream>
+#include <string>
 #include <unordered_map>
 #include <vector>
-#include <string>
-#include <algorithm>
 
 #include "Location.hpp"
 #include "../tools/io_utils.hpp"
+#include "../tools/SharedKnowledge.hpp"
 
 namespace cse498
 {
@@ -50,6 +51,8 @@ namespace cse498
 
     std::vector<size_t> cells; ///< Matrix of world cells, by rows, top to bottom; value is cell ID.
 
+    
+
     // -- Helper functions --
 
     ///  Convert an X and a Y value to the index in the vector.
@@ -57,6 +60,7 @@ namespace cse498
     {
       return x + y * width;
     }
+
 
     /// Convert a WorldPosition to the index in the vector.
     [[nodiscard]] size_t ToIndex(WorldPosition pos) const
@@ -113,6 +117,18 @@ namespace cse498
     WorldGrid &operator=(const WorldGrid &) = default;
     WorldGrid &operator=(WorldGrid &&) = default;
 
+    SharedKnowledge sharedKnowledge;
+
+
+
+    SharedKnowledge& GetSharedKnowledge() {
+        return sharedKnowledge;
+    }
+
+    const SharedKnowledge& GetSharedKnowledge() const {
+        return sharedKnowledge;
+    }
+
     // -- Accessors --
     [[nodiscard]] size_t GetWidth() const { return width; }
     [[nodiscard]] size_t GetHeight() const { return height; }
@@ -159,6 +175,11 @@ namespace cse498
       return cells[ToIndex(pos)];
     }
 
+
+    [[nodiscard]] size_t CountCells(size_t type_id) const {
+      return std::count(cells.begin(), cells.end(), type_id);
+    }
+    
     // ===========================
     //   Cell type management...
     // ===========================

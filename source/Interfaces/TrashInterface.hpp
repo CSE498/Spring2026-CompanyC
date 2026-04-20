@@ -71,7 +71,7 @@ namespace cse498 {
       return true;
     }
 
-    size_t SelectAction(const WorldGrid & grid) override
+    size_t SelectAction( WorldGrid & grid) override
     {
       auto item_ids = world.GetKnownItems(*this);
       auto agent_ids = world.GetKnownAgents(*this);

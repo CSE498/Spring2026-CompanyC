@@ -337,6 +337,267 @@ This makes `FindKeys("player:alice:*")` return all of Alice's data.
 
 ---
 
+## World Serialization
+
+`SaveWorld` and `LoadWorld` (from `WorldHelpers.hpp`) serialize a `WorldBase`'s runtime state into the Database using structured key conventions. This lets you save and restore entire game worlds.
+
+```cpp
+#include "core/WorldHelpers.hpp"
+```
+
+### World key conventions
+
+| Key pattern | Contents |
+|-------------|----------|
+| `world:<name>:meta` | Agent count, item count, run_over flag |
+| `world:<name>:grid` | Grid dimensions + all cell values (row-major) |
+| `world:<name>:agent:<id>` | Agent name, location, symbol |
+| `world:<name>:item:<id>` | Item name, location |
+
+### Basic usage
+
+```cpp
+#include "core/WorldHelpers.hpp"
+#include "../Worlds/MazeWorld.hpp"
+#include "../Agents/PacingAgent.hpp"
+
+// Set up a world
+MazeWorld world;
+auto& agent = world.AddAgent<PacingAgent>("Hero");
+agent.SetLocation(WorldPosition(3.0, 5.0));
+
+// Save to Database
+Database db;
+auto result = SaveWorld(db, "maze", world);
+
+// Later, restore into a fresh world with the same structure
+MazeWorld world2;
+world2.AddAgent<PacingAgent>("placeholder");
+LoadWorld(db, "maze", world2);
+// world2 now has agent named "Hero" at position (3, 5)
+```
+
+`LoadWorld` requires the target world to have the same number of agents and items as the saved world. It restores names, locations, symbols (agents), and grid cell values. It does not construct new entities — it updates the ones already in the world.
+
+### Extending with derived-class fields
+
+`SaveWorld` saves base-class fields only (name, location, symbol). If your group has derived agents or items with extra fields, store them under the same key prefix:
+
+```cpp
+// After calling SaveWorld:
+db.Store("world:maze:agent:0:health", my_agent.GetHealth());
+db.Store("world:maze:agent:0:inventory", my_agent.GetInventory());
+db.Store("world:maze:item:0:durability", my_item.GetDurability());
+```
+
+These extension keys are captured automatically by `SaveGame()`, which exports the entire Database. On load, call `LoadWorld` for base fields, then load your extension keys:
+
+```cpp
+LoadWorld(db, "maze", world);
+auto health = db.Load<int>("world:maze:agent:0:health");
+if (health) my_agent.SetHealth(*health);
+```
+
+---
+
+## Save Server
+
+The save server lets you persist game state across browser sessions. You just need to start the server and write your save/load logic.
+
+### Starting the server
+
+```bash
+make SaveServer                  # Build the binary
+./source/SaveServer              # Start with defaults (port 8080, saves in ./saves/)
+./source/SaveServer --port 9000  # Use a different port
+./source/SaveServer --saves-dir /tmp/my_saves  # Custom save directory
+```
+
+Press Ctrl+C to stop.
+
+### Save name rules
+
+Save names can only contain letters, numbers, hyphens, and underscores (`a-z`, `A-Z`, `0-9`, `-`, `_`). No spaces or special characters.
+
+---
+
+## Adding Save/Load to Your World
+
+To support saving and loading in your world, you need three things: a Database pointer, save/load methods, and callback wiring. See `source/Worlds/StubWorld.cpp` for a working example.
+
+### Step 1: Give your world a Database pointer
+
+```cpp
+class MyWorld : public WorldBase {
+public:
+    void SetDatabase(Database* db) { db_ = db; }
+
+private:
+    Database* db_ = nullptr;
+};
+```
+
+### Step 2: Write SaveState and LoadState methods
+
+```cpp
+#include "core/WorldHelpers.hpp"
+
+void MyWorld::SaveState(const std::string& world_name) {
+    if (!db_) return;
+
+    // Save base-class fields (grid, agent positions, items)
+    (void)SaveWorld(*db_, world_name, *this);
+
+    // Save your custom fields
+    (void)db_->Store("world:" + world_name + ":started", started_);
+    for (const auto& [name, count] : resources_) {
+        (void)db_->Store("world:" + world_name + ":resources:" + name, count);
+    }
+}
+
+void MyWorld::LoadState(const std::string& world_name) {
+    if (!db_) return;
+
+    // Restore base-class fields
+    auto result = LoadWorld(*db_, world_name, *this);
+    if (!result) return;
+
+    // Restore your custom fields
+    if (auto val = db_->Load<bool>("world:" + world_name + ":started"))
+        started_ = *val;
+    for (auto& [name, count] : resources_) {
+        if (auto val = db_->Load<int>("world:" + world_name + ":resources:" + name))
+            count = *val;
+    }
+}
+```
+
+`SaveWorld` handles base-class fields automatically: grid cells, agent names/positions/symbols, item names/positions. You only need to save and load fields specific to your world (scores, flags, inventories, etc.).
+
+### Step 3: Wire it up in web_main.cpp
+
+Register your save/load callbacks with the WebApp:
+
+```cpp
+auto* world_ptr = dynamic_cast<MyWorld*>(&app->GetWorld());
+world_ptr->SetDatabase(&app->GetDatabase());
+
+app->SetSaveCallback([world_ptr]() {
+    world_ptr->SaveState("my_world");
+});
+
+app->SetLoadCallback([world_ptr]() {
+    world_ptr->LoadState("my_world");
+});
+```
+
+Once wired up, the Save and Load buttons in the web UI work automatically. Everything else (WebSocket connection, server communication, file storage) is handled for you.
+
+---
+
+## Development Testing
+
+
+
+### Single-machine browser testing
+
+You need three terminals:
+
+```bash
+# Terminal 1 — Build everything
+source ~/emsdk/emsdk_env.sh
+make SaveServer && make web
+
+# Terminal 2 — Start the save server
+./source/SaveServer
+
+# Terminal 3 — Serve the web files (use a different port than the save server)
+cd web && python3 -m http.server 9090
+```
+
+Then open your browser to:
+
+```
+http://localhost:9090/demo.html
+```
+
+URL parameters for different worlds:
+
+```
+http://localhost:9090/demo.html?world=stub       # StubWorld (default)
+http://localhost:9090/demo.html?world=maze       # MazeWorld
+http://localhost:9090/demo.html?world=dynamic    # DynamicWorld
+http://localhost:9090/demo.html?world=interaction # InteractionHeavyWorld
+```
+
+To test save/load: play the game, click Save, refresh the page, click Load. Your game state should be restored.
+
+### Cross-machine browser testing
+
+Run the save server and web server on one machine (the "server machine"), then connect from another machine on the same network.
+
+**Server machine setup:**
+
+```bash
+# 1. Source Emscripten SDK
+source ~/emsdk/emsdk_env.sh
+
+# 2. Build WebAssembly frontend
+cd source && make web
+
+# 3. Build SaveServer binary
+make SaveServer
+
+# 4. Get your IP address
+ipconfig getifaddr en0
+
+# 5. Start SaveServer (terminal 1)
+./source/SaveServer --port 8080
+
+# 6. Serve web files (terminal 2)
+cd web && python3 -m http.server 9090
+```
+
+**Client machine** — open browser to (replace `<SERVER_IP>` with the IP from step 4):
+
+```
+http://<SERVER_IP>:9090/demo.html?server=ws://<SERVER_IP>:8080
+```
+
+The `?server=` parameter tells the browser where to find the save server. Without it, the browser defaults to `ws://localhost:8080`.
+
+**Firewall troubleshooting (macOS):**
+
+If the client machine can't connect, the server machine's firewall may be blocking incoming connections.
+
+```bash
+# Check firewall status
+/usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate
+
+# Option A: Disable firewall temporarily (re-enable after testing)
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate off
+
+# Option B: Allow specific binaries through the firewall
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add /path/to/source/SaveServer
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add /usr/bin/python3
+```
+
+**Test procedure:**
+
+1. Server machine: open `http://localhost:9090/demo.html`
+2. Client machine: open `http://<SERVER_IP>:9090/demo.html?server=ws://<SERVER_IP>:8080`
+3. On either machine: move around, collect resources, click Save
+4. On the other machine: click Load — should restore the saved state
+5. Verify save file exists on server: `ls source/saves/`
+
+**Re-enable the firewall when done:**
+
+```bash
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on
+```
+
+---
+
 ## Error Handling
 
 Most methods return `std::expected`. Check `.has_value()` before using the result:
@@ -380,3 +641,6 @@ if (result.has_value()) {
 | Create with config | `Database db(config);` |
 | Read config | `db.GetConfig()` |
 | Update config | `db.SetConfig(config)` |
+| Save world to DB | `SaveWorld(db, "name", world)` |
+| Load world from DB | `LoadWorld(db, "name", world)` |
+| Start save server | `./source/SaveServer` |

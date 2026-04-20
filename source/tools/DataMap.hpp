@@ -4,11 +4,11 @@
  * @brief A dynamic map that can match names to arbitrary types of data. Following Google style guide
  */
 
-# pragma once
-# include <unordered_map>
-# include <string>
-# include <any>
-# include <expected>
+#pragma once
+#include <unordered_map>
+#include <string>
+#include <any>
+#include <expected>
 
 namespace cse498 {
 
@@ -16,7 +16,7 @@ namespace cse498 {
     // membver variables
     private:
         // any - to make it easier to store different types of data
-        std::unordered_map<std::string, std::any>  data_map_;
+        std::unordered_map<std::string, std::any>  mDataMap;
 
     public:
         // function to set data in the map
@@ -29,8 +29,8 @@ namespace cse498 {
          */
         template<typename T>
         std::expected<T, std::string> GetData(const std::string& key) const {
-            auto it = data_map_.find(key);
-            if (it == data_map_.end()) {
+            auto it = mDataMap.find(key);
+            if (it == mDataMap.end()) {
                 return std::unexpected("Key not found: " + key);
             }
             
@@ -39,7 +39,7 @@ namespace cse498 {
             } catch (const std::bad_any_cast&) {
                 return std::unexpected("Type mismatch for key: " + key);
             }
-        }
+        };
 
 
         /**

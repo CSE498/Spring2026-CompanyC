@@ -252,9 +252,15 @@ void WebLayout::createShell()
     Node* loadBtn = createElement(topbar, "button", "cse498btn-4");
     loadBtn->element.set("textContent", std::string("Load"));
 
+    
     // Sidebar containers
     createElement(sidebar, "div", "cse498_actions");
     createElement(sidebar, "div", "cse498_hud_host");
+
+    Node* analysisLabel = createElement(sidebar, "div", "cse498_analysis_label");
+    analysisLabel->element.set("innerHTML", std::string("<strong>Analyzed Data</strong>"));
+
+    createElement(sidebar, "div", "cse498_analysis_host");
     createElement(sidebar, "div", "cse498_log_host");
 }
 
