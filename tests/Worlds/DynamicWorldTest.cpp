@@ -48,11 +48,11 @@ public:
     main_grid[x, y] = type_id;
   }
 
-  size_t GetCell(size_t x, size_t y) const {
+  [[nodiscard]] size_t GetCell(size_t x, size_t y) const {
     return main_grid[x, y];
   }
 
-  size_t GetResource(const std::string & name) const {
+  [[nodiscard]] size_t GetResource(const std::string & name) const {
     return mWorldResourceCounts[ResourceIndex(name)];
   }
 
@@ -157,26 +157,35 @@ TEST_CASE("DynamicWorld move - blocked by out-of-bounds", "[DynamicWorld][move]"
   REQUIRE(pos.X() == Approx(50));
   REQUIRE(pos.Y() == Approx(0));
 
+  // setting the location of the agent to be on the left most corner
   agent.SetAgentLocation(0, 50);
+  // trying to move beyond the left boundary of the grid
   result = world.DoAction(agent, world.MOVE_LEFT);
   REQUIRE(result == 0);
 
+  // position should not change
   pos = agent.GetLocation().AsWorldPosition();
   REQUIRE(pos.X() == Approx(0));
   REQUIRE(pos.Y() == Approx(50));
 
+  // changing the location of the agent to be the right most corner of the grid
   agent.SetAgentLocation(80, 80);
+  // trying to move the agent down, should fail
   result = world.DoAction(agent, world.MOVE_DOWN);
   REQUIRE(result == 0);
 
+  // position should not change
   pos = agent.GetLocation().AsWorldPosition();
   REQUIRE(pos.X() == Approx(80));
   REQUIRE(pos.Y() == Approx(80));
 
+  // setting the location of the agent to be the right most corner of the grid
   agent.SetAgentLocation(80, 80);
+  // trying to move past the right boundary, should fail
   result = world.DoAction(agent, world.MOVE_RIGHT);
   REQUIRE(result == 0);
 
+  // position should not change
   pos = agent.GetLocation().AsWorldPosition();
   REQUIRE(pos.X() == Approx(80));
   REQUIRE(pos.Y() == Approx(80));

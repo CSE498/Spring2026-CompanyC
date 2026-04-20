@@ -67,10 +67,10 @@ namespace cse498 {
     Timer & GetTimer() { return mTimer; }
 
     /// Access the shared Timer for this world (const overload)
-    const Timer & GetTimer() const { return mTimer; }
+    [[nodiscard]] const Timer & GetTimer() const { return mTimer; }
 
     /// Access the ActionLog
-    ActionLog & GetActionLog() { return mActionLog; }
+    [[nodiscard]] ActionLog & GetActionLog() { return mActionLog; }
 
     /// Return a reference to an Item with a given ID.
     [[nodiscard]] ItemBase & GetItem(size_t id) {
@@ -197,7 +197,7 @@ namespace cse498 {
 
     // Provide a vector of IDs for items that the input agent is aware of.
     // (If not overridden, return ALL items.)
-    std::vector<size_t> GetKnownItems([[maybe_unused]] const AgentBase & agent) const {
+    [[nodiscard]] std::vector<size_t> GetKnownItems([[maybe_unused]] const AgentBase & agent) const {
       std::vector<size_t> out_ids;
       for (const item_ptr_t & ptr : item_set) out_ids.push_back(ptr->GetID());
       return out_ids;

@@ -131,7 +131,7 @@ public:
   /**
    * @brief Returns location object of ghost object
   */
-  Location GetGhostLocation() {
+  [[nodiscard]] Location GetGhostLocation() {
     assert(mGhostAgent != nullptr);
     return mGhostAgent->GetLocation();
   }
@@ -139,15 +139,15 @@ public:
   /**
    * @brief Getters for Ids
    */
-  size_t GetGrassId()      const { return mGrassId; }
-  size_t GetTreeId()       const { return mTreeId; }
-  size_t GetStoneId()      const { return mStoneId; }
-  size_t GetWheatId()      const { return mWheatId; }
-  size_t GetQuarryId()     const { return mQuarryId; }
-  size_t GetLumberyardId() const { return mLumberyardId; }
-  size_t GetFarmId()       const { return mFarmId; }
-  size_t GetSpawnerId()    const { return mSpawnerId; }
-  size_t GetTownhallId()   const { return mTownhallId; }
+  [[nodiscard]] size_t GetGrassId()      const { return mGrassId; }
+  [[nodiscard]] size_t GetTreeId()       const { return mTreeId; }
+  [[nodiscard]] size_t GetStoneId()      const { return mStoneId; }
+  [[nodiscard]] size_t GetWheatId()      const { return mWheatId; }
+  [[nodiscard]] size_t GetQuarryId()     const { return mQuarryId; }
+  [[nodiscard]] size_t GetLumberyardId() const { return mLumberyardId; }
+  [[nodiscard]] size_t GetFarmId()       const { return mFarmId; }
+  [[nodiscard]] size_t GetSpawnerId()    const { return mSpawnerId; }
+  [[nodiscard]] size_t GetTownhallId()   const { return mTownhallId; }
 
 private:
 
