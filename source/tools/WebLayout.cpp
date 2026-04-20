@@ -235,9 +235,18 @@ void WebLayout::createShell()
     worldLabel->element.set("textContent", std::string("World:"));
 
     Node* worldSelect = createElement(topbar, "select", "cse498_world_select");
-    Node* worldOption = createElement(worldSelect, "option");
-    worldOption->element.set("value", std::string("stub"));
-    worldOption->element.set("textContent", std::string("Stub World"));
+    // Dropdown options for the world select UI
+    Node* stubWorldOption = createElement(worldSelect, "option");
+    stubWorldOption->element.set("value", std::string("stub"));
+    stubWorldOption->element.set("textContent", std::string("Stub World"));
+
+    Node* mazeWorldOption = createElement(worldSelect, "option");
+    mazeWorldOption->element.set("value", std::string("maze"));
+    mazeWorldOption->element.set("textContent", std::string("Maze World"));
+
+    Node* interactionWorldOption = createElement(worldSelect, "option");
+    interactionWorldOption->element.set("value", std::string("interaction"));
+    interactionWorldOption->element.set("textContent", std::string("Interaction World"));
 
     // Topbar buttons
     Node* startBtn = createElement(topbar, "button", "cse498btn-1");

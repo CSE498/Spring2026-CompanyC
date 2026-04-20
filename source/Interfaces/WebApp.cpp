@@ -102,6 +102,25 @@
       btn.__cse498_bound = true;
     });
 
+    // Adding world select dropdown function
+    var worldSelect = document.getElementById('cse498_world_select');
+    if (worldSelect && !worldSelect.__cse498_bound) {
+      var validWorlds = { stub: true, maze: true, interaction: true };
+      var params = new URLSearchParams(window.location.search);
+      var currentWorld = params.get('world') || 'stub';
+      if (!validWorlds[currentWorld]) currentWorld = 'stub';
+      worldSelect.value = currentWorld;
+
+      worldSelect.addEventListener('change', function() {
+        var nextWorld = worldSelect.value || 'stub';
+        if (!validWorlds[nextWorld]) nextWorld = 'stub';
+        var url = new URL(window.location.href);
+        url.searchParams.set('world', nextWorld);
+        window.location.href = url.toString();
+      });
+      worldSelect.__cse498_bound = true;
+    }
+
     // Add sidebar label if missing.
     if (!document.getElementById('cse498_actions_label')) {
       var labelWrap = document.createElement('div');
