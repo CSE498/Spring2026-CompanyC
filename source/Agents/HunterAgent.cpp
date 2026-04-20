@@ -6,6 +6,7 @@
  **/
 
 #include "HunterAgent.hpp"
+#include "../core/WorldBase.hpp"
 #include <algorithm>
 #include <climits>
 #include <cstdlib>
@@ -138,9 +139,8 @@ namespace cse498
     }
 
     /**
-     * Scans a (2*radius+1)^2 area centred on the hunter for cells named "player" or "agent".
-     * Returns the nearest such cell by Chebyshev distance via out_x and out_y.
-     * TendencyAgents must be represented as "agent" grid cells, or use Notify to push positions directly.
+     * Scans known world agents first so the player does not need to be written into
+     * the terrain/resource grid. Falls back to grid cell names for older worlds.
      */
     bool HunterAgent::ScanForTarget(const WorldGrid &grid,
                                     int &out_x, int &out_y,
@@ -151,6 +151,35 @@ namespace cse498
         const int cy = static_cast<int>(cur.CellY());
 
         int best_dist = INT_MAX, best_x = -1, best_y = -1;
+
+        for (const size_t agent_id : world.GetKnownAgents(*this))
+        {
+            if (agent_id == GetID()) continue;
+
+            const AgentBase &candidate = world.GetAgent(agent_id);
+            if (!candidate.GetLocation().IsPosition()) continue;
+            if (!candidate.IsInterface() && candidate.GetName() != "Player") continue;
+
+            const WorldPosition pos = candidate.GetLocation().AsWorldPosition();
+            if (!grid.IsValid(pos)) continue;
+
+            const int dx = static_cast<int>(pos.CellX()) - cx;
+            const int dy = static_cast<int>(pos.CellY()) - cy;
+            const int dist = std::max(std::abs(dx), std::abs(dy));
+            if (dist <= radius && dist < best_dist)
+            {
+                best_dist = dist;
+                best_x = static_cast<int>(pos.CellX());
+                best_y = static_cast<int>(pos.CellY());
+            }
+        }
+
+        if (best_dist != INT_MAX)
+        {
+            out_x = best_x;
+            out_y = best_y;
+            return true;
+        }
 
         for (int dy = -radius; dy <= radius; ++dy)
         {
@@ -187,10 +216,6 @@ namespace cse498
     std::string HunterAgent::ChaseMove(const WorldGrid &grid,
                                        int tx, int ty) const
     {
-        const WorldPosition cur = GetLocation().AsWorldPosition();
-        const int cx = static_cast<int>(cur.CellX());
-        const int cy = static_cast<int>(cur.CellY());
-
         static const std::vector<std::string> kDirs = {"up", "down", "left", "right"};
 
         std::string best_action;

@@ -19,8 +19,8 @@
  *   The hunter only needs to reach an adjacent cell.
  *
  * Target detection:
- *   Scans each tick for cells named "player" or "agent". TendencyAgents must
- *   be registered as "agent" cells in the world for multi-target detection.
+ *   Scans each tick for the player/interface agent in the world. Older worlds
+ *   can still expose target cells named "player" or "agent" in the grid.
  *
  * Supported actions: up, down, left, right
  **/

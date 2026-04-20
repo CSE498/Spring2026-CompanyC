@@ -8,11 +8,17 @@
  * @note Status: PROPOSAL
  */
 #include "InteractionHeavyWorld.hpp"
-#include <random>
+#include "../Agents/HunterAgent.hpp"
+#include <algorithm>
 #include <fstream>
+#include <random>
 
 namespace cse498
 {
+    // -------------------------------------------------------------------------
+    // Constructor and setup
+    // -------------------------------------------------------------------------
+
     InteractionHeavyWorld::InteractionHeavyWorld()
     {
         SetWorldResourceNames({"HP", "Stone", "Gold"});
@@ -22,30 +28,9 @@ namespace cse498
         GenerateWorld();
     }
 
-    size_t InteractionHeavyWorld::GetStoneCount() const { return mStoneCount; }
-
-    size_t InteractionHeavyWorld::GetGoldCount() const { return mGoldCount; }
-
-    int InteractionHeavyWorld::GetPlayerHP() const { return mPlayerHP; }
-
-    WorldPosition InteractionHeavyWorld::GetStartPosition() const { return mStartPosition; }
-
-    std::vector<WorldPosition> InteractionHeavyWorld::GetEnemySpawnPositions() const { return mEnemySpawnPositions; }
-
-    bool InteractionHeavyWorld::IsEnemyAt(const WorldPosition &pos) const
-    {
-        for (size_t i = 0; i < GetNumAgents(); ++i)
-        {
-            const AgentBase &a = GetAgent(i);
-            if (a.GetName() != "Player" &&
-                a.GetLocation().AsWorldPosition().SameCell(pos))
-                return true;
-        }
-        return false;
-    }
-
     void InteractionHeavyWorld::ConfigAgent(AgentBase &agent)
     {
+        // Register all actions that agents can request in this world.
         agent.AddAction("up", MOVE_UP);
         agent.AddAction("down", MOVE_DOWN);
         agent.AddAction("left", MOVE_LEFT);
@@ -59,15 +44,31 @@ namespace cse498
         agent.AddAction("throw_right", THROW_RIGHT);
     }
 
+    // -------------------------------------------------------------------------
+    // Resource getters and sync
+    // -------------------------------------------------------------------------
+
+    size_t InteractionHeavyWorld::GetStoneCount() const { return mStoneCount; }
+
+    size_t InteractionHeavyWorld::GetGoldCount() const { return mGoldCount; }
+
+    int InteractionHeavyWorld::GetPlayerHP() const { return mPlayerHP; }
+
     void InteractionHeavyWorld::SyncResourceVector()
     {
+        // Keep the HUD/resource display in sync with the world's internal values.
         SetWorldResourceCount(RESOURCE_HP, mPlayerHP);
         SetWorldResourceCount(RESOURCE_STONE, static_cast<int>(mStoneCount));
         SetWorldResourceCount(RESOURCE_GOLD, static_cast<int>(mGoldCount));
     }
 
+    // -------------------------------------------------------------------------
+    // World generation
+    // -------------------------------------------------------------------------
+
     void InteractionHeavyWorld::ConfigureCellTypes()
     {
+        // Cell IDs are saved so the rest of the world can compare tiles quickly.
         // Structure cells
         mWallID = main_grid.AddCellType("wall", "Wall cell", '#', false);
         mFloorID = main_grid.AddCellType("floor", "Floor cell", ' ', true);
@@ -84,48 +85,70 @@ namespace cse498
         mChestOpenID = main_grid.AddCellType("chest_open", "Opened chest", 'c', false);
         mDoorOpenID = main_grid.AddCellType("door_open", "Opened door", 'd', true);
 
-        // Special cells
-        mEnemyID = main_grid.AddCellType("enemy", "Hostile", 'H', false);
+        // Hunters are agents now, so the enemy tile is not used for combat.
+        // mEnemyID = main_grid.AddCellType("enemy", "Hostile", 'H', false);
+    }
+
+    WorldPosition InteractionHeavyWorld::GetStartPosition() const { return mStartPosition; }
+
+    std::vector<WorldPosition> InteractionHeavyWorld::GetEnemySpawnPositions() const
+    {
+        return mEnemySpawnPositions;
+    }
+
+    bool InteractionHeavyWorld::IsEnemyAt(const WorldPosition &pos) const
+    {
+        for (const auto &ptr : agent_set)
+        {
+            if (!ptr)
+                continue;
+            if (!IsHunterAgent(*ptr))
+                continue;
+            if (!IsHunterAlive(*ptr))
+                continue;
+
+            WorldPosition hunter_pos = ptr->GetLocation().AsWorldPosition();
+            if (hunter_pos.SameCell(pos))
+                return true;
+        }
+        return false;
     }
 
     void InteractionHeavyWorld::GenerateWorld()
     {
-        // Load dungeon layout from text file
+        // Load dungeon layout from text file.
         std::vector<std::string> dungeon_layout;
 
-        std::ifstream infile("source/Worlds/interaction_world_maps/dungeon_map_small.txt");
+        std::ifstream infile("source/Worlds/interaction_world_maps/dungeon_map.txt");
         if (!infile)
         {
-            std::cerr << "Error: Could not open dungeon_map_small.txt\n";
+            std::cerr << "Error: Could not open dungeon_map.txt\n";
             return;
         }
 
         std::string line;
         while (std::getline(infile, line))
         {
+            // Remove Windows line endings if the map file was edited elsewhere.
             if (!line.empty() && line.back() == '\r')
                 line.pop_back();
             dungeon_layout.push_back(line);
         }
 
-        // Set grid size based on layout and load the dungeon
+        // Set grid size based on layout and load the dungeon.
         size_t width = dungeon_layout[0].size();
         size_t height = dungeon_layout.size();
 
         main_grid.Resize(width, height, mFloorID);
-
         LoadDungeon(dungeon_layout);
 
-        // Place boulders in the world
-        int min = 1;
-        int max = 4;
-
-        PlaceBoulders(min, max);
+        // Place random boulders after the map has been loaded.
+        PlaceBoulders(1, 4);
     }
 
     void InteractionHeavyWorld::LoadDungeon(const std::vector<std::string> &dungeon_layout)
     {
-        // Iterate through the layout and set cell types based on characters
+        // Convert map characters into cell type IDs on the grid.
         for (size_t y = 0; y < dungeon_layout.size(); ++y)
         {
             for (size_t x = 0; x < dungeon_layout[y].size(); ++x)
@@ -148,6 +171,7 @@ namespace cse498
                     main_grid[pos] = mExitID;
                     break;
                 case 'S':
+                    // The start marker becomes floor so the player can stand there.
                     main_grid[pos] = mFloorID;
                     mStartPosition = pos;
                     break;
@@ -155,8 +179,8 @@ namespace cse498
                     main_grid[pos] = mChestID;
                     break;
                 case 'H':
-                    main_grid[pos] = mFloorID;  // floor so agents can occupy it
-                    enemy_hp[{x, y}] = mEnemyDefaultHP;
+                    // Hunters are spawned as agents, not stored in the terrain grid.
+                    main_grid[pos] = mFloorID;
                     mEnemySpawnPositions.push_back(pos);
                     break;
                 }
@@ -166,7 +190,7 @@ namespace cse498
 
     bool InteractionHeavyWorld::NearStartingPosition(const WorldPosition &pos) const
     {
-        // Simple Manhattan distance check to keep resources away from the starting area
+        // Keep random resources away from the starting area.
         size_t dx = std::abs((int)pos.CellX() - (int)mStartPosition.CellX());
         size_t dy = std::abs((int)pos.CellY() - (int)mStartPosition.CellY());
 
@@ -178,7 +202,7 @@ namespace cse498
 
     WorldPosition InteractionHeavyWorld::GetRandomPosition() const
     {
-        // Generate random positions until we find a valid floor cell that isn't near the starting position
+        // Keep trying random cells until a safe floor cell is found.
         static std::mt19937 gen(std::random_device{}());
 
         std::uniform_int_distribution<size_t> x_dist(0, main_grid.GetWidth() - 1);
@@ -198,7 +222,7 @@ namespace cse498
 
     void InteractionHeavyWorld::PlaceBoulders(int minBoulders, int maxBoulders)
     {
-        // Randomly place boulders in the world, avoiding the starting area and ensuring they are on floor cells.
+        // Place boulders on floor cells away from the start.
         static std::mt19937 gen(std::random_device{}());
         std::uniform_int_distribution<> dist(minBoulders, maxBoulders);
 
@@ -217,6 +241,10 @@ namespace cse498
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Resource actions
+    // -------------------------------------------------------------------------
+
     void InteractionHeavyWorld::PrintInventory() const
     {
         std::cout << "\nCurrent Stats:\n";
@@ -227,10 +255,10 @@ namespace cse498
 
     void InteractionHeavyWorld::BreakBoulder(size_t x, size_t y)
     {
-        // Check the four adjacent cells for a boulder to break
+        // Check adjacent cells for one boulder to break.
         static std::mt19937 gen(std::random_device{}());
-        std::uniform_int_distribution<int> stone_dist(0, 10);
-        std::uniform_int_distribution<int> gold_dist(0, 1);
+        std::uniform_int_distribution<int> stone_dist(0, 15);
+        std::uniform_int_distribution<int> gold_dist(0, 4);
 
         WorldPosition center(x, y);
 
@@ -250,17 +278,18 @@ namespace cse498
                 int stone_found = stone_dist(gen);
                 int gold_found = gold_dist(gen);
 
+                // Broken boulders leave a material tile that stores its loot here.
                 main_grid[pos] = mMaterialID;
                 inventory[{pos.CellX(), pos.CellY()}] = {0, stone_found, gold_found};
 
-                return; // only break one boulder per action
+                return;
             }
         }
     }
 
     void InteractionHeavyWorld::Collect(size_t x, size_t y)
     {
-        // Check the four adjacent cells for interactable objects (e.g., materials, chests, doors, enemies)
+        // Check current and adjacent cells for interactable objects.
         WorldPosition center(x, y);
 
         std::vector<WorldPosition> neighbors = {
@@ -277,12 +306,14 @@ namespace cse498
 
             size_t tile = main_grid[pos];
 
-            // Collect dropped materials
+            // Collect dropped materials.
             if (tile == mMaterialID)
             {
                 auto it = inventory.find({pos.CellX(), pos.CellY()});
                 if (it == inventory.end())
                     continue;
+
+                // Transfer dropped resources into the player inventory.
                 mStoneCount += it->second.stone;
                 mGoldCount += it->second.gold;
                 inventory.erase(it);
@@ -291,18 +322,19 @@ namespace cse498
                 return;
             }
 
-            // Open a chest
+            // Open a chest.
             if (tile == mChestID)
             {
                 size_t gold_found = 4;
 
+                // Chests currently give a fixed gold reward.
                 mGoldCount += gold_found;
                 main_grid[pos] = mChestOpenID;
                 SyncResourceVector();
                 return;
             }
 
-            // Open a door
+            // Open a door.
             if (tile == mDoorID)
             {
                 size_t required_gold = 1;
@@ -337,86 +369,196 @@ namespace cse498
 
             size_t tile = main_grid[target];
 
+            // Solid tiles stop the thrown stone before it reaches anything behind them.
             if (tile == mWallID || tile == mBoulderID || tile == mDoorID || tile == mChestID)
-                return; // projectile is blocked
-
-            if (IsEnemyAt(target))
             {
+                return;
+            }
+
+            AgentBase *hunter = FindLiveHunterAt(target.CellX(), target.CellY());
+            if (hunter != nullptr)
+            {
+                // Hunters are tracked as agents, so projectile hits check agent location.
                 mStoneCount--;
                 SyncResourceVector();
-                auto key = std::make_pair(target.CellX(), target.CellY());
-                auto it = enemy_hp.find(key);
-                if (it == enemy_hp.end())
-                    enemy_hp[key] = mEnemyDefaultHP - mThrowDamage;
-                else
-                    it->second -= mThrowDamage;
 
-                int remaining_hp = enemy_hp[key];
-                std::cout << "Hit enemy for " << mThrowDamage
-                          << " damage. Enemy HP: " << remaining_hp << "\n";
+                int &hp = GetHunterHP(hunter->GetID());
+                hp -= mThrowDamage;
+                if (hp < 0)
+                    hp = 0;
 
-                if (enemy_hp[key] <= 0)
+                std::cout << "Hit " << hunter->GetName()
+                          << " for " << mThrowDamage
+                          << " damage. HP: " << hp << "\n";
+
+                if (hp <= 0)
                 {
-                    std::cout << "Enemy defeated.\n";
-                    enemy_hp.erase(key);
+                    hp = 0;
+                    std::cout << hunter->GetName() << " defeated.\n";
+                    DefeatHunter(*hunter);
                 }
                 return;
             }
         }
 
-        // still consume a stone on a miss
         mStoneCount--;
         SyncResourceVector();
         std::cout << "Stone thrown and missed.\n";
     }
 
+    // -------------------------------------------------------------------------
+    // Combat and hunter helpers
+    // -------------------------------------------------------------------------
+
     void InteractionHeavyWorld::ApplyEnemyContactDamage(const WorldPosition &player_pos)
     {
-        std::vector<WorldPosition> neighbors = {
-            player_pos,
-            player_pos.Up(),
-            player_pos.Down(),
-            player_pos.Left(),
-            player_pos.Right()};
-
-        for (const auto &pos : neighbors)
+        for (auto &ptr : agent_set)
         {
-            if (!main_grid.IsValid(pos))
+            if (!ptr)
+                continue;
+            if (!IsHunterAgent(*ptr))
+                continue;
+            if (!IsHunterAlive(*ptr))
                 continue;
 
-            if (IsEnemyAt(pos))
+            WorldPosition hunter_pos = ptr->GetLocation().AsWorldPosition();
+
+            int dx = std::abs((int)hunter_pos.CellX() - (int)player_pos.CellX());
+            int dy = std::abs((int)hunter_pos.CellY() - (int)player_pos.CellY());
+
+            if (dx + dy == 1)
             {
+                // Contact damage happens when a live hunter is directly adjacent.
                 mPlayerHP -= mEnemyContactDamage;
+                if (mPlayerHP < 0)
+                    mPlayerHP = 0;
                 SyncResourceVector();
-                std::cout << "Enemy hit you! Player HP: " << mPlayerHP << "\n";
+
+                std::cout << ptr->GetName() << " hit you! Player HP: " << mPlayerHP << "\n";
 
                 if (mPlayerHP <= 0)
                 {
-                    GetTimer().Stop("Game::Session");
                     std::cout << "You died.\n";
                     exit(0);
                 }
-                return; // only take damage once per turn
+                return;
             }
         }
     }
 
-    int InteractionHeavyWorld::DoAction(AgentBase &agent, size_t action_id)
+    int &InteractionHeavyWorld::GetHunterHP(size_t agent_id)
     {
-        if (!mTimerStarted && agent.GetName() == "Player")
+        // Create HP on first access so newly added hunters work automatically.
+        auto [it, inserted] = hunter_hp.emplace(agent_id, mHunterDefaultHP);
+        return it->second;
+    }
+
+    bool InteractionHeavyWorld::IsHunterAgent(const AgentBase &agent) const
+    {
+        return dynamic_cast<const HunterAgent *>(&agent) != nullptr;
+    }
+
+    bool InteractionHeavyWorld::IsHunterAlive(const AgentBase &agent) const
+    {
+        if (!IsHunterAgent(agent))
+            return false;
+
+        auto it = hunter_hp.find(agent.GetID());
+        if (it == hunter_hp.end())
+            return true;
+        return it->second > 0;
+    }
+
+    AgentBase *InteractionHeavyWorld::FindLiveHunterAt(size_t x, size_t y, const AgentBase *ignore)
+    {
+        for (auto &ptr : agent_set)
         {
-            if (action_id == MOVE_UP ||
-                action_id == MOVE_DOWN ||
-                action_id == MOVE_LEFT ||
-                action_id == MOVE_RIGHT)
+            if (!ptr)
+                continue;
+            if (ignore && ptr.get() == ignore)
+                continue;
+            if (!IsHunterAgent(*ptr))
+                continue;
+            if (!IsHunterAlive(*ptr))
+                continue;
+
+            WorldPosition pos = ptr->GetLocation().AsWorldPosition();
+            if (pos.CellX() == x && pos.CellY() == y)
             {
-                GetTimer().Start("Game::Session");
-                mTimerStarted = true;
+                return ptr.get();
             }
         }
+        return nullptr;
+    }
 
+    WorldPosition InteractionHeavyWorld::GetPlayerPosition() const
+    {
+        // The player is the non-hunter interface agent in this world.
+        for (const auto &ptr : agent_set)
+        {
+            if (!ptr)
+                continue;
+            if (!IsHunterAgent(*ptr))
+            {
+                return ptr->GetLocation().AsWorldPosition();
+            }
+        }
+        return mStartPosition;
+    }
+
+    AgentBase *InteractionHeavyWorld::FindBlockingAgentAt(size_t x, size_t y, const AgentBase *ignore)
+    {
+        for (auto &ptr : agent_set)
+        {
+            if (!ptr)
+                continue;
+            if (ignore && ptr.get() == ignore)
+                continue;
+
+            // Dead hunters should not block.
+            if (IsHunterAgent(*ptr) && !IsHunterAlive(*ptr))
+                continue;
+
+            // Live agents block movement so actors cannot stack on one cell.
+            WorldPosition pos = ptr->GetLocation().AsWorldPosition();
+            if (pos.CellX() == x && pos.CellY() == y)
+            {
+                return ptr.get();
+            }
+        }
+        return nullptr;
+    }
+
+    WorldPosition InteractionHeavyWorld::GetOffGridPosition() const
+    {
+        return WorldPosition(main_grid.GetWidth() + 10, main_grid.GetHeight() + 10);
+    }
+
+    void InteractionHeavyWorld::DefeatHunter(AgentBase &hunter)
+    {
+        // Move defeated hunters out of the map so they stop blocking and rendering.
+        hunter_hp[hunter.GetID()] = 0;
+        hunter.SetLocation(GetOffGridPosition());
+    }
+
+    // -------------------------------------------------------------------------
+    // Main action handling
+    // -------------------------------------------------------------------------
+
+    int InteractionHeavyWorld::DoAction(AgentBase &agent, size_t action_id)
+    {
         WorldPosition cur_position = agent.GetLocation().AsWorldPosition();
         WorldPosition new_position;
+
+        // Dead hunters do not get turns.
+        if (IsHunterAgent(agent))
+        {
+            GetHunterHP(agent.GetID());
+            if (!IsHunterAlive(agent))
+            {
+                return false;
+            }
+        }
 
         switch (action_id)
         {
@@ -461,26 +603,62 @@ namespace cse498
         if (!main_grid.IsValid(new_position))
             return false;
 
+        auto notify_failed_move = [&agent, action_id, this]()
+        {
+            if (!IsHunterAgent(agent))
+                return;
+
+            // Hunters use failed movement feedback to avoid repeating bad moves.
+            switch (action_id)
+            {
+            case MOVE_UP:
+                agent.Notify("up", "action_failed");
+                break;
+            case MOVE_DOWN:
+                agent.Notify("down", "action_failed");
+                break;
+            case MOVE_LEFT:
+                agent.Notify("left", "action_failed");
+                break;
+            case MOVE_RIGHT:
+                agent.Notify("right", "action_failed");
+                break;
+            default:
+                break;
+            }
+        };
+
         if (main_grid[new_position] == mWallID ||
             main_grid[new_position] == mBoulderID ||
-            main_grid[new_position] == mEnemyID ||
             main_grid[new_position] == mDoorID ||
             main_grid[new_position] == mChestID ||
             main_grid[new_position] == mChestOpenID)
+        {
+            notify_failed_move();
             return false;
+        }
+
+        AgentBase *blocking_agent = FindBlockingAgentAt(new_position.CellX(), new_position.CellY(), &agent);
+        if (blocking_agent != nullptr)
+        {
+            notify_failed_move();
+            if (IsHunterAgent(agent) && !IsHunterAgent(*blocking_agent))
+            {
+                // Hunters cannot step onto the player, so blocked contact still hurts.
+                ApplyEnemyContactDamage(GetPlayerPosition());
+            }
+            return false;
+        }
 
         agent.SetLocation(new_position);
 
-        if (agent.GetName() == "Player")
-            ApplyEnemyContactDamage(new_position);
+        ApplyEnemyContactDamage(GetPlayerPosition());
 
-        // Check for win condition if stepping on exit
+        // Check for win condition if stepping on exit.
         if (main_grid[new_position] == mExitID)
         {
             if (agent.GetName() == "Player")
             {
-                GetTimer().Stop("Game::Session");
-
                 std::cout << "Congratulations! You've reached the exit with "
                           << mStoneCount << " stone and " << mGoldCount << " gold!\n";
                 exit(0);
