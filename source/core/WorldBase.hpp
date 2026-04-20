@@ -70,6 +70,15 @@ namespace cse498 {
     /// Access the shared Timer for this world (const overload)
     const Timer & GetTimer() const { return mTimer; }
 
+    /// World specific score for end of game summary.
+    /// Default is 0; each world can override with its own scoring logic
+    [[nodiscard]] virtual double GetScore() const { return 0.0; } 
+
+    /// Total playtime (seconds) for the current session.
+    /// Reads from the shared Timer using the standard session name.
+    [[nodiscard]] double GetPlaytimeSeconds() const {             
+    return mTimer.Elapsed("Game::Session");}
+
     /// Access the ActionLog
     ActionLog & GetActionLog() { return mActionLog; }
 
