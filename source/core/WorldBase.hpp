@@ -37,11 +37,6 @@ namespace cse498 {
 
     bool run_over = false;  ///< Are we finished executing and now shutting down?
 
-
-    /// Helper function that is run whenever a new agent is created.
-    /// @note Override this function to provide agents with actions or other setup.
-    virtual void ConfigAgent(AgentBase & /* agent */, bool builder) { }
-
     /// Helper function that is run whenever a new agent is created.
     /// @note Override this function to provide agents with actions or other setup.
     virtual void ConfigAgent(AgentBase & /* agent */) { }
@@ -135,8 +130,7 @@ namespace cse498 {
     AGENT_T & AddAgent(std::string agent_name="None") {
       auto agent_ptr = std::make_unique<AGENT_T>(agent_set.size(), agent_name, *this);
       AGENT_T & agent_ref = *agent_ptr;
-      if(name == "builder") ConfigAgent(*agent_ptr, true);
-      else ConfigAgent(*agent_ptr);
+      ConfigAgent(*agent_ptr);
       if (agent_ptr->Initialize() == false) {
         std::cerr << "Failed to initialize agent '" << agent_name << "'." << std::endl;
       }

@@ -194,8 +194,8 @@ private:
    *
    * @param agent The agent to configure.
    */
-  void ConfigAgent(AgentBase & agent, bool builder) override {
-    if (builder) {
+  void ConfigAgent(AgentBase & agent) override {
+    if (agent.GetName() == "builder") {
       agent.AddAction("build_lumberyard", BUILD_LUMBERYARD);
       agent.AddAction("build_quarry", BUILD_QUARRY);
       agent.AddAction("build_spawner", BUILD_SPAWNER);

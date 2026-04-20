@@ -54,8 +54,8 @@ public:
     return mWorldResourceCounts[ResourceIndex(name)];
   }
 
-  StubAgent & SpawnStubAt(size_t x, size_t y) {
-    auto & agent = AddAgent<StubAgent>("test_agent");
+  StubAgent & SpawnStubAt(size_t x, size_t y, std::string agent_name) {
+    auto & agent = AddAgent<StubAgent>(agent_name);
     agent.SetLocation(WorldPosition(x, y));
     return static_cast<StubAgent &>(agent);
   }
@@ -70,7 +70,7 @@ public:
 TEST_CASE("DynamicWorld move - cardinal directions", "[DynamicWorld][move]") {
   cse498::TestDynamicWorld world;
   // Place agent in the centre of the 100x100 grid so all moves are in-bounds.
-  auto & agent = world.SpawnStubAt(50, 50);
+  auto & agent = world.SpawnStubAt(50, 50, "test_agent");
 
   SECTION("move up decrements y by 1") {
     world.DoAction(agent, world.MOVE_UP);
@@ -103,7 +103,7 @@ TEST_CASE("DynamicWorld move - cardinal directions", "[DynamicWorld][move]") {
 
 TEST_CASE("DynamicWorld move - diagonal directions", "[DynamicWorld][move]") {
   cse498::TestDynamicWorld world;
-  auto & agent = world.SpawnStubAt(50, 50);
+  auto & agent = world.SpawnStubAt(50, 50, "test_agent");
 
   SECTION("move up-left") {
     world.DoAction(agent, world.MOVE_UP_LEFT);
@@ -136,7 +136,7 @@ TEST_CASE("DynamicWorld move - diagonal directions", "[DynamicWorld][move]") {
 
 TEST_CASE("DynamicWorld move - move succeeds and returns true", "[DynamicWorld][move]") {
   cse498::TestDynamicWorld world;
-  auto & agent = world.SpawnStubAt(50, 50);
+  auto & agent = world.SpawnStubAt(50, 50, "test_agent");
 
   int result = world.DoAction(agent, world.MOVE_RIGHT);
   REQUIRE(result != 0);
@@ -145,7 +145,7 @@ TEST_CASE("DynamicWorld move - move succeeds and returns true", "[DynamicWorld][
 TEST_CASE("DynamicWorld move - blocked by out-of-bounds", "[DynamicWorld][move]") {
   cse498::TestDynamicWorld world;
   // Place agent on the top edge (y=0); moving up should fail.
-  auto & agent = world.SpawnStubAt(50, 0);
+  auto & agent = world.SpawnStubAt(50, 0, "test_agent");
 
   int result = world.DoAction(agent, world.MOVE_UP);
   REQUIRE(result == 0);
@@ -158,7 +158,7 @@ TEST_CASE("DynamicWorld move - blocked by out-of-bounds", "[DynamicWorld][move]"
 
 TEST_CASE("DynamicWorld move - blocked by building tile", "[DynamicWorld][move]") {
   cse498::TestDynamicWorld world;
-  auto & agent = world.SpawnStubAt(50, 50);
+  auto & agent = world.SpawnStubAt(50, 50, "test_agent");
 
   // Place a quarry directly to the right of the agent.
   world.SetCell(51, 50, world.GetQuarryId());
@@ -174,7 +174,7 @@ TEST_CASE("DynamicWorld move - blocked by building tile", "[DynamicWorld][move]"
 
 TEST_CASE("DynamicWorld move - can move onto resource tiles", "[DynamicWorld][move]") {
   cse498::TestDynamicWorld world;
-  auto & agent = world.SpawnStubAt(50, 50);
+  auto & agent = world.SpawnStubAt(50, 50, "test_agent");
 
   // Place a tree to the right — agents must be able to stand on it to collect.
   world.SetCell(51, 50, world.GetTreeId());
@@ -193,7 +193,7 @@ TEST_CASE("DynamicWorld move - can move onto resource tiles", "[DynamicWorld][mo
 
 TEST_CASE("DynamicWorld collect - wood", "[DynamicWorld][collect]") {
   cse498::TestDynamicWorld world;
-  auto & agent = world.SpawnStubAt(50, 50);
+  auto & agent = world.SpawnStubAt(50, 50, "test_agent");
   world.SetCell(50, 50, world.GetTreeId());
 
   int result = world.DoAction(agent, world.COLLECT);
@@ -206,7 +206,7 @@ TEST_CASE("DynamicWorld collect - wood", "[DynamicWorld][collect]") {
 
 TEST_CASE("DynamicWorld collect - stone", "[DynamicWorld][collect]") {
   cse498::TestDynamicWorld world;
-  auto & agent = world.SpawnStubAt(50, 50);
+  auto & agent = world.SpawnStubAt(50, 50, "test_agent");
   world.SetCell(50, 50, world.GetStoneId());
 
   int result = world.DoAction(agent, world.COLLECT);
@@ -218,7 +218,7 @@ TEST_CASE("DynamicWorld collect - stone", "[DynamicWorld][collect]") {
 
 TEST_CASE("DynamicWorld collect - wheat", "[DynamicWorld][collect]") {
   cse498::TestDynamicWorld world;
-  auto & agent = world.SpawnStubAt(50, 50);
+  auto & agent = world.SpawnStubAt(50, 50, "test_agent");
   world.SetCell(50, 50, world.GetWheatId());
 
   int result = world.DoAction(agent, world.COLLECT);
@@ -230,7 +230,7 @@ TEST_CASE("DynamicWorld collect - wheat", "[DynamicWorld][collect]") {
 
 TEST_CASE("DynamicWorld collect - fails on grass", "[DynamicWorld][collect]") {
   cse498::TestDynamicWorld world;
-  auto & agent = world.SpawnStubAt(50, 50);
+  auto & agent = world.SpawnStubAt(50, 50, "test_agent");
   // Ensure the tile is plain grass (no resource).
   world.SetCell(50, 50, world.GetGrassId());
 
@@ -248,7 +248,7 @@ TEST_CASE("DynamicWorld collect - multiple collections accumulate", "[DynamicWor
   // Collect wood from three separate tiles using three agents.
   for (size_t i = 0; i < 3; ++i) {
     world.SetCell(10 + i, 10, world.GetTreeId());
-    auto & agent = world.SpawnStubAt(10 + i, 10);
+    auto & agent = world.SpawnStubAt(10 + i, 10, "test_agent");
     world.DoAction(agent, world.COLLECT);
   }
 
@@ -260,7 +260,7 @@ TEST_CASE("DynamicWorld collect - multiple collections accumulate", "[DynamicWor
 
 TEST_CASE("DynamicWorld build lumberyard - succeeds", "[DynamicWorld][build]") {
   cse498::TestDynamicWorld world;
-  auto & agent = world.SpawnStubAt(50, 50);
+  auto & agent = world.SpawnStubAt(50, 50, "builder");
 
   // Start on a valid buildable tile
   world.SetCell(50, 50, world.GetGrassId());
@@ -280,7 +280,7 @@ TEST_CASE("DynamicWorld build lumberyard - succeeds", "[DynamicWorld][build]") {
 
 TEST_CASE("DynamicWorld build lumberyard - fails without enough resources", "[DynamicWorld][build]") {
   cse498::TestDynamicWorld world;
-  auto & agent = world.SpawnStubAt(50, 50);
+  auto & agent = world.SpawnStubAt(50, 50, "builder");
   world.SetCell(50, 50, world.GetGrassId());
 
   // Leave wood one short so the build fails
@@ -298,7 +298,7 @@ TEST_CASE("DynamicWorld build lumberyard - fails without enough resources", "[Dy
 
 TEST_CASE("DynamicWorld build quarry - succeeds", "[DynamicWorld][build]") {
   cse498::TestDynamicWorld world;
-  auto & agent = world.SpawnStubAt(50, 50);
+  auto & agent = world.SpawnStubAt(50, 50, "builder");
   world.SetCell(50, 50, world.GetGrassId());
 
   world.SetResource("stone", 20);
@@ -314,7 +314,7 @@ TEST_CASE("DynamicWorld build quarry - succeeds", "[DynamicWorld][build]") {
 
 TEST_CASE("DynamicWorld build quarry - fails on non-grass tile", "[DynamicWorld][build]") {
   cse498::TestDynamicWorld world;
-  auto & agent = world.SpawnStubAt(50, 50);
+  auto & agent = world.SpawnStubAt(50, 50, "builder");
   world.SetCell(50, 50, world.GetTreeId());
 
   world.SetResource("stone", 20);
@@ -330,7 +330,7 @@ TEST_CASE("DynamicWorld build quarry - fails on non-grass tile", "[DynamicWorld]
 
 TEST_CASE("DynamicWorld build spawner - succeeds", "[DynamicWorld][build]") {
   cse498::TestDynamicWorld world;
-  auto & agent = world.SpawnStubAt(50, 50);
+  auto & agent = world.SpawnStubAt(50, 50, "builder");
   world.SetCell(50, 50, world.GetGrassId());
 
   world.SetResource("stone", 30);
@@ -346,7 +346,7 @@ TEST_CASE("DynamicWorld build spawner - succeeds", "[DynamicWorld][build]") {
 
 TEST_CASE("DynamicWorld build farm - succeeds", "[DynamicWorld][build]") {
   cse498::TestDynamicWorld world;
-  auto & agent = world.SpawnStubAt(50, 50);
+  auto & agent = world.SpawnStubAt(50, 50, "builder");
   world.SetCell(50, 50, world.GetGrassId());
 
   world.SetResource("wheat", 20);
@@ -362,7 +362,7 @@ TEST_CASE("DynamicWorld build farm - succeeds", "[DynamicWorld][build]") {
 
 TEST_CASE("DynamicWorld build townhall - succeeds", "[DynamicWorld][build]") {
   cse498::TestDynamicWorld world;
-  auto & agent = world.SpawnStubAt(50, 50);
+  auto & agent = world.SpawnStubAt(50, 50, "builder");
   world.SetCell(50, 50, world.GetGrassId());
 
   world.SetResource("wood", 500);
@@ -382,7 +382,7 @@ TEST_CASE("DynamicWorld build townhall - succeeds", "[DynamicWorld][build]") {
 
 TEST_CASE("DynamicWorld build townhall - fails without enough resources", "[DynamicWorld][build]") {
   cse498::TestDynamicWorld world;
-  auto & agent = world.SpawnStubAt(50, 50);
+  auto & agent = world.SpawnStubAt(50, 50, "builder");
   world.SetCell(50, 50, world.GetGrassId());
 
   world.SetResource("wood", 500);
