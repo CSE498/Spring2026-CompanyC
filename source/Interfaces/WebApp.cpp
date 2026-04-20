@@ -7,10 +7,13 @@
 // See Interfaces/WebApp.hpp for the class interface and usage notes.
 
 #include "Interfaces/WebApp.hpp"
+#include "tools/WebAssetKeys.hpp"
+#include "tools/WebPopup.hpp"
 
 #include <emscripten.h>
 #include <emscripten/eventloop.h>
 
+#include <algorithm>
 #include <cstdlib>
 #include <map>
 #include <sstream>
@@ -71,7 +74,8 @@ EM_JS(void, WebAppEnsureUi, (), {
       // Codes must match the ActionCode enum in WebApp.hpp.
       var map = { 'w': 5, 'arrowup': 5, 's': 6, 'arrowdown': 6,
                   'a': 7, 'arrowleft': 7, 'd': 8, 'arrowright': 8,
-                  'e': 9, 'b': 10, 'r': 2, 'enter': 1 };
+                  'e': 9, 'b': 10, 'r': 2, 'enter': 1,
+                  'q': 11, 'z': 13, 'x': 12, 'c': 14 };
       if (!(key in map)) return;
       ev.preventDefault();
       Module.ccall('HandleAction', null, ['number'], [map[key]]);
@@ -179,9 +183,9 @@ WebApp::WebApp() {
   canvas_->AppendTo("cse498_canvas_host");
   canvas_->SetClickHandler([this](int pixel_x, int pixel_y) {
     if (!interface_) return;
-    const int cell_w = kCanvasWidthPx  / interface_->GetGridWidth();
-    const int cell_h = kCanvasHeightPx / interface_->GetGridHeight();
-    const auto cell  = canvas_->PixelToCell(pixel_x, pixel_y, cell_w, cell_h);
+    const int cell_size = std::min(kCanvasWidthPx  / interface_->GetGridWidth(),
+                                   kCanvasHeightPx / interface_->GetGridHeight());
+    const auto cell  = canvas_->PixelToCell(pixel_x, pixel_y, cell_size, cell_size);
     interface_->SelectCell(cell.first, cell.second);
     RenderWorld();
   });
@@ -269,18 +273,59 @@ void WebApp::RegisterActionMeta(const std::string& action_id,
   }
 }
 
+void WebApp::RegisterEntityVisual(char glyph, std::string image_url) {
+  if (interface_) {
+    cse498::WebCanvas::PreloadImage(image_url);
+    interface_->SetEntityVisual(glyph, std::move(image_url));
+  }
+}
+
+void WebApp::RegisterCellBackground(const std::string& cell_type_name,
+                                     std::string bg_image_url) {
+  cse498::WebCanvas::PreloadImage(bg_image_url);
+  cell_backgrounds_[cell_type_name] = std::move(bg_image_url);
+}
+
+void WebApp::SetPlayerVisible(bool visible) {
+  if (interface_) interface_->SetPlayerVisible(visible);
+}
+
+void WebApp::EnableViewport(int cell_px_size) {
+  use_viewport_     = true;
+  viewport_cell_px_ = cell_px_size;
+}
+
 void WebApp::Render() {
   if (!interface_) return;
   legend_by_id_.clear();
   for (const auto& entry : interface_->GetLegend()) {
     legend_by_id_[entry.id] = entry;
+    // Preload the sprite for this cell type.
+    cse498::WebCanvas::PreloadImage("assets/" + entry.key + ".png");
   }
   RenderWorld();
 }
 
 void WebApp::HandleAction(int action_code) {
+  if (!interface_ || !world_) return;
+
+  // Code 0 is a no-op redraw (used by the image preloader onload callback).
+  if (action_code == 0) {
+    RenderWorld();
+    return;
+  }
+
   const std::string action_id = ActionIdForCode(action_code);
-  if (action_id.empty() || !interface_ || !world_) return;
+  if (action_id.empty()) return;
+
+  const bool is_move_action = IsMovementAction(action_code);
+  std::pair<int, int> start_cell{0, 0};
+  std::pair<int, int> attempted_cell{0, 0};
+  const bool had_start_cell =
+      is_move_action && TryGetPlayerCell(start_cell);
+  if (had_start_cell) {
+    attempted_cell = GetAttemptedMoveCell(action_code, start_cell);
+  }
 
   // Intercept save/load meta-actions — these should not advance the game clock.
   if (action_id == "save") { PerformSave(); return; }
@@ -290,7 +335,38 @@ void WebApp::HandleAction(int action_code) {
   // the world by one turn (world calls SelectAction → DoAction on the agent).
   interface_->SubmitAction(action_id);
   world_->RunAgents();
+
+  if (had_start_cell) {
+    std::pair<int, int> end_cell{0, 0};
+    if (TryGetPlayerCell(end_cell) && end_cell != start_cell) {
+      interface_->SelectCell(end_cell.first, end_cell.second);
+    } else {
+      interface_->SelectCell(attempted_cell.first, attempted_cell.second);
+    }
+  }
+
+  if (action_code == kActionStart) {
+    // Timed only: 1.5 seconds (see "popup_timed" format: ms|text)
+    interface_->Notify("1500|Game starts now!", "popup_timed");
+  }
+  if (use_viewport_) CenterViewportOnPlayer();
   RenderWorld();
+}
+
+void WebApp::CenterViewportOnPlayer() {
+  if (!interface_ || !interface_->GetLocation().IsPosition()) return;
+
+  const int grid_w    = interface_->GetGridWidth();
+  const int grid_h    = interface_->GetGridHeight();
+  const int view_cols = kCanvasWidthPx  / viewport_cell_px_;
+  const int view_rows = kCanvasHeightPx / viewport_cell_px_;
+
+  const auto& pos    = interface_->GetLocation().AsWorldPosition();
+  const int player_x = static_cast<int>(pos.CellX());
+  const int player_y = static_cast<int>(pos.CellY());
+
+  viewport_x_ = std::max(0, std::min(player_x - view_cols / 2, grid_w - view_cols));
+  viewport_y_ = std::max(0, std::min(player_y - view_rows / 2, grid_h - view_rows));
 }
 
 std::string WebApp::ActionIdForCode(int code) {
@@ -303,9 +379,13 @@ std::string WebApp::ActionIdForCode(int code) {
     case kActionDown:    return "down";
     case kActionLeft:    return "left";
     case kActionRight:   return "right";
-    case kActionCollect: return "collect";
-    case kActionBuild:   return "build";
-    default:             return std::string();
+    case kActionCollect:   return "collect";
+    case kActionBuild:     return "build";
+    case kActionUpLeft:    return "up_left";
+    case kActionUpRight:   return "up_right";
+    case kActionDownLeft:  return "down_left";
+    case kActionDownRight: return "down_right";
+    default:               return std::string();
   }
 }
 
@@ -318,9 +398,52 @@ int WebApp::CodeForActionId(const std::string& action_id) {
   if (action_id == "down")    return kActionDown;
   if (action_id == "left")    return kActionLeft;
   if (action_id == "right")   return kActionRight;
-  if (action_id == "collect") return kActionCollect;
-  if (action_id == "build")   return kActionBuild;
+  if (action_id == "collect")   return kActionCollect;
+  if (action_id == "build")     return kActionBuild;
+  if (action_id == "up_left")   return kActionUpLeft;
+  if (action_id == "up_right")  return kActionUpRight;
+  if (action_id == "down_left") return kActionDownLeft;
+  if (action_id == "down_right")return kActionDownRight;
   return 0;
+}
+
+bool WebApp::IsMovementAction(int action_code) const {
+  switch (action_code) {
+    case kActionUp:
+    case kActionDown:
+    case kActionLeft:
+    case kActionRight:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool WebApp::TryGetPlayerCell(std::pair<int, int>& out_cell) const {
+  if (!interface_) return false;
+
+  const auto& location = interface_->GetLocation();
+  if (!location.IsPosition()) return false;
+
+  const cse498::WorldPosition& pos = location.AsWorldPosition();
+  out_cell = {static_cast<int>(pos.CellX()), static_cast<int>(pos.CellY())};
+  return true;
+}
+
+std::pair<int, int> WebApp::GetAttemptedMoveCell(
+    int action_code, const std::pair<int, int>& from_cell) const {
+  switch (action_code) {
+    case kActionUp:
+      return {from_cell.first, from_cell.second - 1};
+    case kActionDown:
+      return {from_cell.first, from_cell.second + 1};
+    case kActionLeft:
+      return {from_cell.first - 1, from_cell.second};
+    case kActionRight:
+      return {from_cell.first + 1, from_cell.second};
+    default:
+      return from_cell;
+  }
 }
 
 // Clears the canvas, draws all world cells and entities via the interface,
@@ -331,8 +454,18 @@ void WebApp::RenderWorld() {
   // Grid dimensions come from the world so this works with any WorldBase world.
   const int grid_w = interface_->GetGridWidth();
   const int grid_h = interface_->GetGridHeight();
-  const int cell_w = kCanvasWidthPx  / grid_w;
-  const int cell_h = kCanvasHeightPx / grid_h;
+
+  // In viewport mode use a fixed cell size and render a window of cells.
+  // In normal mode fit the whole grid into the canvas.
+  const int cell_w = use_viewport_ ? viewport_cell_px_
+                                   : std::min(kCanvasWidthPx  / grid_w,
+                                              kCanvasHeightPx / grid_h);
+  const int cell_h = cell_w;
+
+  const int view_cols = use_viewport_ ? kCanvasWidthPx  / cell_w : grid_w;
+  const int view_rows = use_viewport_ ? kCanvasHeightPx / cell_h : grid_h;
+  const int start_col = use_viewport_ ? viewport_x_ : 0;
+  const int start_row = use_viewport_ ? viewport_y_ : 0;
 
   // Fetch all renderable cells once and build a position-indexed lookup so
   // each grid cell is resolved in O(1) rather than with a linear scan.
@@ -345,9 +478,12 @@ void WebApp::RenderWorld() {
 
   canvas_->Clear();
 
-  canvas_->DrawGrid(grid_w, grid_h, cell_w, cell_h,
-    [&](int col, int row) {
-      const auto it = cell_pos_map.find(row * grid_w + col);
+  // draw_col/draw_row are canvas-space (0-based); grid_col/grid_row are world coords.
+  canvas_->DrawGrid(view_cols, view_rows, cell_w, cell_h,
+    [&](int draw_col, int draw_row) {
+      const int grid_col = start_col + draw_col;
+      const int grid_row = start_row + draw_row;
+      const auto it = cell_pos_map.find(grid_row * grid_w + grid_col);
       if (it != cell_pos_map.end()) {
         const auto& cell = renderable_cells[it->second];
 
@@ -358,50 +494,88 @@ void WebApp::RenderWorld() {
         const std::string fill  = entry ? entry->fill_css : kColorCellFallback;
         const std::string glyph = entry ? entry->glyph   : "?";
 
-        canvas_->DrawCell(col, row, cell_w, cell_h, fill, glyph, kColorCellText);
+        // Draw background tile first if one is registered for this cell type.
+        if (entry) {
+          const auto bg_it = cell_backgrounds_.find(entry->key);
+          if (bg_it != cell_backgrounds_.end()) {
+            canvas_->DrawImage(bg_it->second,
+                               static_cast<float>(draw_col * cell_w),
+                               static_cast<float>(draw_row * cell_h),
+                               static_cast<float>(cell_w),
+                               static_cast<float>(cell_h),
+                               fill);
+          }
+        }
+
+        std::string image_url;
+        if (entry) { image_url = "assets/" + entry->key + ".png"; }
+        canvas_->DrawCellImage(draw_col, draw_row, cell_w, cell_h,
+                               image_url, fill, glyph);
 
         if (cell.selected) {
-          canvas_->HighlightCell(col, row, cell_w, cell_h);
+          canvas_->HighlightCell(draw_col, draw_row, cell_w, cell_h);
         }
       } else {
-        canvas_->DrawCell(col, row, cell_w, cell_h,
+        canvas_->DrawCell(draw_col, draw_row, cell_w, cell_h,
                           kColorCellEmpty, "", kColorCellText);
       }
   });
 
   const float entity_radius = 0.4f * static_cast<float>(std::min(cell_w, cell_h));
   for (const auto& entity : interface_->GetEntities()) {
-    const float center_x =
-        static_cast<float>(entity.x * cell_w + cell_w / 2);
-    const float center_y =
-        static_cast<float>(entity.y * cell_h + cell_h / 2);
-    canvas_->DrawEntity(center_x, center_y, entity_radius, entity.fill_css,
-                        entity.glyph, kColorEntityText);
+    // Translate world coords to canvas draw coords using viewport offset.
+    const int draw_x = entity.x - start_col;
+    const int draw_y = entity.y - start_row;
+    if (draw_x < 0 || draw_x >= view_cols || draw_y < 0 || draw_y >= view_rows) continue;
+
+    const float center_x = static_cast<float>(draw_x * cell_w + cell_w / 2);
+    const float center_y = static_cast<float>(draw_y * cell_h + cell_h / 2);
+    if (!entity.image_url.empty()) {
+      const float img_x = static_cast<float>(draw_x * cell_w);
+      const float img_y = static_cast<float>(draw_y * cell_h);
+      canvas_->DrawImage(entity.image_url, img_x, img_y,
+                         static_cast<float>(cell_w),
+                         static_cast<float>(cell_h),
+                         entity.fill_css);
+    } else {
+      canvas_->DrawEntity(center_x, center_y, entity_radius, entity.fill_css,
+                          entity.glyph, kColorEntityText);
+    }
   }
 
   // Draw grid lines after cells so they appear on top.
   canvas_->SetStrokeColor(kColorGridLine);
   canvas_->SetLineWidth(1.0f);
-  for (int i = 0; i <= grid_w; ++i) {
+  const float grid_px_w = static_cast<float>(view_cols * cell_w);
+  const float grid_px_h = static_cast<float>(view_rows * cell_h);
+  for (int i = 0; i <= view_cols; ++i) {
     const float p = static_cast<float>(i * cell_w);
-    canvas_->DrawLine(p, 0.0f, p, static_cast<float>(kCanvasHeightPx));
+    canvas_->DrawLine(p, 0.0f, p, grid_px_h);
   }
-  for (int i = 0; i <= grid_h; ++i) {
+  for (int i = 0; i <= view_rows; ++i) {
     const float p = static_cast<float>(i * cell_h);
-    canvas_->DrawLine(0.0f, p, static_cast<float>(kCanvasWidthPx), p);
+    canvas_->DrawLine(0.0f, p, grid_px_w, p);
   }
 
   canvas_->Present();
 
   const cse498::HudState hud = interface_->GetHudState();
+  const std::string& panel_text = interface_->GetPanelText();
   std::ostringstream hud_text;
   hud_text << "World: "    << hud.world_name    << "\n"
            << "Mode: "     << hud.mode          << "\n"
            << "Tick: "     << hud.tick          << "\n"
            << "Selected: " << hud.selected_cell << "\n\n"
            << "Resources\n";
-  for (const auto& entry : hud.resources) {
-    hud_text << "- " << entry.first << ": " << entry.second << "\n";
+  if (!panel_text.empty()) {
+    hud_text << panel_text;
+    if (panel_text.back() != '\n') {
+      hud_text << "\n";
+    }
+  } else {
+    for (const auto& entry : hud.resources) {
+      hud_text << "- " << entry.first << ": " << entry.second << "\n";
+    }
   }
 
   hud_text_->SetText(hud_text.str());
@@ -416,6 +590,10 @@ void WebApp::RenderWorld() {
     if (code != 0) {
       WebAppSetActionEnabled(code, static_cast<int>(action.enabled));
     }
+  }
+
+  for (const cse498::WebPopupRequest& popup : interface_->TakePendingPopups()) {
+    cse498::EnqueueWebPopup(popup.message, popup.options);
   }
 }
 

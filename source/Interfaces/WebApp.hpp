@@ -15,6 +15,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 #include "tools/IWorldUiAdapter.hpp"
 #include "tools/WebCanvas.hpp"
@@ -62,6 +63,16 @@ class WebApp {
   void RegisterActionMeta(const std::string& action_id,
                           cse498::WebInterface::ActionMeta meta);
 
+  /// Assign a sprite image URL to agents whose glyph character matches.
+  /// Call after Initialize() and before Render().
+  void RegisterEntityVisual(char glyph, std::string image_url);
+
+  /// Register a background image to draw beneath a named cell type's sprite.
+  /// e.g., RegisterCellBackground("tree", "assets/grass.png") draws grass
+  /// under every tree cell before the tree sprite is drawn on top.
+  void RegisterCellBackground(const std::string& cell_type_name,
+                               std::string bg_image_url);
+
   /// Build the legend cache and draw the first frame.
   /// Must be called after Initialize() and all SetCellVisual()/RegisterActionMeta() calls.
   void Render();
@@ -83,6 +94,14 @@ class WebApp {
   /// Set the callback invoked when a load response arrives.
   /// The callback should read world state from the Database.
   void SetLoadCallback(std::function<void()> cb) { load_callback_ = std::move(cb); }
+  /// Hide or show the player entity on the canvas.
+  /// Pass false for an invisible observer/camera that only controls the viewport.
+  void SetPlayerVisible(bool visible);
+
+  /// Switch to viewport (camera) mode with a fixed cell pixel size.
+  /// The viewport is centered on the player position each frame.
+  /// Call after Initialize() and before Render().
+  void EnableViewport(int cell_px_size = 32);
 
  private:
   // Action codes shared between C++ dispatch and the JavaScript bridge.
@@ -90,22 +109,32 @@ class WebApp {
   // the world's ActionType enum — any change here must be reflected in both
   // the EM_JS key/button maps in WebApp.cpp and the world's enum.
   enum ActionCode {
-    kActionStart   = 1,
-    kActionReset   = 2,
-    kActionSave    = 3,
-    kActionLoad    = 4,
-    kActionUp      = 5,
-    kActionDown    = 6,
-    kActionLeft    = 7,
-    kActionRight   = 8,
-    kActionCollect = 9,
-    kActionBuild   = 10,
+    kActionStart     = 1,
+    kActionReset     = 2,
+    kActionSave      = 3,
+    kActionLoad      = 4,
+    kActionUp        = 5,
+    kActionDown      = 6,
+    kActionLeft      = 7,
+    kActionRight     = 8,
+    kActionCollect   = 9,
+    kActionBuild     = 10,
+    kActionUpLeft    = 11,
+    kActionUpRight   = 12,
+    kActionDownLeft  = 13,
+    kActionDownRight = 14,
   };
 
   static std::string ActionIdForCode(int code);
   static int CodeForActionId(const std::string& action_id);
 
+  bool IsMovementAction(int action_code) const;
+  bool TryGetPlayerCell(std::pair<int, int>& out_cell) const;
+  std::pair<int, int> GetAttemptedMoveCell(
+      int action_code, const std::pair<int, int>& from_cell) const;
+
   void RenderWorld();
+  void CenterViewportOnPlayer();
 
   // Two-layer simulation/rendering architecture:
   //   world_     — owns the grid, game rules, and all agents (including interface_)
@@ -133,6 +162,14 @@ class WebApp {
 
   void PerformSave();
   void PerformLoad();
+  // Optional background image per cell type name (drawn beneath the cell sprite).
+  std::unordered_map<std::string, std::string> cell_backgrounds_;
+
+  // Viewport (camera) mode: render a fixed-cell-size window centered on player.
+  bool use_viewport_      = false;
+  int  viewport_cell_px_  = 32;  // pixels per cell when viewport mode is active
+  int  viewport_x_        = 0;   // top-left grid column currently in view
+  int  viewport_y_        = 0;   // top-left grid row currently in view
 };
 
 /// Single application instance — defined in WebApp.cpp, used by
