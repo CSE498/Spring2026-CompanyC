@@ -15,6 +15,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 #include "tools/IWorldUiAdapter.hpp"
 #include "tools/WebCanvas.hpp"
@@ -93,6 +94,11 @@ class WebApp {
 
   static std::string ActionIdForCode(int code);
   static int CodeForActionId(const std::string& action_id);
+
+  bool IsMovementAction(int action_code) const;
+  bool TryGetPlayerCell(std::pair<int, int>& out_cell) const;
+  std::pair<int, int> GetAttemptedMoveCell(
+      int action_code, const std::pair<int, int>& from_cell) const;
 
   void RenderWorld();
 
