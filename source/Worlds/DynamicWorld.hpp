@@ -190,7 +190,7 @@ private:
 
    /** @brief Configure an agent with available actions.
    *
-   * The first agent added becomes the "leader" and gains build abilities.
+   * Any agent named "builder" gains build abilities.
    *
    * @param agent The agent to configure.
    */
