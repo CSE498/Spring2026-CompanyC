@@ -509,14 +509,17 @@ if (action_id.empty()) return;
       StopAutoTickLoop();
     }
 
+    if (action_code == kActionStart) {
+      // Timed only: 1.5 seconds (see "popup_timed" format: ms|text)
+      interface_->Notify("1500|Game starts now!", "popup_timed");
+    }
+
     // Submit the action to the interface (stores it as pending), then advance
     // the world by one turn (world calls SelectAction → DoAction on the agent).
     interface_->SubmitAction(action_id);
     AdvanceSimulationTick();
     if (action_code == kActionStart) {
-      // Timed only: 1.5 seconds (see "popup_timed" format: ms|text)
-      interface_->Notify("1500|Game starts now!", "popup_timed");
-      ScheduleAutoTickStart(3500);
+      ScheduleAutoTickStart(2000);
     }
   }
 
