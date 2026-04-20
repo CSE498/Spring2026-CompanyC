@@ -147,7 +147,7 @@ namespace cse498
         break;
       case 'm':
       case 'M':
-        action_id = GetActionID("goblin"); // door
+        action_id = GetActionID("pay"); // door
         break;
       case 'p':
       case 'P':
