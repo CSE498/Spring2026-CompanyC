@@ -30,6 +30,9 @@ namespace cse498
 
     WorldPosition InteractionHeavyWorld::GetStartPosition() const { return mStartPosition; }
 
+    std::vector<WorldPosition> InteractionHeavyWorld::GetEnemySpawnPositions() const { return mEnemySpawnPositions; };
+
+
     void InteractionHeavyWorld::ConfigAgent(AgentBase &agent)
     {
         agent.AddAction("up", MOVE_UP);
@@ -78,10 +81,10 @@ namespace cse498
         // Load dungeon layout from text file
         std::vector<std::string> dungeon_layout;
 
-        std::ifstream infile("source/Worlds/interaction_world_maps/dungeon_map_small.txt");
+        std::ifstream infile("source/Worlds/interaction_world_maps/dungeon_map.txt");
         if (!infile)
         {
-            std::cerr << "Error: Could not open dungeon_map_small.txt\n";
+            std::cerr << "Error: Could not open dungeon_map.txt\n";
             return;
         }
 
@@ -102,7 +105,10 @@ namespace cse498
         LoadDungeon(dungeon_layout);
 
         // Place boulders in the world
-        PlaceBoulders();
+        int min = 1;
+        int max = 4;
+
+        PlaceBoulders(min, max);
     }
 
     void InteractionHeavyWorld::LoadDungeon(const std::vector<std::string> &dungeon_layout)
@@ -139,6 +145,7 @@ namespace cse498
                 case 'H':
                     main_grid[pos] = mEnemyID;
                     enemy_hp[{x, y}] = mEnemyDefaultHP;
+                    mEnemySpawnPositions.push_back(pos);
                     break;
                 }
             }
@@ -177,11 +184,11 @@ namespace cse498
         }
     }
 
-    void InteractionHeavyWorld::PlaceBoulders()
+    void InteractionHeavyWorld::PlaceBoulders(int minBoulders, int maxBoulders)
     {
         // Randomly place boulders in the world, avoiding the starting area and ensuring they are on floor cells.
         static std::mt19937 gen(std::random_device{}());
-        std::uniform_int_distribution<> dist(1, 4);
+        std::uniform_int_distribution<> dist(minBoulders, maxBoulders);
 
         int count = dist(gen);
         int placed = 0;
@@ -275,7 +282,7 @@ namespace cse498
             // Open a chest
             if (tile == mChestID)
             {
-                size_t gold_found = 2;
+                size_t gold_found = 4;
 
                 mGoldCount += gold_found;
                 main_grid[pos] = mChestOpenID;
@@ -294,13 +301,6 @@ namespace cse498
                     main_grid[pos] = mDoorOpenID;
                     SyncResourceVector();
                 }
-                return;
-            }
-
-            // Enemy interaction (placeholder)
-            if (tile == mEnemyID)
-            {
-                // Placeholder
                 return;
             }
         }

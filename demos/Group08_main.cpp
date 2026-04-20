@@ -19,34 +19,28 @@ using namespace cse498;
 
 int main()
 {
-  InteractionHeavyWorld world;
+    InteractionHeavyWorld world;
 
-  world.AddAgent<TrashInterface>("Player").SetSymbol('@').SetLocation(world.GetStartPosition());
+    world.AddAgent<TrashInterface>("Player")
+        .SetSymbol('@')
+        .SetLocation(world.GetStartPosition());
 
-  std::random_device rd;
-  std::mt19937 gen(rd());
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> coin(0, 1);
 
-  std::uniform_int_distribution<> agent_dist(0, 1);
-  std::uniform_int_distribution<> coin(0, 1);
-
-  for (auto i = 0; i < agent_dist(gen); ++i)
-  {
-    WorldPosition pos = world.GetRandomPosition();
-
-    auto& agent =
-        world.AddAgent<PacingAgent>("Pacer " + std::to_string(i));
-
-    agent.SetLocation(pos);
-
-    if (coin(gen))
+    // Use the H positions from the map directly
+    auto spawnPositions = world.GetEnemySpawnPositions();
+    for (size_t i = 0; i < spawnPositions.size(); ++i)
     {
-      agent.SetHorizontal();
+        auto& agent = world.AddAgent<PacingAgent>("Pacer " + std::to_string(i));
+        agent.SetLocation(spawnPositions[i]);
+
+        if (coin(gen) == 0)
+            agent.SetHorizontal();
+        else
+            agent.SetVertical();
     }
-    else
-    {
-      agent.SetVertical();
-    } 
-  }  
 
-  world.Run();
+    world.Run();
 }

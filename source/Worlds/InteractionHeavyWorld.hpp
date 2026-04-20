@@ -42,6 +42,8 @@ namespace cse498
 
         WorldPosition mStartPosition;
 
+        std::vector<WorldPosition> mEnemySpawnPositions;
+
     protected:
         // Action types for this world
         enum ActionType
@@ -119,6 +121,7 @@ namespace cse498
         size_t GetGoldCount() const;
         WorldPosition GetStartPosition() const;
         WorldPosition GetRandomPosition() const;
+        std::vector<WorldPosition> GetEnemySpawnPositions() const;
 
         int GetPlayerHP() const;
 
@@ -130,9 +133,10 @@ namespace cse498
 
         /**
          * @brief Determine if a position is near the spawn area.
-         * @param pos The position to check.
+         * @param minBoulders The minimum number of boulders to create.
+         * @param maxBoulders The maximum number of boulders to create.
          */
-        void PlaceBoulders();
+        void PlaceBoulders(int minBoulders, int maxBoulders);
 
         /**
          * @brief Print the inventory contents.
