@@ -40,7 +40,7 @@ namespace cse498 {
 
     /// Helper function that is run whenever a new agent is created.
     /// @note Override this function to provide agents with actions or other setup.
-    virtual void ConfigAgent(AgentBase & /* agent */, bool builder = false) { }
+    virtual void ConfigAgent(AgentBase & /* agent */, bool builder) { }
 
     /// Helper function that is run whenever a new agent is created.
     /// @note Override this function to provide agents with actions or other setup.
