@@ -103,6 +103,21 @@ public:
    * @return The chosen action ID.
    */
   size_t SelectAction(WorldGrid &grid) override;
+
+  int GetHP() const { return hp; }
+  int GetMaxHP() const { return max_hp; }
+  void SetHP(int value) { hp = value < 0 ? 0 : value; }
+  void SetMaxHP(int value) { max_hp = value < 0 ? 0 : value; }
+
+  void TakeDamage(int amount) {
+    if (amount < 0)
+      return;
+    hp -= amount;
+    if (hp < 0)
+      hp = 0;
+  }
+
+  bool IsAlive() const { return hp > 0; }
 };
 
 } // namespace cse498
