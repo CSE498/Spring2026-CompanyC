@@ -163,9 +163,6 @@ private:
   /// @brief Tracks spawner positions and their last spawn tick.
   std::vector<std::pair<WorldPosition, size_t>> mSpawners;
 
-  /// @brief Indicates whether the leader agent has been assigned.
-  bool mLeaderAgentSet = false;
-
   /// @brief An agent that only has movement capabilities (For UI purposes)
   std::unique_ptr<AgentBase> mGhostAgent;
 
@@ -197,14 +194,13 @@ private:
    *
    * @param agent The agent to configure.
    */
-  void ConfigAgent(AgentBase & agent) override {
-    if (!mLeaderAgentSet) {
+  void ConfigAgent(AgentBase & agent, bool builder = false) override {
+    if (builder) {
       agent.AddAction("build_lumberyard", BUILD_LUMBERYARD);
       agent.AddAction("build_quarry", BUILD_QUARRY);
       agent.AddAction("build_spawner", BUILD_SPAWNER);
       agent.AddAction("build_farm", BUILD_FARM);
       agent.AddAction("build_townhall", BUILD_TOWNHALL);
-      mLeaderAgentSet = true;
     }
 
     AddMovementFunctions(agent);
