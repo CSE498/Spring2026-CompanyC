@@ -62,6 +62,17 @@ void WebInterface::Notify(const std::string& message,
       resources_[message.substr(0, colon)] =
           std::stoi(message.substr(colon + 1));
     }
+  } else if (msg_type == "resource_clear") {
+    resources_.clear();
+  } else if (msg_type == "panel_clear") {
+    panel_text_.clear();
+  } else if (msg_type == "panel_line") {
+    if (!panel_text_.empty()) {
+      panel_text_ += "\n";
+    }
+    panel_text_ += message;
+  } else if (msg_type == "panel_text") {
+    panel_text_ = message;
   } else if (msg_type == "world_name") {
     world_name_ = message;
   } else if (msg_type == "popup") {
@@ -93,6 +104,10 @@ void WebInterface::SelectCell(int x, int y) {
 
 std::pair<int, int> WebInterface::GetSelectedCell() const {
   return {selected_x_, selected_y_};
+}
+
+const std::string& WebInterface::GetPanelText() const {
+  return panel_text_;
 }
 
 void WebInterface::SetCellVisual(const std::string& cell_type_name,

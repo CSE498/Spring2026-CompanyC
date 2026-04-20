@@ -260,10 +260,29 @@ void WebApp::HandleAction(int action_code) {
   const std::string action_id = ActionIdForCode(action_code);
   if (action_id.empty()) return;
 
+  const bool is_move_action = IsMovementAction(action_code);
+  std::pair<int, int> start_cell{0, 0};
+  std::pair<int, int> attempted_cell{0, 0};
+  const bool had_start_cell =
+      is_move_action && TryGetPlayerCell(start_cell);
+  if (had_start_cell) {
+    attempted_cell = GetAttemptedMoveCell(action_code, start_cell);
+  }
+
   // Submit the action to the interface (stores it as pending), then advance
   // the world by one turn (world calls SelectAction → DoAction on the agent).
   interface_->SubmitAction(action_id);
   world_->RunAgents();
+
+  if (had_start_cell) {
+    std::pair<int, int> end_cell{0, 0};
+    if (TryGetPlayerCell(end_cell) && end_cell != start_cell) {
+      interface_->SelectCell(end_cell.first, end_cell.second);
+    } else {
+      interface_->SelectCell(attempted_cell.first, attempted_cell.second);
+    }
+  }
+
   if (action_code == kActionStart) {
     // Timed only: 1.5 seconds (see "popup_timed" format: ms|text)
     interface_->Notify("1500|Game starts now!", "popup_timed");
@@ -324,6 +343,45 @@ int WebApp::CodeForActionId(const std::string& action_id) {
   if (action_id == "down_left") return kActionDownLeft;
   if (action_id == "down_right")return kActionDownRight;
   return 0;
+}
+
+bool WebApp::IsMovementAction(int action_code) const {
+  switch (action_code) {
+    case kActionUp:
+    case kActionDown:
+    case kActionLeft:
+    case kActionRight:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool WebApp::TryGetPlayerCell(std::pair<int, int>& out_cell) const {
+  if (!interface_) return false;
+
+  const auto& location = interface_->GetLocation();
+  if (!location.IsPosition()) return false;
+
+  const cse498::WorldPosition& pos = location.AsWorldPosition();
+  out_cell = {static_cast<int>(pos.CellX()), static_cast<int>(pos.CellY())};
+  return true;
+}
+
+std::pair<int, int> WebApp::GetAttemptedMoveCell(
+    int action_code, const std::pair<int, int>& from_cell) const {
+  switch (action_code) {
+    case kActionUp:
+      return {from_cell.first, from_cell.second - 1};
+    case kActionDown:
+      return {from_cell.first, from_cell.second + 1};
+    case kActionLeft:
+      return {from_cell.first - 1, from_cell.second};
+    case kActionRight:
+      return {from_cell.first + 1, from_cell.second};
+    default:
+      return from_cell;
+  }
 }
 
 // Clears the canvas, draws all world cells and entities via the interface,
@@ -440,14 +498,22 @@ void WebApp::RenderWorld() {
   canvas_->Present();
 
   const cse498::HudState hud = interface_->GetHudState();
+  const std::string& panel_text = interface_->GetPanelText();
   std::ostringstream hud_text;
   hud_text << "World: "    << hud.world_name    << "\n"
            << "Mode: "     << hud.mode          << "\n"
            << "Tick: "     << hud.tick          << "\n"
            << "Selected: " << hud.selected_cell << "\n\n"
            << "Resources\n";
-  for (const auto& entry : hud.resources) {
-    hud_text << "- " << entry.first << ": " << entry.second << "\n";
+  if (!panel_text.empty()) {
+    hud_text << panel_text;
+    if (panel_text.back() != '\n') {
+      hud_text << "\n";
+    }
+  } else {
+    for (const auto& entry : hud.resources) {
+      hud_text << "- " << entry.first << ": " << entry.second << "\n";
+    }
   }
 
   hud_text_->SetText(hud_text.str());
