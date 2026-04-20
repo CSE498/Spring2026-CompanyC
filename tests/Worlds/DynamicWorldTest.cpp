@@ -13,6 +13,8 @@ public:
     : AgentBase(id, name, world) { }
 
   size_t SelectAction(WorldGrid &) override { return next_action; }
+
+  void SetAgentLocation(size_t x, size_t y) { SetLocation(WorldPosition(x, y)); }
 };
 
 // Expose protected DoAction and action enum + grid for white-box testing.
@@ -154,6 +156,30 @@ TEST_CASE("DynamicWorld move - blocked by out-of-bounds", "[DynamicWorld][move]"
   auto pos = agent.GetLocation().AsWorldPosition();
   REQUIRE(pos.X() == Approx(50));
   REQUIRE(pos.Y() == Approx(0));
+
+  agent.SetAgentLocation(0, 50);
+  result = world.DoAction(agent, world.MOVE_LEFT);
+  REQUIRE(result == 0);
+
+  pos = agent.GetLocation().AsWorldPosition();
+  REQUIRE(pos.X() == Approx(0));
+  REQUIRE(pos.Y() == Approx(50));
+
+  agent.SetAgentLocation(80, 80);
+  result = world.DoAction(agent, world.MOVE_DOWN);
+  REQUIRE(result == 0);
+
+  pos = agent.GetLocation().AsWorldPosition();
+  REQUIRE(pos.X() == Approx(80));
+  REQUIRE(pos.Y() == Approx(80));
+
+  agent.SetAgentLocation(80, 80);
+  result = world.DoAction(agent, world.MOVE_RIGHT);
+  REQUIRE(result == 0);
+
+  pos = agent.GetLocation().AsWorldPosition();
+  REQUIRE(pos.X() == Approx(80));
+  REQUIRE(pos.Y() == Approx(80));
 }
 
 TEST_CASE("DynamicWorld move - blocked by building tile", "[DynamicWorld][move]") {
