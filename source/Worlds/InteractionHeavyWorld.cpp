@@ -4,8 +4,8 @@
  * @author Jose Hernandez
  *
  * This is the implementation file for the Interaction Heavy-Simulation world.
- * @brief A World that consists of various resources that agents can interact with (e.g., break, collect, etc.).
- * @note Status: PROPOSAL
+ * @brief A World that consists of various resources that agents can interact with (e.g., break, collect, pay, throw, etc.).
+ * @note Status: FINAL
  */
 #include "InteractionHeavyWorld.hpp"
 #include "../Agents/HunterAgent.hpp"
@@ -37,6 +37,7 @@ namespace cse498
         agent.AddAction("right", MOVE_RIGHT);
         agent.AddAction("break_boulder", BREAK_BOULDER);
         agent.AddAction("collect", COLLECT);
+        agent.AddAction("pay", PAY);
         agent.AddAction("print_inventory", PRINT_INVENTORY);
         agent.AddAction("throw_up", THROW_UP);
         agent.AddAction("throw_down", THROW_DOWN);
@@ -333,17 +334,43 @@ namespace cse498
                 SyncResourceVector();
                 return;
             }
+        }
+    }
 
-            // Open a door.
+    void InteractionHeavyWorld::Pay(size_t x, size_t y)
+    {
+        WorldPosition center(x, y);
+
+        std::vector<WorldPosition> neighbors = {
+            center,
+            center.Up(),
+            center.Down(),
+            center.Left(),
+            center.Right()};
+
+        for (const auto &pos : neighbors)
+        {
+            if (!main_grid.IsValid(pos))
+                continue;
+
+            size_t tile = main_grid[pos];
+
+            // Open a door
             if (tile == mDoorID)
             {
-                size_t required_gold = 1;
+                size_t required_gold = 20;
 
                 if (mGoldCount >= required_gold)
                 {
                     mGoldCount -= required_gold;
                     main_grid[pos] = mDoorOpenID;
+
+                    std::cout << "The door has opened!.\n";
                     SyncResourceVector();
+                }
+                else 
+                {
+                    std::cout << "The door cannot be opened. You do not have enough gold!.\n";
                 }
                 return;
             }
@@ -599,6 +626,9 @@ namespace cse498
             return true;
         case COLLECT:
             Collect(cur_position.CellX(), cur_position.CellY());
+            return true;
+        case PAY:
+            Pay(cur_position.CellX(), cur_position.CellY());
             return true;
         case PRINT_INVENTORY:
             PrintInventory();

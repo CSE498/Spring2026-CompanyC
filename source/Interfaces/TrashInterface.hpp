@@ -63,7 +63,7 @@ namespace cse498
         std::cout << "|\n";
       }
       std::cout << '+' << std::string(grid.GetWidth(), '-') << "+\n";
-      std::cout << "\nUse W, A, S, D to move, B to break, E to interact, I/J/K/L to throw, P to print inventory, or Q to quit.";
+      std::cout << "\nUse W, A, S, D to move, B to break, E to collect, M to pay, I/J/K/L to throw, P to print inventory, or Q to quit.";
       std::cout << "\nYour move? ";
       std::cout.flush();
     }
@@ -145,7 +145,10 @@ namespace cse498
       case 'L':
         action_id = GetActionID("throw_right");
         break;
-
+      case 'm':
+      case 'M':
+        action_id = GetActionID("goblin"); // door
+        break;
       case 'p':
       case 'P':
         action_id = GetActionID("print_inventory");

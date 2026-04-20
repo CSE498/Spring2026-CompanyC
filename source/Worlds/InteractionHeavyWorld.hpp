@@ -115,6 +115,7 @@ namespace cse498
             MOVE_LEFT,
             MOVE_RIGHT,
             COLLECT,
+            PAY,
             THROW_UP,
             THROW_DOWN,
             THROW_LEFT,
@@ -271,11 +272,18 @@ namespace cse498
         void BreakBoulder(size_t x, size_t y);
 
         /**
-         * @brief Collect or interact with nearby objects.
+         * @brief Collect nearby objects.
          * @param x Player cell x coordinate.
          * @param y Player cell y coordinate.
          */
         void Collect(size_t x, size_t y);
+
+        /**
+         * @brief Pay to open door (goblin).
+         * @param x Player cell x coordinate.
+         * @param y Player cell y coordinate.
+         */
+        void Pay(size_t x, size_t y);
 
         /**
          * @brief Throw a stone in a direction.
