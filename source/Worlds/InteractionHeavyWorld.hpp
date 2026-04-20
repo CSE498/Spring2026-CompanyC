@@ -53,7 +53,7 @@ namespace cse498
             MOVE_DOWN,
             MOVE_LEFT,
             MOVE_RIGHT,
-            COLLECT,
+            INTERACT,
             THROW_UP,
             THROW_DOWN,
             THROW_LEFT,
@@ -122,7 +122,7 @@ namespace cse498
         WorldPosition GetStartPosition() const;
         WorldPosition GetRandomPosition() const;
         std::vector<WorldPosition> GetEnemySpawnPositions() const;
-
+        bool IsEnemyAt(const WorldPosition &pos) const;
         int GetPlayerHP() const;
 
         /**
@@ -155,7 +155,7 @@ namespace cse498
          * @param x The x-coordinate of the cell to interact with.
          * @param y The y-coordinate of the cell to interact with.
          */
-        void Collect(size_t x, size_t y);
+        void Interact(size_t x, size_t y);
 
         /**
          * @brief Override of the DoAction function to handle the specific actions available in this world.

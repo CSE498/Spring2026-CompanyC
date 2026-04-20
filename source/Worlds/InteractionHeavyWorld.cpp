@@ -30,8 +30,19 @@ namespace cse498
 
     WorldPosition InteractionHeavyWorld::GetStartPosition() const { return mStartPosition; }
 
-    std::vector<WorldPosition> InteractionHeavyWorld::GetEnemySpawnPositions() const { return mEnemySpawnPositions; };
+    std::vector<WorldPosition> InteractionHeavyWorld::GetEnemySpawnPositions() const { return mEnemySpawnPositions; }
 
+    bool InteractionHeavyWorld::IsEnemyAt(const WorldPosition &pos) const
+    {
+        for (size_t i = 0; i < GetNumAgents(); ++i)
+        {
+            const AgentBase &a = GetAgent(i);
+            if (a.GetName() != "Player" &&
+                a.GetLocation().AsWorldPosition().SameCell(pos))
+                return true;
+        }
+        return false;
+    }
 
     void InteractionHeavyWorld::ConfigAgent(AgentBase &agent)
     {
@@ -40,13 +51,14 @@ namespace cse498
         agent.AddAction("left", MOVE_LEFT);
         agent.AddAction("right", MOVE_RIGHT);
         agent.AddAction("break_boulder", BREAK_BOULDER);
-        agent.AddAction("collect", COLLECT);
+        agent.AddAction("interact", INTERACT);
         agent.AddAction("print_inventory", PRINT_INVENTORY);
         agent.AddAction("throw_up", THROW_UP);
         agent.AddAction("throw_down", THROW_DOWN);
         agent.AddAction("throw_left", THROW_LEFT);
         agent.AddAction("throw_right", THROW_RIGHT);
     }
+
     void InteractionHeavyWorld::SyncResourceVector()
     {
         SetWorldResourceCount(RESOURCE_HP, mPlayerHP);
@@ -72,7 +84,7 @@ namespace cse498
         mChestOpenID = main_grid.AddCellType("chest_open", "Opened chest", 'c', false);
         mDoorOpenID = main_grid.AddCellType("door_open", "Opened door", 'd', true);
 
-        // Special cells;
+        // Special cells
         mEnemyID = main_grid.AddCellType("enemy", "Hostile", 'H', false);
     }
 
@@ -81,10 +93,10 @@ namespace cse498
         // Load dungeon layout from text file
         std::vector<std::string> dungeon_layout;
 
-        std::ifstream infile("source/Worlds/interaction_world_maps/dungeon_map.txt");
+        std::ifstream infile("source/Worlds/interaction_world_maps/dungeon_map_small.txt");
         if (!infile)
         {
-            std::cerr << "Error: Could not open dungeon_map.txt\n";
+            std::cerr << "Error: Could not open dungeon_map_small.txt\n";
             return;
         }
 
@@ -143,7 +155,7 @@ namespace cse498
                     main_grid[pos] = mChestID;
                     break;
                 case 'H':
-                    main_grid[pos] = mEnemyID;
+                    main_grid[pos] = mFloorID;  // floor so agents can occupy it
                     enemy_hp[{x, y}] = mEnemyDefaultHP;
                     mEnemySpawnPositions.push_back(pos);
                     break;
@@ -246,7 +258,7 @@ namespace cse498
         }
     }
 
-    void InteractionHeavyWorld ::Collect(size_t x, size_t y)
+    void InteractionHeavyWorld::Interact(size_t x, size_t y)
     {
         // Check the four adjacent cells for interactable objects (e.g., materials, chests, doors, enemies)
         WorldPosition center(x, y);
@@ -305,6 +317,7 @@ namespace cse498
             }
         }
     }
+
     void InteractionHeavyWorld::ThrowStone(size_t x, size_t y, int dx, int dy)
     {
         if (mStoneCount == 0)
@@ -325,24 +338,18 @@ namespace cse498
             size_t tile = main_grid[target];
 
             if (tile == mWallID || tile == mBoulderID || tile == mDoorID || tile == mChestID)
-            {
                 return; // projectile is blocked
-            }
 
-            if (tile == mEnemyID)
+            if (IsEnemyAt(target))
             {
                 mStoneCount--;
                 SyncResourceVector();
                 auto key = std::make_pair(target.CellX(), target.CellY());
                 auto it = enemy_hp.find(key);
                 if (it == enemy_hp.end())
-                {
                     enemy_hp[key] = mEnemyDefaultHP - mThrowDamage;
-                }
                 else
-                {
                     it->second -= mThrowDamage;
-                }
 
                 int remaining_hp = enemy_hp[key];
                 std::cout << "Hit enemy for " << mThrowDamage
@@ -352,13 +359,12 @@ namespace cse498
                 {
                     std::cout << "Enemy defeated.\n";
                     enemy_hp.erase(key);
-                    main_grid[target] = mFloorID;
                 }
                 return;
             }
         }
 
-        // optional: still consume a stone on a miss
+        // still consume a stone on a miss
         mStoneCount--;
         SyncResourceVector();
         std::cout << "Stone thrown and missed.\n";
@@ -367,6 +373,7 @@ namespace cse498
     void InteractionHeavyWorld::ApplyEnemyContactDamage(const WorldPosition &player_pos)
     {
         std::vector<WorldPosition> neighbors = {
+            player_pos,
             player_pos.Up(),
             player_pos.Down(),
             player_pos.Left(),
@@ -377,7 +384,7 @@ namespace cse498
             if (!main_grid.IsValid(pos))
                 continue;
 
-            if (main_grid[pos] == mEnemyID)
+            if (IsEnemyAt(pos))
             {
                 mPlayerHP -= mEnemyContactDamage;
                 SyncResourceVector();
@@ -418,8 +425,8 @@ namespace cse498
         case BREAK_BOULDER:
             BreakBoulder(cur_position.CellX(), cur_position.CellY());
             return true;
-        case COLLECT:
-            Collect(cur_position.CellX(), cur_position.CellY());
+        case INTERACT:
+            Interact(cur_position.CellX(), cur_position.CellY());
             return true;
         case PRINT_INVENTORY:
             PrintInventory();
@@ -427,15 +434,12 @@ namespace cse498
         case THROW_UP:
             ThrowStone(cur_position.CellX(), cur_position.CellY(), 0, -1);
             return true;
-
         case THROW_DOWN:
             ThrowStone(cur_position.CellX(), cur_position.CellY(), 0, 1);
             return true;
-
         case THROW_LEFT:
             ThrowStone(cur_position.CellX(), cur_position.CellY(), -1, 0);
             return true;
-
         case THROW_RIGHT:
             ThrowStone(cur_position.CellX(), cur_position.CellY(), 1, 0);
             return true;
@@ -454,7 +458,8 @@ namespace cse498
 
         agent.SetLocation(new_position);
 
-        ApplyEnemyContactDamage(new_position);
+        if (agent.GetName() == "Player")
+            ApplyEnemyContactDamage(new_position);
 
         // Check for win condition if stepping on exit
         if (main_grid[new_position] == mExitID)
