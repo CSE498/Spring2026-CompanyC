@@ -27,6 +27,8 @@ The module is centered around five utilities located in `source/tools`.
 
 `OutputManager` is the shared logging utility for the module. It filters messages by log level, optionally adds timestamps and metadata, and routes formatted output to the console, a file, and/or an in-memory buffer.
 
+`EndGameScreen` a file that contains a function that will return a string containing the html needed to create the end game screen.
+
 ### **1.2** Dependencies
 
 The Data Analytics module depends on standard C++ utilities such as `vector`, `unordered_map`, `string`, `chrono`, `atomic`, `mutex`, `fstream`, and common algorithm helpers.
@@ -106,6 +108,14 @@ void enableTimestamps(bool on);
 void enableMetadata(bool on);
 void enableTarget(OutputTarget target, bool on);
 void log(LogLevel level, const std::string& message, const LogContext& ctx = {});
+
+// EndGameScreen
+static std::string heatmapColor(double t);
+inline std::string generateScoreScreen(
+    const std::string& title,
+    const std::vector<Stat>& stats,
+    const std::vector<std::vector<int>>& heatmap,
+    int precision = 2);
 ```
 
 ## **4** Summary
