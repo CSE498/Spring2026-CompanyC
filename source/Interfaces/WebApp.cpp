@@ -265,7 +265,7 @@ void WebApp::HandleAction(int action_code) {
   interface_->SubmitAction(action_id);
   world_->RunAgents();
   if (action_code == kActionStart) {
-    interface_->Notify("Game started!", "popup");
+    interface_->Notify("Game starts now!", "popup");
   }
   if (use_viewport_) CenterViewportOnPlayer();
   RenderWorld();

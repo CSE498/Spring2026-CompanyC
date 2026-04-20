@@ -1,6 +1,6 @@
 /**
  * Spring 2026, CSE 498 Sec 2 - Company C
- * WebPopup implementation - for popup messages 
+ * WebPopup — modal messages using WebTextbox + WebButton on a thin DOM shell.
  *
  * Citation - LLM (OpenAI) was used to help generate parts of this file,
  * and maintain consistency with the project. The code was then reviewed
@@ -15,79 +15,197 @@
 #include <string>
 
 #ifdef __EMSCRIPTEN__
+
 #include <emscripten.h>
-#endif
+
+#include <memory>
+#include <queue>
+#include <utility>
+
+#include "tools/WebButton.hpp"
+#include "tools/WebTextbox.hpp"
+
+namespace cse498::popup_detail {
+
+std::queue<std::string>             g_queue;
+bool                                g_showing = false;
+std::unique_ptr<WebTextbox>         g_text;
+std::unique_ptr<WebButton>          g_ok;
+
+void TryShowNextPopup();
+void PopupDismiss();
+
+EM_JS(void, cse498_popup_create_shell, (), {
+  var old = document.getElementById('cse498_popup_overlay');
+  if (old) old.remove();
+
+  var overlay = document.createElement('div');
+  overlay.id = 'cse498_popup_overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.style.cssText = [
+    'position:fixed', 'inset:0', 'z-index:10000',
+    'display:flex', 'align-items:center', 'justify-content:center',
+    'padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))',
+    'box-sizing:border-box',
+    'background:rgba(24,69,59,0.48)',
+    'backdrop-filter:saturate(1.1) blur(6px)',
+    '-webkit-backdrop-filter:saturate(1.1) blur(6px)',
+    'font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif'
+  ].join(';');
+
+  var box = document.createElement('div');
+  box.style.cssText = [
+    'width:100%', 'max-width:min(420px,calc(100vw - 32px))',
+    'border-radius:18px', 'overflow:hidden',
+    'background:linear-gradient(165deg,#e8f5f0 0%,#c5e8dc 42%,#7ec9b8 100%)',
+    'box-shadow:0 25px 50px -12px rgba(24,69,59,0.38),0 0 0 1px rgba(255,255,255,0.55) inset,0 0 0 1px rgba(24,69,59,0.12)'
+  ].join(';');
+
+  var accent = document.createElement('div');
+  accent.style.cssText = [
+    'height:5px', 'width:100%',
+    'background:linear-gradient(90deg,#18453B 0%,#0f766e 55%,#14b8a6 100%)'
+  ].join(';');
+
+  var inner = document.createElement('div');
+  inner.style.cssText = [
+    'padding:26px 28px 22px', 'box-sizing:border-box',
+    'display:flex', 'flex-direction:column', 'align-items:center', 'gap:22px'
+  ].join(';');
+
+  var msgHost = document.createElement('div');
+  msgHost.id = 'cse498_popup_msg_host';
+  msgHost.style.cssText = 'width:100%;box-sizing:border-box';
+
+  var btnHost = document.createElement('div');
+  btnHost.id = 'cse498_popup_btn_host';
+  btnHost.style.cssText =
+      'display:flex;justify-content:center;width:100%;box-sizing:border-box';
+
+  inner.appendChild(msgHost);
+  inner.appendChild(btnHost);
+  box.appendChild(accent);
+  box.appendChild(inner);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+
+  window.__cse498PopupOverlayClick = function(ev) {
+    if (ev.target === overlay) {
+      Module.ccall('cse498_popup_dismiss', null, [], []);
+    }
+  };
+  overlay.addEventListener('click', window.__cse498PopupOverlayClick);
+
+  window.__cse498PopupKeydown = function(ev) {
+    if (ev.key === 'Escape') {
+      ev.preventDefault();
+      Module.ccall('cse498_popup_dismiss', null, [], []);
+    }
+  };
+  document.addEventListener('keydown', window.__cse498PopupKeydown);
+});
+
+EM_JS(void, cse498_popup_remove_shell, (), {
+  var overlay = document.getElementById('cse498_popup_overlay');
+  if (overlay && window.__cse498PopupOverlayClick) {
+    overlay.removeEventListener('click', window.__cse498PopupOverlayClick);
+    window.__cse498PopupOverlayClick = null;
+  }
+  if (window.__cse498PopupKeydown) {
+    document.removeEventListener('keydown', window.__cse498PopupKeydown);
+    window.__cse498PopupKeydown = null;
+  }
+  if (overlay) overlay.remove();
+});
+
+EM_JS(void, cse498_popup_focus_el, (const char* id_ptr), {
+  var id = UTF8ToString(id_ptr);
+  var el = document.getElementById(id);
+  if (el) el.focus();
+});
+
+// Defer dismiss to the next event turn so WebButton is not destroyed during Click().
+EM_JS(void, cse498_popup_schedule_dismiss, (), {
+  setTimeout(function() {
+    Module.ccall('cse498_popup_dismiss', null, [], []);
+  }, 0);
+});
+
+void ShowOnePopup(std::string message) {
+  g_showing = true;
+  cse498_popup_create_shell();
+
+  g_text = std::make_unique<WebTextbox>();
+  g_text->SetParentId("cse498_popup_msg_host");
+  g_text->Create();
+  g_text->SetText(std::move(message));
+  g_text->ApplyFlowLayoutStyles();
+  g_text->SetFontFamily(
+      "system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, "
+      "sans-serif");
+  g_text->SetFontSize(17);
+  g_text->SetLineHeight(1.55);
+  g_text->SetFontWeight("500");
+  g_text->SetTextColor("#134e43");
+  g_text->SetTextAlignment("center");
+  g_text->SetWordWrap("break-word");
+  g_text->SetBackgroundColor("transparent");
+
+  g_ok = std::make_unique<WebButton>("OK");
+  g_ok->SetBorderWidth(0);
+  g_ok->SetBackgroundColor("#18453B");
+  g_ok->SetTextColor("#ffffff");
+  g_ok->SetBorderRadius(999);
+  g_ok->SetSize(168, 46);
+  // AppendTo before SetOnClick: AttachEventListener uses getElementById, which
+  // only works after the button is in the document.
+  g_ok->AppendTo("cse498_popup_btn_host");
+  g_ok->SetOnClick([]() { cse498_popup_schedule_dismiss(); });
+
+  cse498_popup_focus_el(g_ok->GetElementID().c_str());
+}
+
+void PopupDismiss() {
+  if (!g_showing) return;
+  g_text.reset();
+  g_ok.reset();
+  cse498_popup_remove_shell();
+  g_showing = false;
+  TryShowNextPopup();
+}
+
+void TryShowNextPopup() {
+  if (g_showing) return;
+  if (g_queue.empty()) return;
+  std::string next = std::move(g_queue.front());
+  g_queue.pop();
+  ShowOnePopup(std::move(next));
+}
+
+void EnqueuePush(const std::string& message) {
+  g_queue.push(message);
+  TryShowNextPopup();
+}
+
+}  // namespace cse498::popup_detail
+
+extern "C" {
+
+EMSCRIPTEN_KEEPALIVE
+void cse498_popup_dismiss(void) {
+  cse498::popup_detail::PopupDismiss();
+}
+
+}
+
+#endif  // __EMSCRIPTEN__
 
 namespace cse498 {
 
-#ifdef __EMSCRIPTEN__
-
-EM_JS(void, cse498_popup_enqueue_js, (const char* msg_ptr), {
-  var msg = UTF8ToString(msg_ptr);
-  if (!window.__cse498Popup) {
-    window.__cse498Popup = { queue: [], showing: false };
-  }
-  var st = window.__cse498Popup;
-  st.queue.push(msg);
-
-  function showNext() {
-    if (st.showing) return;
-    if (st.queue.length === 0) return;
-    st.showing = true;
-    var text = st.queue.shift();
-    var old = document.getElementById('cse498_popup_overlay');
-    if (old) old.remove();
-
-    var overlay = document.createElement('div');
-    overlay.id = 'cse498_popup_overlay';
-    overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-modal', 'true');
-    overlay.style.cssText = [
-      'position:fixed', 'inset:0', 'background:rgba(0,0,0,0.45)',
-      'display:flex', 'align-items:center', 'justify-content:center',
-      'z-index:10000', 'font-family:system-ui,Arial,sans-serif'
-    ].join(';');
-
-    var box = document.createElement('div');
-    box.style.cssText = [
-      'background:#fff', 'border-radius:12px', 'padding:20px 24px',
-      'max-width:min(420px,calc(100vw - 48px))',
-      'box-shadow:0 10px 30px rgba(0,0,0,0.2)', 'border:1px solid #d1d5db'
-    ].join(';');
-
-    var p = document.createElement('div');
-    p.style.cssText = 'margin:0 0 16px 0;font-size:16px;line-height:1.45;color:#111827;white-space:pre-wrap;';
-    p.textContent = text;
-
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.textContent = 'OK';
-    btn.style.cssText = 'padding:8px 16px;border:1px solid #9ca3af;border-radius:8px;background:#fff;cursor:pointer;';
-
-    var dismiss = function() {
-      overlay.remove();
-      st.showing = false;
-      showNext();
-    };
-    btn.onclick = dismiss;
-    overlay.onclick = function(ev) {
-      if (ev.target === overlay) dismiss();
-    };
-
-    box.appendChild(p);
-    box.appendChild(btn);
-    overlay.appendChild(box);
-    document.body.appendChild(overlay);
-    btn.focus();
-  }
-  showNext();
-});
-
-#endif
-
 void EnqueueWebPopup(const std::string& message) {
 #ifdef __EMSCRIPTEN__
-  cse498_popup_enqueue_js(message.c_str());
+  popup_detail::EnqueuePush(message);
 #else
   (void)message;
 #endif
