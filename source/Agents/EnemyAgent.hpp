@@ -104,11 +104,34 @@ public:
    */
   size_t SelectAction(WorldGrid &grid) override;
 
+  /**
+   * @brief Get the current health points of this enemy.
+   * @return Current HP value.
+   */
   int GetHP() const { return hp; }
+
+  /**
+   * @brief Get the maximum health points of this enemy.
+   * @return Maximum HP value.
+   */
   int GetMaxHP() const { return max_hp; }
+
+  /**
+   * @brief Set the current health points of this enemy.
+   * @param value New HP value; values below zero are clamped to zero.
+   */
   void SetHP(int value) { hp = value < 0 ? 0 : value; }
+
+  /**
+   * @brief Set the maximum health points of this enemy.
+   * @param value New maximum HP value; values below zero are clamped to zero.
+   */
   void SetMaxHP(int value) { max_hp = value < 0 ? 0 : value; }
 
+  /**
+   * @brief Apply damage to this enemy.
+   * @param amount Amount of damage to apply; negative values are ignored.
+   */
   void TakeDamage(int amount) {
     if (amount < 0)
       return;
@@ -117,6 +140,10 @@ public:
       hp = 0;
   }
 
+  /**
+   * @brief Check whether this enemy is still alive.
+   * @return True if HP is greater than zero.
+   */
   bool IsAlive() const { return hp > 0; }
 };
 
