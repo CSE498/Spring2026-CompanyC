@@ -55,6 +55,14 @@ bool IsResourceCell(const std::string& cell_type) {
            cell_type == "wheat";
 }
 
+bool IsStructureCell(const std::string& cell_type) {
+    return cell_type == "quarry" ||
+           cell_type == "lumberyard" ||
+           cell_type == "farm" ||
+           cell_type == "spawner" ||
+           cell_type == "townhall";
+}
+
 Direction StepToDirection(const Point& a, const Point& b) {
     const int dx = static_cast<int>(b.x - a.x);
     const int dy = static_cast<int>(b.y - a.y);
@@ -99,8 +107,28 @@ bool CanBuild(const std::unordered_map<std::string, size_t>& action_map) {
            HasAction(action_map, "build_townhall");
 }
 
+int CountKnownStructure(const WorldGrid& grid,
+                        const SharedKnowledge& knowledge,
+                        const std::string& structure_name) {
+    int count = 0;
+
+    for (const auto& [pos, tile] : knowledge.tiles) {
+        if (!tile.discovered) continue;
+        if (!IsInBounds(grid, pos)) continue;
+
+        const std::string type = grid.GetCellTypeName(grid[pos]);
+        if (type == structure_name) {
+            ++count;
+        }
+    }
+
+    return count;
+}
+
 std::optional<std::string> ChooseBuildAction(
     const DynamicWorld& dworld,
+    const WorldGrid& grid,
+    const SharedKnowledge& knowledge,
     bool standing_on_grass,
     bool can_build
 ) {
@@ -113,24 +141,60 @@ std::optional<std::string> ChooseBuildAction(
     const int steel = dworld.GetGlobalCount("steel");
     const int wheat = dworld.GetGlobalCount("wheat");
 
-    if (wood >= 500 && stone >= 500 && steel >= 500 && wheat >= 500) {
+    const int known_quarries     = CountKnownStructure(grid, knowledge, "quarry");
+    const int known_lumberyards  = CountKnownStructure(grid, knowledge, "lumberyard");
+    const int known_farms        = CountKnownStructure(grid, knowledge, "farm");
+    const int known_spawners     = CountKnownStructure(grid, knowledge, "spawner");
+    const int known_townhalls    = CountKnownStructure(grid, knowledge, "townhall");
+
+    if (known_townhalls < 1 &&
+        wood >= 500 && stone >= 500 && steel >= 500 && wheat >= 500) {
         return "build_townhall";
     }
 
-    if (stone >= 20 && wood >= 20) {
+    // First priority: get at least one quarry online if we have no steel.
+    if (known_quarries < 1 &&
+        stone >= 20 && wood >= 20) {
         return "build_quarry";
     }
 
-    if (wood >= 20 && steel >= 20) {
-        return "build_lumberyard";
-    }
-
-    if (wheat >= 20 && wood >= 20) {
+    // Then diversify instead of spamming quarries.
+    if (known_farms < 1 &&
+        wheat >= 20 && wood >= 20) {
         return "build_farm";
     }
 
-    if (stone >= 30 && wheat >= 30) {
+    if (known_spawners < 1 &&
+        stone >= 30 && wheat >= 30) {
         return "build_spawner";
+    }
+
+    if (known_lumberyards < 1 &&
+        wood >= 20 && steel >= 20) {
+        return "build_lumberyard";
+    }
+
+    // If still no steel is appearing, allow one more quarry max.
+    if (known_quarries < 2 &&
+        steel == 0 &&
+        stone >= 20 && wood >= 20) {
+        return "build_quarry";
+    }
+
+    // Sensible fallbacks once basics exist.
+    if (known_farms < 2 &&
+        wheat >= 20 && wood >= 20) {
+        return "build_farm";
+    }
+
+    if (known_spawners < 2 &&
+        stone >= 30 && wheat >= 30) {
+        return "build_spawner";
+    }
+
+    if (known_lumberyards < 2 &&
+        wood >= 20 && steel >= 20) {
+        return "build_lumberyard";
     }
 
     return std::nullopt;
@@ -209,6 +273,41 @@ void PushTrail(BehaviorTree& tree, const WorldPosition& current_pos, const Black
     tree.setMemory("trail1_y", BBValue(std::in_place_type<int>, old0y));
     tree.setMemory("trail0_x", BBValue(std::in_place_type<int>, current_pos.CellX()));
     tree.setMemory("trail0_y", BBValue(std::in_place_type<int>, current_pos.CellY()));
+}
+
+void ClearBuildTarget(BehaviorTree& tree) {
+    tree.setMemory("has_build_target", BBValue(std::in_place_type<bool>, false));
+}
+
+std::optional<WorldPosition> ReadBuildTarget(const Blackboard& bb) {
+    auto has_it = bb.find("has_build_target");
+    auto x_it = bb.find("build_target_x");
+    auto y_it = bb.find("build_target_y");
+
+    if (has_it == bb.end() || x_it == bb.end() || y_it == bb.end()) {
+        return std::nullopt;
+    }
+
+    if (!std::holds_alternative<bool>(has_it->second) ||
+        !std::holds_alternative<int>(x_it->second) ||
+        !std::holds_alternative<int>(y_it->second)) {
+        return std::nullopt;
+    }
+
+    if (!std::get<bool>(has_it->second)) {
+        return std::nullopt;
+    }
+
+    return WorldPosition(
+        std::get<int>(x_it->second),
+        std::get<int>(y_it->second)
+    );
+}
+
+void SaveBuildTarget(BehaviorTree& tree, const WorldPosition& pos) {
+    tree.setMemory("has_build_target", BBValue(std::in_place_type<bool>, true));
+    tree.setMemory("build_target_x", BBValue(std::in_place_type<int>, pos.CellX()));
+    tree.setMemory("build_target_y", BBValue(std::in_place_type<int>, pos.CellY()));
 }
 
 WorldPosition NextStepWorldPos(const WorldPath& path, size_t idx = 1) {
@@ -329,6 +428,41 @@ BuildOrderedMoves(const WorldPosition& my_pos, size_t agent_id) {
     return moves;
 }
 
+std::optional<WorldPosition> FindNearestGrassBuildSite(
+    const WorldGrid& grid,
+    const SharedKnowledge& shared,
+    const WorldPosition& my_pos,
+    const std::vector<WorldPosition>& occupied
+) {
+    std::optional<WorldPosition> best;
+    int best_score = std::numeric_limits<int>::max();
+
+    for (const auto& [pos, tile] : shared.tiles) {
+        if (!tile.discovered) continue;
+        if (!tile.walkable_known || !tile.is_walkable) continue;
+        if (!IsInBounds(grid, pos)) continue;
+        if (IsOccupied(pos, occupied)) continue;
+        if (PositionsMatch(pos, my_pos)) continue;
+
+        const std::string type = grid.GetCellTypeName(grid[pos]);
+        if (type != "grass") continue;
+
+        const int dist =
+            IntAbs(static_cast<int>(pos.CellX()) - static_cast<int>(my_pos.CellX())) +
+            IntAbs(static_cast<int>(pos.CellY()) - static_cast<int>(my_pos.CellY()));
+
+        const int crowd_penalty = CountOccupiedNeighbors(pos, occupied) * 8;
+        const int score = dist + crowd_penalty;
+
+        if (score < best_score) {
+            best_score = score;
+            best = pos;
+        }
+    }
+
+    return best;
+}
+
 } // namespace
 
 void ClassicDynamicAgent::BuildTree() {
@@ -348,6 +482,10 @@ void ClassicDynamicAgent::Sense(WorldGrid& grid) {
     bool material_on_current_tile = false;
     bool standing_on_grass = false;
     int current_turn = 0;
+
+    if (const auto* dworld_for_turn = dynamic_cast<const DynamicWorld*>(&world)) {
+        current_turn = static_cast<int>(dworld_for_turn->GetUpdateCounter());
+    }
 
     for (int dy = -2; dy <= 2; ++dy) {
         for (int dx = -2; dx <= 2; ++dx) {
@@ -415,12 +553,27 @@ void ClassicDynamicAgent::Sense(WorldGrid& grid) {
     }
 
     const auto adjacent_moves = BuildOrderedMoves(my_pos, this->GetID());
+    PathGenerator gen;
+    StateGridPosition start(my_pos.CellX(), my_pos.CellY());
 
     const bool can_build = CanBuild(action_map);
+
+    std::cout << "[Sense] agent=" << GetName()
+              << " id=" << GetID()
+              << " can_build=" << can_build
+              << " on_grass=" << standing_on_grass
+              << " material_here=" << material_on_current_tile
+              << std::endl;
+
+    if (GetName() == "Leader") {
+        std::cout << "[Leader action_map contents]" << std::endl;
+        for (const auto& [name, id] : action_map) {
+            std::cout << "  " << name << " -> " << id << std::endl;
+        }
+    }
+
     if (can_build) {
         if (const auto* dworld = dynamic_cast<const DynamicWorld*>(&world)) {
-            auto build_action = ChooseBuildAction(*dworld, standing_on_grass, can_build);
-
             std::cout << "[Builder " << GetID() << "]"
                       << " grass=" << standing_on_grass
                       << " wood=" << dworld->GetGlobalCount("wood")
@@ -429,19 +582,55 @@ void ClassicDynamicAgent::Sense(WorldGrid& grid) {
                       << " wheat=" << dworld->GetGlobalCount("wheat")
                       << std::endl;
 
-            if (build_action.has_value()) {
-                std::cout << "[Builder " << GetID() << "] choosing "
-                          << *build_action << std::endl;
+            const bool ready_to_build = HasEnoughToBuildSomething(*dworld);
 
-                tree.setMemory("chosen_action",
-                    BBValue(std::in_place_type<std::string>, *build_action));
-                PushTrail(tree, my_pos, bb);
-                return;
-            }
+            // If we are ready to build, stay in build mode and do NOT fall back to collect logic.
+            if (ready_to_build) {
+                auto build_action = ChooseBuildAction(*dworld, grid, shared, standing_on_grass, can_build);
 
-            if (HasEnoughToBuildSomething(*dworld) && !standing_on_grass) {
+                if (build_action.has_value()) {
+                    std::cout << "[Builder " << GetID() << "] choosing "
+                              << *build_action << std::endl;
+
+                    ClearBuildTarget(tree);
+                    tree.setMemory("chosen_action",
+                        BBValue(std::in_place_type<std::string>, *build_action));
+                    PushTrail(tree, my_pos, bb);
+                    return;
+                }
+
+                // Keep or acquire a persistent grass build target.
+                auto build_target = ReadBuildTarget(bb);
+
+                bool target_invalid = false;
+                if (build_target.has_value()) {
+                    if (!IsInBounds(grid, *build_target)) {
+                        target_invalid = true;
+                    } else {
+                        const std::string type = grid.GetCellTypeName(grid[*build_target]);
+                        if (type != "grass") {
+                            target_invalid = true;
+                        }
+                    }
+                }
+
+                if (!build_target.has_value() || target_invalid) {
+                    build_target = FindNearestGrassBuildSite(grid, shared, my_pos, occupied);
+                    if (build_target.has_value()) {
+                        SaveBuildTarget(tree, *build_target);
+                        std::cout << "[Builder " << GetID()
+                                  << "] new build target=("
+                                  << build_target->CellX() << ","
+                                  << build_target->CellY() << ")"
+                                  << std::endl;
+                    } else {
+                        ClearBuildTarget(tree);
+                    }
+                }
+
+                // Adjacent grass shortcut.
                 std::optional<std::string> best_grass_move;
-                int best_score = std::numeric_limits<int>::max();
+                int best_grass_score = std::numeric_limits<int>::max();
 
                 for (const auto& [move_name, pos] : adjacent_moves) {
                     if (!IsInBounds(grid, pos)) continue;
@@ -454,15 +643,20 @@ void ClassicDynamicAgent::Sense(WorldGrid& grid) {
                     if (InTrail(pos, trail)) score += 50;
                     score += CountOccupiedNeighbors(pos, occupied) * 10;
 
-                    if (score < best_score) {
-                        best_score = score;
+                    if (build_target.has_value()) {
+                        score += IntAbs(pos.CellX() - build_target->CellX()) +
+                                 IntAbs(pos.CellY() - build_target->CellY());
+                    }
+
+                    if (score < best_grass_score) {
+                        best_grass_score = score;
                         best_grass_move = move_name;
                     }
                 }
 
                 if (best_grass_move.has_value()) {
                     std::cout << "[Builder " << GetID()
-                              << "] moving to grass to build via "
+                              << "] moving to adjacent grass to build via "
                               << *best_grass_move << std::endl;
 
                     tree.setMemory("chosen_action",
@@ -470,6 +664,95 @@ void ClassicDynamicAgent::Sense(WorldGrid& grid) {
                     PushTrail(tree, my_pos, bb);
                     return;
                 }
+
+                // Otherwise path to the remembered grass build target.
+                if (build_target.has_value()) {
+                    WorldPath build_path = gen.GeneratePathToKnownTile(
+                        start,
+                        StateGridPosition(build_target->CellX(), build_target->CellY()),
+                        shared,
+                        std::nullopt
+                    );
+
+                    if (build_path.size() >= 2) {
+                        size_t next_index = 1;
+                        WorldPosition next_wp = NextStepWorldPos(build_path, next_index);
+
+                        if (InTrail(next_wp, trail) && build_path.size() >= 3) {
+                            WorldPosition alt = NextStepWorldPos(build_path, 2);
+                            if (!IsOccupied(alt, occupied) && !InTrail(alt, trail)) {
+                                next_index = 2;
+                                next_wp = alt;
+                            }
+                        }
+
+                        if (IsOccupied(next_wp, occupied) && build_path.size() >= 3) {
+                            WorldPosition alt = NextStepWorldPos(build_path, 2);
+                            if (!IsOccupied(alt, occupied)) {
+                                next_index = 2;
+                                next_wp = alt;
+                            }
+                        }
+
+                        if (!IsOccupied(next_wp, occupied)) {
+                            std::string move = DirectionToString(
+                                StepToDirection(build_path[0], build_path[next_index])
+                            );
+
+                            if (!move.empty()) {
+                                std::cout << "[Builder " << GetID()
+                                          << "] pathing to build target via "
+                                          << move << std::endl;
+
+                                tree.setMemory("chosen_action",
+                                    BBValue(std::in_place_type<std::string>, move));
+                                PushTrail(tree, my_pos, bb);
+                                return;
+                            }
+                        }
+                    }
+
+                    // If the target is not reachable anymore, clear it and try again next turn.
+                    ClearBuildTarget(tree);
+                }
+
+                // Last-resort movement while in build mode: move to any safe walkable grass-adjacent/walkable tile.
+                std::optional<std::string> emergency_build_move;
+                int emergency_build_score = std::numeric_limits<int>::max();
+
+                for (const auto& [move_name, pos] : adjacent_moves) {
+                    if (!IsInBounds(grid, pos)) continue;
+                    if (IsOccupied(pos, occupied)) continue;
+
+                    TileKnowledge& tile = shared.GetTile(pos);
+                    if (!(tile.walkable_known && tile.is_walkable)) continue;
+
+                    int score = 0;
+                    if (InTrail(pos, trail)) score += 50;
+                    score += CountOccupiedNeighbors(pos, occupied) * 10;
+
+                    const std::string type = grid.GetCellTypeName(grid[pos]);
+                    if (type != "grass") score += 5;
+
+                    if (score < emergency_build_score) {
+                        emergency_build_score = score;
+                        emergency_build_move = move_name;
+                    }
+                }
+
+                if (emergency_build_move.has_value()) {
+                    std::cout << "[Builder " << GetID()
+                              << "] emergency build-mode move via "
+                              << *emergency_build_move << std::endl;
+
+                    tree.setMemory("chosen_action",
+                        BBValue(std::in_place_type<std::string>, *emergency_build_move));
+                    PushTrail(tree, my_pos, bb);
+                    return;
+                }
+            } else {
+                // Not ready to build yet; clear stale target.
+                ClearBuildTarget(tree);
             }
         }
     }
@@ -509,9 +792,6 @@ void ClassicDynamicAgent::Sense(WorldGrid& grid) {
         PushTrail(tree, my_pos, bb);
         return;
     }
-
-    PathGenerator gen;
-    StateGridPosition start(my_pos.CellX(), my_pos.CellY());
 
     WorldPath chosen_path;
 

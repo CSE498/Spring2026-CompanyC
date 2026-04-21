@@ -4,7 +4,6 @@
 int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
   const WorldPosition cur = agent.GetLocation().AsWorldPosition();
   WorldPosition next = cur;
-
   switch (action_id) {
   case REMAIN_STILL:
     break;
@@ -161,7 +160,7 @@ void cse498::DynamicWorld::UpdateWorld() {
             if (!main_grid.IsValid(nx, ny)) continue;
             WorldPosition spawn_pos(nx, ny);
             if (main_grid[spawn_pos] == mGrassId) {
-              auto & agent = AddAgent<PacingAgent>("spawned_agent");
+              auto & agent = AddAgent<ClassicDynamicAgent>("spawned_agent");
               agent.SetLocation(spawn_pos);
               placed = true;
             }

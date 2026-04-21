@@ -7,6 +7,7 @@
 #include "../core/WorldBase.hpp"
 #include "../core/Building.hpp"
 #include "../Agents/PacingAgent.hpp"
+#include "../Agents/ClassicDynamicAgent.hpp"
 
 namespace cse498 {
 
@@ -118,13 +119,17 @@ protected:
    * @param agent The agent to configure.
    */
   void ConfigAgent(AgentBase & agent) override {
-    if (!mLeaderAgentSet) {
+    const bool is_builder = (agent.GetName() == "Leader");
+
+    if (is_builder) {
+      std::cout << "[ConfigAgent] BUILD ACTIONS GIVEN TO: "
+                << agent.GetName() << std::endl;
+
       agent.AddAction("build_lumberyard", BUILD_LUMBERYARD);
       agent.AddAction("build_quarry", BUILD_QUARRY);
       agent.AddAction("build_spawner", BUILD_SPAWNER);
       agent.AddAction("build_farm", BUILD_FARM);
       agent.AddAction("build_townhall", BUILD_TOWNHALL);
-      mLeaderAgentSet = true;
     }
 
     agent.AddAction("up", MOVE_UP);
