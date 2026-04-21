@@ -1,10 +1,10 @@
 /**
  * @file GoblinAgent.hpp
  * @author Joshua Thomas
- * @brief Fixed size-pool allocator for type T with a freelist for fast reuse
- *
- * @details
- *
+ *  @brief Stationary doorway agent that blocks passage until the world resolves
+ *payment and clears it.
+ * AI was used for the code generation of this class but it has been heavily
+ *reviewed/tested
  **/
 #pragma once
 
