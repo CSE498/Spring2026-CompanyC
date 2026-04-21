@@ -25,22 +25,5 @@ int main()
         .SetSymbol('@')
         .SetLocation(world.GetStartPosition());
 
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<> coin(0, 1);
-
-    // Use the H positions from the map directly
-    auto spawnPositions = world.GetEnemySpawnPositions();
-    for (size_t i = 0; i < spawnPositions.size(); ++i)
-    {
-        auto& agent = world.AddAgent<PacingAgent>("Pacer " + std::to_string(i));
-        agent.SetLocation(spawnPositions[i]);
-
-        if (coin(gen) == 0)
-            agent.SetHorizontal();
-        else
-            agent.SetVertical();
-    }
-
     world.Run();
 }

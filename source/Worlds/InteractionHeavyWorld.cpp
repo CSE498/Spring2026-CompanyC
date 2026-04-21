@@ -74,7 +74,6 @@ namespace cse498
         // Structure cells
         mWallID = main_grid.AddCellType("wall", "Wall cell", '#', false);
         mFloorID = main_grid.AddCellType("floor", "Floor cell", ' ', true);
-        mDoorID = main_grid.AddCellType("door", "Door", 'D', true);
         mExitID = main_grid.AddCellType("exit", "Exit", 'X', true);
         mStartID = main_grid.AddCellType("start", "Start", 'S', true);
 
@@ -85,7 +84,6 @@ namespace cse498
         // After action cells
         mMaterialID = main_grid.AddCellType("material", "Dropped material", 'M', true);
         mChestOpenID = main_grid.AddCellType("chest_open", "Opened chest", 'c', false);
-        mDoorOpenID = main_grid.AddCellType("door_open", "Opened door", 'd', true);
 
         // Hunters are agents now, so the enemy tile is not used for combat.
         // mEnemyID = main_grid.AddCellType("enemy", "Hostile", 'H', false);
@@ -93,9 +91,19 @@ namespace cse498
 
     WorldPosition InteractionHeavyWorld::GetStartPosition() const { return mStartPosition; }
 
-    std::vector<WorldPosition> InteractionHeavyWorld::GetEnemySpawnPositions() const
+    std::vector<WorldPosition> InteractionHeavyWorld::GetHunterSpawnPositions() const
     {
-        return mEnemySpawnPositions;
+        return mHunterSpawnPositions;
+    }
+
+    std::vector<WorldPosition> InteractionHeavyWorld::GetGoblinSpawnPositions() const
+    {
+        return mGoblinSpawnPositions;
+    }
+
+    std::vector<WorldPosition> InteractionHeavyWorld::GetPacerSpawnPositions() const
+    {
+        return mPacerSpawnPositions;
     }
 
     bool InteractionHeavyWorld::IsEnemyAt(const WorldPosition &pos) const
@@ -166,9 +174,6 @@ namespace cse498
                 case ' ':
                     main_grid[pos] = mFloorID;
                     break;
-                case 'D':
-                    main_grid[pos] = mDoorID;
-                    break;
                 case 'X':
                     main_grid[pos] = mExitID;
                     break;
@@ -184,7 +189,17 @@ namespace cse498
                     // 'H' marks a goblin spawn in the map file. The cell stays as floor,
                     // and web_main later reads these saved positions to place GoblinAgents.
                     main_grid[pos] = mFloorID;
-                    mEnemySpawnPositions.push_back(pos);
+                    mHunterSpawnPositions.push_back(pos);
+                    break;
+                case 'G':
+                    // 'G' marks a goblin spawn in the map file. The cell stays as floor,
+                    // and web_main later reads these saved positions to place GoblinAgents.
+                    main_grid[pos] = mFloorID;
+                    mGoblinSpawnPositions.push_back(pos);
+                    break;
+                case 'P':
+                    main_grid[pos] = mFloorID;
+                    mPacerSpawnPositions.push_back(pos);
                     break;
                 }
             }
@@ -406,7 +421,7 @@ namespace cse498
             size_t tile = main_grid[target];
 
             // Solid tiles stop the thrown stone before it reaches anything behind them.
-            if (tile == mWallID || tile == mBoulderID || tile == mDoorID || tile == mChestID)
+            if (tile == mWallID || tile == mBoulderID || tile == mChestID)
             {
                 return;
             }
@@ -686,7 +701,6 @@ namespace cse498
 
         if (main_grid[new_position] == mWallID ||
             main_grid[new_position] == mBoulderID ||
-            main_grid[new_position] == mDoorID ||
             main_grid[new_position] == mChestID ||
             main_grid[new_position] == mChestOpenID)
         {

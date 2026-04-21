@@ -48,7 +48,10 @@ namespace cse498
         // Position state
         // ---------------------------------------------------------------------
         WorldPosition mStartPosition;
-        std::vector<WorldPosition> mEnemySpawnPositions;
+        std::vector<WorldPosition> mHunterSpawnPositions;
+        std::vector<WorldPosition> mGoblinSpawnPositions;
+        std::vector<WorldPosition> mPacerSpawnPositions;
+
 
         // ---------------------------------------------------------------------
         // Hunter getters and helpers
@@ -137,7 +140,6 @@ namespace cse498
         // ---------------------------------------------------------------------
         size_t mWallID;
         size_t mFloorID;
-        size_t mDoorID;
         size_t mStartID;
         size_t mExitID;
 
@@ -146,7 +148,6 @@ namespace cse498
 
         size_t mMaterialID;
         size_t mChestOpenID;
-        size_t mDoorOpenID;
 
         size_t mEnemyID;
 
@@ -231,9 +232,21 @@ namespace cse498
 
         /**
          * @brief Get hunter spawn positions loaded from the map.
-         * @return Vector of enemy spawn positions.
+         * @return Vector of hunter spawn positions.
          */
-        std::vector<WorldPosition> GetEnemySpawnPositions() const;
+        std::vector<WorldPosition> GetHunterSpawnPositions() const;
+
+        /**
+         * @brief Get goblin spawn positions loaded from the map.
+         * @return Vector of goblin spawn positions.
+         */
+        std::vector<WorldPosition> GetGoblinSpawnPositions() const;
+
+        /**
+         * @brief Get pacer spawn positions loaded from the map.
+         * @return Vector of pacer spawn positions.
+         */
+        std::vector<WorldPosition> GetPacerSpawnPositions() const;
 
         /**
          * @brief Check whether a live hunter is at a position.
