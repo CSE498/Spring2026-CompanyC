@@ -107,6 +107,27 @@ public:
         std::optional<int> max_length
     ) const;
 
+    WorldPath GenerateResourcePath(
+    StateGridPosition start,
+    const SharedKnowledge& knowledge,
+    std::optional<int> max_length = std::nullopt
+    ) const;
+
+    WorldPath GeneratePathToKnownTile(
+    StateGridPosition start,
+    StateGridPosition goal,
+    const SharedKnowledge& knowledge,
+    std::optional<int> max_length = std::nullopt
+    ) const;
+    
+    WorldPath GenerateExplorePath(
+    StateGridPosition start,
+    const SharedKnowledge& knowledge,
+    int world_width,
+    int world_height,
+    std::optional<int> max_length
+    ) const;
+
 private:
     std::optional<std::reference_wrapper<const WorldView>> world_view;
 
