@@ -1,22 +1,46 @@
 #include "ClassicDynamicAgent.hpp"
 
-#include <algorithm>
-#include <any>
-#include <cmath>
 #include <memory>
-#include <optional>
 #include <string>
+#include <variant>
+#include <optional>
 #include <vector>
+#include <iostream>
+#include <unordered_map>
+#include <random>
+#include <limits>
+#include <algorithm>
 
 #include "../tools/CompositeNodes.hpp"
 #include "../tools/LeafNodes.hpp"
 #include "../tools/BehaviorTree.hpp"
+#include "../core/WorldBase.hpp"
 #include "../tools/PathGenerator.hpp"
-#include "../tools/DynamicTreeBuilder.hpp"
+#include "../Worlds/DynamicWorld.hpp"
 
 namespace cse498 {
 
+enum class Direction {
+    Up,
+    Down,
+    Left,
+    Right,
+    UpLeft,
+    UpRight,
+    DownLeft,
+    DownRight,
+    None
+};
+
 namespace {
+
+int IntAbs(int x) {
+    return (x < 0) ? -x : x;
+}
+
+bool PositionsMatch(const WorldPosition& a, const WorldPosition& b) {
+    return a.CellX() == b.CellX() && a.CellY() == b.CellY();
+}
 
 bool IsInBounds(const WorldGrid& grid, const WorldPosition& p) {
     return p.CellX() >= 0 &&
@@ -25,470 +49,308 @@ bool IsInBounds(const WorldGrid& grid, const WorldPosition& p) {
            p.CellY() < static_cast<int>(grid.GetHeight());
 }
 
-bool IsResourceType(const std::string& type) {
-    return type == "tree" || type == "stone" || type == "wheat";
+bool IsResourceCell(const std::string& cell_type) {
+    return cell_type == "tree" ||
+           cell_type == "stone" ||
+           cell_type == "wheat";
 }
 
-std::string StepToAction(int sx, int sy, int nx, int ny) {
-    const int dx = nx - sx;
-    const int dy = ny - sy;
+Direction StepToDirection(const Point& a, const Point& b) {
+    const int dx = static_cast<int>(b.x - a.x);
+    const int dy = static_cast<int>(b.y - a.y);
 
-    if (dx == 0 && dy == -1) return "up";
-    if (dx == 0 && dy == 1)  return "down";
-    if (dx == -1 && dy == 0) return "left";
-    if (dx == 1 && dy == 0)  return "right";
+    if (dx == 0 && dy == -1) return Direction::Up;
+    if (dx == 0 && dy == 1)  return Direction::Down;
+    if (dx == -1 && dy == 0) return Direction::Left;
+    if (dx == 1 && dy == 0)  return Direction::Right;
 
-    if (dx == -1 && dy == -1) return "up_left";
-    if (dx == 1 && dy == -1)  return "up_right";
-    if (dx == -1 && dy == 1)  return "down_left";
-    if (dx == 1 && dy == 1)   return "down_right";
+    if (dx == -1 && dy == -1) return Direction::UpLeft;
+    if (dx == 1 && dy == -1)  return Direction::UpRight;
+    if (dx == -1 && dy == 1)  return Direction::DownLeft;
+    if (dx == 1 && dy == 1)   return Direction::DownRight;
 
-    return "";
+    return Direction::None;
 }
 
-WorldView BuildWorldViewFromKnowledge(const WorldGrid& grid, const SharedKnowledge& shared) {
-    WorldView view(grid.GetWidth(), grid.GetHeight());
-
-    for (const auto& [pos, tile] : shared.tiles) {
-        if (tile.walkable_known && !tile.is_walkable) {
-            view.SetBlocked(StateGridPosition(pos.CellX(), pos.CellY()));
-        }
+std::string DirectionToString(Direction dir) {
+    switch (dir) {
+        case Direction::Up:        return "up";
+        case Direction::Down:      return "down";
+        case Direction::Left:      return "left";
+        case Direction::Right:     return "right";
+        case Direction::UpLeft:    return "up_left";
+        case Direction::UpRight:   return "up_right";
+        case Direction::DownLeft:  return "down_left";
+        case Direction::DownRight: return "down_right";
+        default:                   return "";
     }
-
-    return view;
 }
 
-std::optional<std::string> PathToNearestKnownResource(
-    const WorldGrid& grid,
-    const SharedKnowledge& shared,
-    const WorldPosition& my_pos
+bool HasAction(const std::unordered_map<std::string, size_t>& action_map,
+               const std::string& action_name) {
+    return action_map.find(action_name) != action_map.end();
+}
+
+bool CanBuild(const std::unordered_map<std::string, size_t>& action_map) {
+    return HasAction(action_map, "build_lumberyard") ||
+           HasAction(action_map, "build_quarry") ||
+           HasAction(action_map, "build_farm") ||
+           HasAction(action_map, "build_spawner") ||
+           HasAction(action_map, "build_townhall");
+}
+
+std::optional<std::string> ChooseBuildAction(
+    const DynamicWorld& dworld,
+    bool standing_on_grass,
+    bool can_build
 ) {
-    WorldView agent_world_view = BuildWorldViewFromKnowledge(grid, shared);
-
-    PathGenerator generator;
-    generator.SetWorldView(agent_world_view);
-
-    StateGridPosition start(my_pos.CellX(), my_pos.CellY());
-
-    std::optional<StateGridPosition> target_resource;
-    int min_dist = 999999;
-
-    for (const auto& [pos, tile] : shared.tiles) {
-        if (!tile.has_resource) continue;
-
-        int dist =
-            std::abs(static_cast<int>(pos.CellX()) - static_cast<int>(my_pos.CellX())) +
-            std::abs(static_cast<int>(pos.CellY()) - static_cast<int>(my_pos.CellY()));
-
-        if (dist > 0 && dist < min_dist) {
-            min_dist = dist;
-            target_resource = StateGridPosition(pos.CellX(), pos.CellY());
-        }
-    }
-
-    if (!target_resource.has_value()) {
+    if (!can_build || !standing_on_grass) {
         return std::nullopt;
     }
 
-    WorldPath path = generator.GenerateShortestPath(start, *target_resource);
-    if (path.size() < 2) {
-        return std::nullopt;
+    const int wood  = dworld.GetGlobalCount("wood");
+    const int stone = dworld.GetGlobalCount("stone");
+    const int steel = dworld.GetGlobalCount("steel");
+    const int wheat = dworld.GetGlobalCount("wheat");
+
+    if (wood >= 500 && stone >= 500 && steel >= 500 && wheat >= 500) {
+        return "build_townhall";
     }
 
-    std::string action = StepToAction(
-        static_cast<int>(path[0].x),
-        static_cast<int>(path[0].y),
-        static_cast<int>(path[1].x),
-        static_cast<int>(path[1].y)
-    );
-
-    if (action.empty()) {
-        return std::nullopt;
+    if (stone >= 20 && wood >= 20) {
+        return "build_quarry";
     }
 
-    return action;
-}
-
-std::optional<std::string> PathToExplore(
-    const WorldGrid& grid,
-    const SharedKnowledge& shared,
-    const WorldPosition& my_pos
-) {
-    WorldView agent_world_view = BuildWorldViewFromKnowledge(grid, shared);
-
-    PathGenerator generator;
-    generator.SetWorldView(agent_world_view);
-
-    StateGridPosition start(my_pos.CellX(), my_pos.CellY());
-    WorldPath path = generator.GenerateExplorePath(start, shared, std::nullopt);
-
-    if (path.size() < 2) {
-        return std::nullopt;
+    if (wood >= 20 && steel >= 20) {
+        return "build_lumberyard";
     }
 
-    std::string action = StepToAction(
-        static_cast<int>(path[0].x),
-        static_cast<int>(path[0].y),
-        static_cast<int>(path[1].x),
-        static_cast<int>(path[1].y)
-    );
-
-    if (action.empty()) {
-        return std::nullopt;
+    if (wheat >= 20 && wood >= 20) {
+        return "build_farm";
     }
 
-    return action;
-}
-
-std::optional<std::string> FindAdjacentResourceMove(
-    const WorldGrid& grid,
-    const WorldPosition& my_pos
-) {
-    const std::vector<WorldPosition> neighbors = {
-        my_pos.Up(),
-        my_pos.Down(),
-        my_pos.Left(),
-        my_pos.Right(),
-        my_pos.Up().Left(),
-        my_pos.Up().Right(),
-        my_pos.Down().Left(),
-        my_pos.Down().Right()
-    };
-
-    for (const auto& pos : neighbors) {
-        if (!IsInBounds(grid, pos)) continue;
-
-        const std::string type = grid.GetCellTypeName(grid[pos]);
-        if (!IsResourceType(type)) continue;
-
-        std::string move = StepToAction(
-            static_cast<int>(my_pos.X()),
-            static_cast<int>(my_pos.Y()),
-            static_cast<int>(pos.X()),
-            static_cast<int>(pos.Y())
-        );
-
-        if (!move.empty()) {
-            return move;
-        }
+    if (stone >= 30 && wheat >= 30) {
+        return "build_spawner";
     }
 
     return std::nullopt;
 }
 
+bool HasEnoughToBuildSomething(const DynamicWorld& dworld) {
+    const int wood  = dworld.GetGlobalCount("wood");
+    const int stone = dworld.GetGlobalCount("stone");
+    const int steel = dworld.GetGlobalCount("steel");
+    const int wheat = dworld.GetGlobalCount("wheat");
+
+    return (wood >= 500 && stone >= 500 && steel >= 500 && wheat >= 500) ||
+           (stone >= 20 && wood >= 20) ||
+           (wood >= 20 && steel >= 20) ||
+           (wheat >= 20 && wood >= 20) ||
+           (stone >= 30 && wheat >= 30);
+}
+
+std::vector<WorldPosition> ReadTrail(const Blackboard& bb) {
+    std::vector<WorldPosition> trail;
+
+    for (int i = 0; i < 3; ++i) {
+        auto x_it = bb.find("trail" + std::to_string(i) + "_x");
+        auto y_it = bb.find("trail" + std::to_string(i) + "_y");
+
+        if (x_it != bb.end() && y_it != bb.end() &&
+            std::holds_alternative<int>(x_it->second) &&
+            std::holds_alternative<int>(y_it->second)) {
+            trail.emplace_back(
+                std::get<int>(x_it->second),
+                std::get<int>(y_it->second)
+            );
+        }
+    }
+
+    return trail;
+}
+
+bool InTrail(const WorldPosition& pos, const std::vector<WorldPosition>& trail) {
+    for (const auto& t : trail) {
+        if (PositionsMatch(pos, t)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void PushTrail(BehaviorTree& tree, const WorldPosition& current_pos, const Blackboard& bb) {
+    int old0x = current_pos.CellX();
+    int old0y = current_pos.CellY();
+    int old1x = current_pos.CellX();
+    int old1y = current_pos.CellY();
+
+    auto t0x = bb.find("trail0_x");
+    auto t0y = bb.find("trail0_y");
+    auto t1x = bb.find("trail1_x");
+    auto t1y = bb.find("trail1_y");
+
+    if (t0x != bb.end() && t0y != bb.end() &&
+        std::holds_alternative<int>(t0x->second) &&
+        std::holds_alternative<int>(t0y->second)) {
+        old0x = std::get<int>(t0x->second);
+        old0y = std::get<int>(t0y->second);
+    }
+
+    if (t1x != bb.end() && t1y != bb.end() &&
+        std::holds_alternative<int>(t1x->second) &&
+        std::holds_alternative<int>(t1y->second)) {
+        old1x = std::get<int>(t1x->second);
+        old1y = std::get<int>(t1y->second);
+    }
+
+    tree.setMemory("trail2_x", BBValue(std::in_place_type<int>, old1x));
+    tree.setMemory("trail2_y", BBValue(std::in_place_type<int>, old1y));
+    tree.setMemory("trail1_x", BBValue(std::in_place_type<int>, old0x));
+    tree.setMemory("trail1_y", BBValue(std::in_place_type<int>, old0y));
+    tree.setMemory("trail0_x", BBValue(std::in_place_type<int>, current_pos.CellX()));
+    tree.setMemory("trail0_y", BBValue(std::in_place_type<int>, current_pos.CellY()));
+}
+
+WorldPosition NextStepWorldPos(const WorldPath& path, size_t idx = 1) {
+    return WorldPosition(
+        static_cast<int>(path[idx].x),
+        static_cast<int>(path[idx].y)
+    );
+}
+
+std::optional<WorldPosition> FindInteriorTarget(
+    const WorldGrid& grid,
+    const SharedKnowledge& knowledge,
+    const WorldPosition& start_pos
+) {
+    std::vector<WorldPosition> candidates;
+
+    const int cx = static_cast<int>(grid.GetWidth()) / 2;
+    const int cy = static_cast<int>(grid.GetHeight()) / 2;
+
+    for (const auto& [pos, tile] : knowledge.tiles) {
+        if (!tile.walkable_known || !tile.is_walkable) continue;
+        if (!tile.discovered) continue;
+        if (!IsInBounds(grid, pos)) continue;
+        if (PositionsMatch(pos, start_pos)) continue;
+
+        const int px = static_cast<int>(pos.CellX());
+        const int py = static_cast<int>(pos.CellY());
+
+        int edge_dist = std::min({
+            px,
+            py,
+            static_cast<int>(grid.GetWidth()) - 1 - px,
+            static_cast<int>(grid.GetHeight()) - 1 - py
+        });
+
+        if (edge_dist < 4) continue;
+
+        candidates.push_back(pos);
+    }
+
+    if (candidates.empty()) {
+        return std::nullopt;
+    }
+
+    auto best = candidates.front();
+    int best_score = std::numeric_limits<int>::max();
+
+    for (const auto& pos : candidates) {
+        const int px = static_cast<int>(pos.CellX());
+        const int py = static_cast<int>(pos.CellY());
+        const int sx = static_cast<int>(start_pos.CellX());
+        const int sy = static_cast<int>(start_pos.CellY());
+
+        int dist_to_center = IntAbs(px - cx) + IntAbs(py - cy);
+        int dist_from_start = IntAbs(px - sx) + IntAbs(py - sy);
+
+        int score = dist_to_center + dist_from_start / 4;
+
+        if (score < best_score) {
+            best_score = score;
+            best = pos;
+        }
+    }
+
+    return best;
+}
+
+std::vector<WorldPosition> GetOccupiedPositions(const WorldBase& world, size_t self_id) {
+    std::vector<WorldPosition> occupied;
+
+    for (size_t i = 0; i < world.GetNumAgents(); ++i) {
+        const auto& other = world.GetAgent(i);
+        if (other.GetID() == self_id) continue;
+        occupied.push_back(other.GetLocation().AsWorldPosition());
+    }
+
+    return occupied;
+}
+
+bool IsOccupied(const WorldPosition& pos, const std::vector<WorldPosition>& occupied) {
+    for (const auto& o : occupied) {
+        if (PositionsMatch(pos, o)) return true;
+    }
+    return false;
+}
+
+int CountOccupiedNeighbors(const WorldPosition& pos, const std::vector<WorldPosition>& occupied) {
+    int count = 0;
+    const int px = static_cast<int>(pos.CellX());
+    const int py = static_cast<int>(pos.CellY());
+
+    for (const auto& o : occupied) {
+        const int ox = static_cast<int>(o.CellX());
+        const int oy = static_cast<int>(o.CellY());
+
+        if (IntAbs(ox - px) <= 1 && IntAbs(oy - py) <= 1) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+std::vector<std::pair<std::string, WorldPosition>>
+BuildOrderedMoves(const WorldPosition& my_pos, size_t agent_id) {
+    std::vector<std::pair<std::string, WorldPosition>> moves = {
+        {"up", my_pos.Up()},
+        {"down", my_pos.Down()},
+        {"left", my_pos.Left()},
+        {"right", my_pos.Right()},
+        {"up_left", my_pos.Up().Left()},
+        {"up_right", my_pos.Up().Right()},
+        {"down_left", my_pos.Down().Left()},
+        {"down_right", my_pos.Down().Right()}
+    };
+
+    const size_t rot = agent_id % moves.size();
+    std::rotate(moves.begin(), moves.begin() + rot, moves.end());
+    return moves;
+}
+
 } // namespace
 
 void ClassicDynamicAgent::BuildTree() {
-    auto root = std::make_shared<Selector>("DynamicRoot");
-
-    // ==================================================
-    // BUILD: TOWNHALL
-    // ==================================================
-    auto townhall_branch = std::make_shared<Sequence>("TownhallBranch");
-
-    auto ready_townhall = std::make_shared<ConditionNode>(
-        "ReadyTownhall",
-        [](const Blackboard& bb) -> bool {
-            bool on_grass = bb.count("on_grass") && std::get<bool>(bb.at("on_grass"));
-
-            int wood  = bb.count("wood_count")  ? std::get<int>(bb.at("wood_count"))  : 0;
-            int stone = bb.count("stone_count") ? std::get<int>(bb.at("stone_count")) : 0;
-            int steel = bb.count("steel_count") ? std::get<int>(bb.at("steel_count")) : 0;
-            int wheat = bb.count("wheat_count") ? std::get<int>(bb.at("wheat_count")) : 0;
-
-            return on_grass &&
-                   wood >= 500 && stone >= 500 && steel >= 500 && wheat >= 500;
-        }
-    );
-
-    auto build_townhall = std::make_shared<ActionNode>(
-        "BuildTownhall",
-        [](Blackboard& bb) -> Status {
-            bb["chosen_action"].emplace<std::string>("build_townhall");
-            return Status::Success;
-        }
-    );
-
-    townhall_branch->addChild(ready_townhall);
-    townhall_branch->addChild(build_townhall);
-
-    // ==================================================
-    // BUILD: SPAWNER
-    // ==================================================
-    auto spawner_branch = std::make_shared<Sequence>("SpawnerBranch");
-
-    auto ready_spawner = std::make_shared<ConditionNode>(
-        "ReadySpawner",
-        [](const Blackboard& bb) -> bool {
-            bool on_grass = bb.count("on_grass") && std::get<bool>(bb.at("on_grass"));
-            bool has_spawner = bb.count("has_spawner") && std::get<bool>(bb.at("has_spawner"));
-
-            int stone = bb.count("stone_count") ? std::get<int>(bb.at("stone_count")) : 0;
-            int wheat = bb.count("wheat_count") ? std::get<int>(bb.at("wheat_count")) : 0;
-
-            return on_grass && !has_spawner && stone >= 30 && wheat >= 30;
-        }
-    );
-
-    auto build_spawner = std::make_shared<ActionNode>(
-        "BuildSpawner",
-        [](Blackboard& bb) -> Status {
-            bb["chosen_action"].emplace<std::string>("build_spawner");
-            return Status::Success;
-        }
-    );
-
-    spawner_branch->addChild(ready_spawner);
-    spawner_branch->addChild(build_spawner);
-
-    // ==================================================
-    // BUILD: QUARRY
-    // ==================================================
-    auto quarry_branch = std::make_shared<Sequence>("QuarryBranch");
-
-    auto ready_quarry = std::make_shared<ConditionNode>(
-        "ReadyQuarry",
-        [](const Blackboard& bb) -> bool {
-            bool on_grass = bb.count("on_grass") && std::get<bool>(bb.at("on_grass"));
-            bool has_quarry = bb.count("has_quarry") && std::get<bool>(bb.at("has_quarry"));
-
-            int wood  = bb.count("wood_count")  ? std::get<int>(bb.at("wood_count"))  : 0;
-            int stone = bb.count("stone_count") ? std::get<int>(bb.at("stone_count")) : 0;
-
-            return on_grass && !has_quarry && wood >= 20 && stone >= 20;
-        }
-    );
-
-    auto build_quarry = std::make_shared<ActionNode>(
-        "BuildQuarry",
-        [](Blackboard& bb) -> Status {
-            bb["chosen_action"].emplace<std::string>("build_quarry");
-            return Status::Success;
-        }
-    );
-
-    quarry_branch->addChild(ready_quarry);
-    quarry_branch->addChild(build_quarry);
-
-    // ==================================================
-    // BUILD: LUMBERYARD
-    // ==================================================
-    auto lumberyard_branch = std::make_shared<Sequence>("LumberyardBranch");
-
-    auto ready_lumberyard = std::make_shared<ConditionNode>(
-        "ReadyLumberyard",
-        [](const Blackboard& bb) -> bool {
-            bool on_grass = bb.count("on_grass") && std::get<bool>(bb.at("on_grass"));
-            bool has_lumberyard = bb.count("has_lumberyard") && std::get<bool>(bb.at("has_lumberyard"));
-
-            int wood  = bb.count("wood_count")  ? std::get<int>(bb.at("wood_count"))  : 0;
-            int steel = bb.count("steel_count") ? std::get<int>(bb.at("steel_count")) : 0;
-
-            return on_grass && !has_lumberyard && wood >= 20 && steel >= 20;
-        }
-    );
-
-    auto build_lumberyard = std::make_shared<ActionNode>(
-        "BuildLumberyard",
-        [](Blackboard& bb) -> Status {
-            bb["chosen_action"].emplace<std::string>("build_lumberyard");
-            return Status::Success;
-        }
-    );
-
-    lumberyard_branch->addChild(ready_lumberyard);
-    lumberyard_branch->addChild(build_lumberyard);
-
-    // ==================================================
-    // BUILD: FARM
-    // ==================================================
-    auto farm_branch = std::make_shared<Sequence>("FarmBranch");
-
-    auto ready_farm = std::make_shared<ConditionNode>(
-        "ReadyFarm",
-        [](const Blackboard& bb) -> bool {
-            bool on_grass = bb.count("on_grass") && std::get<bool>(bb.at("on_grass"));
-            bool has_farm = bb.count("has_farm") && std::get<bool>(bb.at("has_farm"));
-
-            int wood  = bb.count("wood_count")  ? std::get<int>(bb.at("wood_count"))  : 0;
-            int wheat = bb.count("wheat_count") ? std::get<int>(bb.at("wheat_count")) : 0;
-
-            return on_grass && !has_farm && wood >= 20 && wheat >= 20;
-        }
-    );
-
-    auto build_farm = std::make_shared<ActionNode>(
-        "BuildFarm",
-        [](Blackboard& bb) -> Status {
-            bb["chosen_action"].emplace<std::string>("build_farm");
-            return Status::Success;
-        }
-    );
-
-    farm_branch->addChild(ready_farm);
-    farm_branch->addChild(build_farm);
-
-    // ==================================================
-    // COLLECT
-    // ==================================================
-    auto collect_branch = std::make_shared<Sequence>("CollectBranch");
-
-    auto on_resource = std::make_shared<ConditionNode>(
-        "OnResource",
-        [](const Blackboard& bb) -> bool {
-            return bb.count("on_resource") && std::get<bool>(bb.at("on_resource"));
-        }
-    );
-
-    auto collect_action = std::make_shared<ActionNode>(
-        "CollectAction",
-        [](Blackboard& bb) -> Status {
-            bb["chosen_action"].emplace<std::string>("collect");
-            return Status::Success;
-        }
-    );
-
-    collect_branch->addChild(on_resource);
-    collect_branch->addChild(collect_action);
-
-    // ==================================================
-    // MOVE TO ADJACENT RESOURCE
-    // ==================================================
-    auto adjacent_branch = std::make_shared<Sequence>("AdjacentResourceBranch");
-
-    auto has_adjacent_move = std::make_shared<ConditionNode>(
-        "HasAdjacentMove",
-        [](const Blackboard& bb) -> bool {
-            return bb.count("adjacent_resource_move") &&
-                   !std::get<std::string>(bb.at("adjacent_resource_move")).empty();
-        }
-    );
-
-    auto do_adjacent_move = std::make_shared<ActionNode>(
-        "DoAdjacentMove",
-        [](Blackboard& bb) -> Status {
-            bb["chosen_action"].emplace<std::string>(
-                std::get<std::string>(bb.at("adjacent_resource_move"))
-            );
-            return Status::Success;
-        }
-    );
-
-    adjacent_branch->addChild(has_adjacent_move);
-    adjacent_branch->addChild(do_adjacent_move);
-
-    // ==================================================
-    // RESOURCE PATH MOVE
-    // ==================================================
-    auto resource_branch = std::make_shared<Sequence>("ResourceMoveBranch");
-
-    auto has_resource_move = std::make_shared<ConditionNode>(
-        "HasResourceMove",
-        [](const Blackboard& bb) -> bool {
-            return bb.count("resource_move") &&
-                   !std::get<std::string>(bb.at("resource_move")).empty();
-        }
-    );
-
-    auto do_resource_move = std::make_shared<ActionNode>(
-        "DoResourceMove",
-        [](Blackboard& bb) -> Status {
-            bb["chosen_action"].emplace<std::string>(
-                std::get<std::string>(bb.at("resource_move"))
-            );
-            return Status::Success;
-        }
-    );
-
-    resource_branch->addChild(has_resource_move);
-    resource_branch->addChild(do_resource_move);
-
-    // ==================================================
-    // EXPLORE MOVE
-    // ==================================================
-    auto explore_branch = std::make_shared<Sequence>("ExploreMoveBranch");
-
-    auto has_explore_move = std::make_shared<ConditionNode>(
-        "HasExploreMove",
-        [](const Blackboard& bb) -> bool {
-            return bb.count("explore_move") &&
-                   !std::get<std::string>(bb.at("explore_move")).empty();
-        }
-    );
-
-    auto do_explore_move = std::make_shared<ActionNode>(
-        "DoExploreMove",
-        [](Blackboard& bb) -> Status {
-            bb["chosen_action"].emplace<std::string>(
-                std::get<std::string>(bb.at("explore_move"))
-            );
-            return Status::Success;
-        }
-    );
-
-    explore_branch->addChild(has_explore_move);
-    explore_branch->addChild(do_explore_move);
-
-    // ==================================================
-    // FALLBACK
-    // ==================================================
-    auto fallback_branch = std::make_shared<Sequence>("FallbackBranch");
-
-    auto has_fallback_move = std::make_shared<ConditionNode>(
-        "HasFallbackMove",
-        [](const Blackboard& bb) -> bool {
-            return bb.count("fallback_move") &&
-                   !std::get<std::string>(bb.at("fallback_move")).empty();
-        }
-    );
-
-    auto do_fallback_move = std::make_shared<ActionNode>(
-        "DoFallbackMove",
-        [](Blackboard& bb) -> Status {
-            bb["chosen_action"].emplace<std::string>(
-                std::get<std::string>(bb.at("fallback_move"))
-            );
-            return Status::Success;
-        }
-    );
-
-    fallback_branch->addChild(has_fallback_move);
-    fallback_branch->addChild(do_fallback_move);
-
-    root->addChild(townhall_branch);
-    root->addChild(spawner_branch);
-    root->addChild(quarry_branch);
-    root->addChild(lumberyard_branch);
-    root->addChild(farm_branch);
-    root->addChild(collect_branch);
-    root->addChild(adjacent_branch);
-    root->addChild(resource_branch);
-    root->addChild(explore_branch);
-    root->addChild(fallback_branch);
-
+    auto root = std::make_shared<Selector>("Root");
     tree.setRoot(root);
 }
 
 void ClassicDynamicAgent::Sense(WorldGrid& grid) {
-    tree.setMemory<std::any>("grid", std::cref(grid));
-    tree.setMemory("chosen_action", std::string("remain_still"));
-    tree.setMemory("adjacent_resource_move", std::string(""));
-    tree.setMemory("resource_move", std::string(""));
-    tree.setMemory("explore_move", std::string(""));
-    tree.setMemory("fallback_move", std::string(""));
+    tree.setMemory("chosen_action", BBValue(std::in_place_type<std::string>, ""));
 
     WorldPosition my_pos = this->GetLocation().AsWorldPosition();
+    Blackboard bb = tree.getBlackboard();
+    auto trail = ReadTrail(bb);
     auto& shared = grid.GetSharedKnowledge();
+    auto occupied = GetOccupiedPositions(world, this->GetID());
 
-    bool on_resource = false;
-    bool on_grass = false;
-    bool material_nearby = false;
-    bool enemy_nearby = false;
-    int current_turn = -1;
+    bool material_on_current_tile = false;
+    bool standing_on_grass = false;
+    int current_turn = 0;
 
-    // Reset local 3x3 temporary flags.
-    for (int dy = -1; dy <= 1; ++dy) {
-        for (int dx = -1; dx <= 1; ++dx) {
+    for (int dy = -2; dy <= 2; ++dy) {
+        for (int dx = -2; dx <= 2; ++dx) {
             WorldPosition p(my_pos.CellX() + dx, my_pos.CellY() + dy);
             if (!IsInBounds(grid, p)) continue;
 
@@ -498,9 +360,8 @@ void ClassicDynamicAgent::Sense(WorldGrid& grid) {
         }
     }
 
-    // Fill local 3x3 knowledge.
-    for (int dy = -1; dy <= 1; ++dy) {
-        for (int dx = -1; dx <= 1; ++dx) {
+    for (int dy = -2; dy <= 2; ++dy) {
+        for (int dx = -2; dx <= 2; ++dx) {
             WorldPosition p(my_pos.CellX() + dx, my_pos.CellY() + dy);
             if (!IsInBounds(grid, p)) continue;
 
@@ -510,106 +371,279 @@ void ClassicDynamicAgent::Sense(WorldGrid& grid) {
             tile.walkable_known = true;
             tile.last_seen_turn = current_turn;
 
-            std::string cell_type = grid.GetCellTypeName(grid[p]);
-            tile.is_walkable = (cell_type != "wall" && cell_type != "blocked");
+            std::string type = grid.GetCellTypeName(grid[p]);
 
-            if (IsResourceType(cell_type)) {
-                tile.has_resource = true;
-            }
+            tile.is_walkable =
+                (type != "wall" &&
+                 type != "blocked" &&
+                 type != "quarry" &&
+                 type != "lumberyard" &&
+                 type != "farm" &&
+                 type != "spawner" &&
+                 type != "townhall");
 
-            if (PositionsMatch(p, my_pos)) {
-                if (cell_type == "grass") on_grass = true;
-                if (IsResourceType(cell_type)) on_resource = true;
+            tile.has_resource = IsResourceCell(type);
+
+            if (PositionsMatch(my_pos, p)) {
+                if (type == "grass") {
+                    standing_on_grass = true;
+                }
+                if (tile.has_resource) {
+                    material_on_current_tile = true;
+                }
             }
         }
     }
 
-    // Visible items.
     std::vector<size_t> visible_items = world.GetKnownItems(*this);
     for (size_t item_id : visible_items) {
         const auto& item = world.GetItem(item_id);
         WorldPosition item_pos = item.GetLocation().AsWorldPosition();
-
         if (!IsInBounds(grid, item_pos)) continue;
 
         TileKnowledge& tile = shared.GetTile(item_pos);
         tile.discovered = true;
         tile.currently_visible = true;
         tile.has_resource = true;
+        tile.walkable_known = true;
+        tile.is_walkable = true;
         tile.last_seen_turn = current_turn;
 
-        if (PositionsMatch(item_pos, my_pos)) {
-            on_resource = true;
-        }
-
-        const int dx = item_pos.CellX() - my_pos.CellX();
-        const int dy = item_pos.CellY() - my_pos.CellY();
-        if (dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1 && !(dx == 0 && dy == 0)) {
-            material_nearby = true;
+        if (PositionsMatch(my_pos, item_pos)) {
+            material_on_current_tile = true;
         }
     }
 
-    // Visible agents.
-    std::vector<size_t> visible_agents = world.GetKnownAgents(*this);
-    for (size_t agent_id : visible_agents) {
-        if (agent_id == this->GetID()) continue;
+    const auto adjacent_moves = BuildOrderedMoves(my_pos, this->GetID());
 
-        const auto& agent = world.GetAgent(agent_id);
-        WorldPosition agent_pos = agent.GetLocation().AsWorldPosition();
+    const bool can_build = CanBuild(action_map);
+    if (can_build) {
+        if (const auto* dworld = dynamic_cast<const DynamicWorld*>(&world)) {
+            auto build_action = ChooseBuildAction(*dworld, standing_on_grass, can_build);
 
-        if (!IsInBounds(grid, agent_pos)) continue;
+            std::cout << "[Builder " << GetID() << "]"
+                      << " grass=" << standing_on_grass
+                      << " wood=" << dworld->GetGlobalCount("wood")
+                      << " stone=" << dworld->GetGlobalCount("stone")
+                      << " steel=" << dworld->GetGlobalCount("steel")
+                      << " wheat=" << dworld->GetGlobalCount("wheat")
+                      << std::endl;
 
-        TileKnowledge& tile = shared.GetTile(agent_pos);
-        tile.discovered = true;
-        tile.currently_visible = true;
-        tile.has_enemy = true;
-        tile.last_seen_turn = current_turn;
+            if (build_action.has_value()) {
+                std::cout << "[Builder " << GetID() << "] choosing "
+                          << *build_action << std::endl;
 
-        const int dx = agent_pos.CellX() - my_pos.CellX();
-        const int dy = agent_pos.CellY() - my_pos.CellY();
-        if (dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1 && !(dx == 0 && dy == 0)) {
-            enemy_nearby = true;
+                tree.setMemory("chosen_action",
+                    BBValue(std::in_place_type<std::string>, *build_action));
+                PushTrail(tree, my_pos, bb);
+                return;
+            }
+
+            if (HasEnoughToBuildSomething(*dworld) && !standing_on_grass) {
+                std::optional<std::string> best_grass_move;
+                int best_score = std::numeric_limits<int>::max();
+
+                for (const auto& [move_name, pos] : adjacent_moves) {
+                    if (!IsInBounds(grid, pos)) continue;
+                    if (IsOccupied(pos, occupied)) continue;
+
+                    const std::string type = grid.GetCellTypeName(grid[pos]);
+                    if (type != "grass") continue;
+
+                    int score = 0;
+                    if (InTrail(pos, trail)) score += 50;
+                    score += CountOccupiedNeighbors(pos, occupied) * 10;
+
+                    if (score < best_score) {
+                        best_score = score;
+                        best_grass_move = move_name;
+                    }
+                }
+
+                if (best_grass_move.has_value()) {
+                    std::cout << "[Builder " << GetID()
+                              << "] moving to grass to build via "
+                              << *best_grass_move << std::endl;
+
+                    tree.setMemory("chosen_action",
+                        BBValue(std::in_place_type<std::string>, *best_grass_move));
+                    PushTrail(tree, my_pos, bb);
+                    return;
+                }
+            }
         }
     }
 
-    tree.setMemory("on_grass", on_grass);
-    tree.setMemory("on_resource", on_resource);
-    tree.setMemory("material_nearby", material_nearby);
-    tree.setMemory("enemy_nearby", enemy_nearby);
-
-    const auto& inventory = world.GetWorldGlobalCounts();
-    tree.setMemory<int>("wood_count", inventory.count("wood") ? inventory.at("wood") : 0);
-    tree.setMemory<int>("stone_count", inventory.count("stone") ? inventory.at("stone") : 0);
-    tree.setMemory<int>("steel_count", inventory.count("steel") ? inventory.at("steel") : 0);
-    tree.setMemory<int>("wheat_count", inventory.count("wheat") ? inventory.at("wheat") : 0);
-
-    // These can be improved if you expose exact world/building state.
-    tree.setMemory("has_spawner", false);
-    tree.setMemory("has_quarry", false);
-    tree.setMemory("has_lumberyard", false);
-    tree.setMemory("has_farm", false);
-
-    // Precompute adjacent resource move.
-    if (auto adjacent = FindAdjacentResourceMove(grid, my_pos); adjacent.has_value()) {
-        tree.setMemory("adjacent_resource_move", *adjacent);
+    if (material_on_current_tile) {
+        tree.setMemory("chosen_action",
+            BBValue(std::in_place_type<std::string>, "collect"));
+        PushTrail(tree, my_pos, bb);
+        return;
     }
 
-    // Precompute resource path move.
-    if (auto resource_move = PathToNearestKnownResource(grid, shared, my_pos); resource_move.has_value()) {
-        tree.setMemory("resource_move", *resource_move);
+    std::optional<std::string> fallback_adjacent_move;
+    int fallback_score = std::numeric_limits<int>::max();
+
+    for (const auto& [move_name, pos] : adjacent_moves) {
+        if (!IsInBounds(grid, pos)) continue;
+        if (IsOccupied(pos, occupied)) continue;
+
+        TileKnowledge& tile = shared.GetTile(pos);
+        if (!(tile.has_resource && tile.walkable_known && tile.is_walkable)) {
+            continue;
+        }
+
+        int score = 0;
+        if (InTrail(pos, trail)) score += 50;
+        score += CountOccupiedNeighbors(pos, occupied) * 10;
+
+        if (score < fallback_score) {
+            fallback_score = score;
+            fallback_adjacent_move = move_name;
+        }
     }
 
-    // Precompute explore move.
-    if (auto explore_move = PathToExplore(grid, shared, my_pos); explore_move.has_value()) {
-        tree.setMemory("explore_move", *explore_move);
+    if (fallback_adjacent_move.has_value()) {
+        tree.setMemory("chosen_action",
+            BBValue(std::in_place_type<std::string>, *fallback_adjacent_move));
+        PushTrail(tree, my_pos, bb);
+        return;
     }
 
-    // Very simple fallback.
-    if (!std::get<std::string>(tree.getBlackboard().at("explore_move")).empty()) {
-        tree.setMemory("fallback_move", std::get<std::string>(tree.getBlackboard().at("explore_move")));
-    } else {
-        tree.setMemory("fallback_move", std::string("up"));
+    PathGenerator gen;
+    StateGridPosition start(my_pos.CellX(), my_pos.CellY());
+
+    WorldPath chosen_path;
+
+    WorldPath resource_path = gen.GenerateResourcePath(start, shared, std::nullopt);
+    if (resource_path.size() >= 2) {
+        chosen_path = resource_path;
     }
+
+    if (chosen_path.size() < 2) {
+        WorldPath explore_path = gen.GenerateExplorePath(
+            start,
+            shared,
+            static_cast<int>(grid.GetWidth()),
+            static_cast<int>(grid.GetHeight()),
+            std::nullopt
+        );
+
+        if (explore_path.size() >= 2) {
+            chosen_path = explore_path;
+        }
+    }
+
+    if (chosen_path.size() < 2) {
+        auto target = FindInteriorTarget(grid, shared, my_pos);
+        if (target.has_value()) {
+            WorldPath interior_path = gen.GeneratePathToKnownTile(
+                start,
+                StateGridPosition(target->CellX(), target->CellY()),
+                shared,
+                std::nullopt
+            );
+
+            if (interior_path.size() >= 2) {
+                chosen_path = interior_path;
+            }
+        }
+    }
+
+    if (chosen_path.size() >= 2) {
+        size_t next_index = 1;
+
+        auto IsNearEdge = [&](const WorldPosition& p) {
+            return p.CellX() <= 1 ||
+                   p.CellY() <= 1 ||
+                   p.CellX() >= static_cast<int>(grid.GetWidth()) - 2 ||
+                   p.CellY() >= static_cast<int>(grid.GetHeight()) - 2;
+        };
+
+        if (InTrail(NextStepWorldPos(chosen_path, 1), trail) && chosen_path.size() >= 3) {
+            WorldPosition alt = NextStepWorldPos(chosen_path, 2);
+            if (!InTrail(alt, trail) && !IsOccupied(alt, occupied)) {
+                next_index = 2;
+            }
+        }
+
+        WorldPosition next_wp = NextStepWorldPos(chosen_path, next_index);
+
+        if (IsOccupied(next_wp, occupied) && chosen_path.size() >= 3) {
+            WorldPosition alt = NextStepWorldPos(chosen_path, 2);
+            if (!IsOccupied(alt, occupied)) {
+                next_index = 2;
+                next_wp = alt;
+            }
+        }
+
+        if (IsNearEdge(my_pos) && IsNearEdge(next_wp) && chosen_path.size() >= 3) {
+            WorldPosition alt = NextStepWorldPos(chosen_path, 2);
+            if (!InTrail(alt, trail) && !IsOccupied(alt, occupied)) {
+                next_index = 2;
+                next_wp = alt;
+            }
+        }
+
+        if (!IsOccupied(next_wp, occupied)) {
+            const Point& a = chosen_path[0];
+            Point b = chosen_path[next_index];
+
+            std::string move = DirectionToString(StepToDirection(a, b));
+            if (!move.empty()) {
+                tree.setMemory("chosen_action",
+                    BBValue(std::in_place_type<std::string>, move));
+                PushTrail(tree, my_pos, bb);
+                return;
+            }
+        }
+    }
+
+    std::optional<std::string> emergency_fallback;
+    int emergency_score = std::numeric_limits<int>::max();
+
+    for (const auto& [move_name, pos] : adjacent_moves) {
+        if (!IsInBounds(grid, pos)) continue;
+        if (IsOccupied(pos, occupied)) continue;
+
+        TileKnowledge& tile = shared.GetTile(pos);
+        if (!(tile.walkable_known && tile.is_walkable)) {
+            continue;
+        }
+
+        int score = 0;
+        if (InTrail(pos, trail)) score += 50;
+        score += CountOccupiedNeighbors(pos, occupied) * 10;
+
+        if (score < emergency_score) {
+            emergency_score = score;
+            emergency_fallback = move_name;
+        }
+    }
+
+    if (emergency_fallback.has_value()) {
+        tree.setMemory("chosen_action",
+            BBValue(std::in_place_type<std::string>, *emergency_fallback));
+        PushTrail(tree, my_pos, bb);
+        return;
+    }
+
+    tree.setMemory("chosen_action",
+        BBValue(std::in_place_type<std::string>, "down"));
+}
+
+size_t ClassicDynamicAgent::GetAction() const {
+    Blackboard bb = tree.getBlackboard();
+
+    auto it = bb.find("chosen_action");
+    if (it == bb.end()) return 0;
+    if (!std::holds_alternative<std::string>(it->second)) return 0;
+
+    const std::string& action_name = std::get<std::string>(it->second);
+    auto action_it = action_map.find(action_name);
+    if (action_it == action_map.end()) return 0;
+
+    return action_it->second;
 }
 
 } // namespace cse498

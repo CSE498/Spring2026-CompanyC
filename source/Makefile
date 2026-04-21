@@ -105,6 +105,7 @@ WEB_SOURCES = \
 	Worlds/StubWorld.cpp \
 	Worlds/DynamicWorld.cpp \
 	Agents/ClassicAgent.cpp \
+	Agents/ClassicDynamicAgent.cpp \
 	Agents/TendencyAgent.cpp \
 	Agents/EnemyAgent.cpp \
 	Agents/GoblinAgent.cpp \
