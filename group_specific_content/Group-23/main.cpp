@@ -21,33 +21,27 @@ int main() {
     // Start session timer (timer usage ex)
     world.GetTimer().Start("Game::Session");
 
-    // hard coded value for demo 
-    std::this_thread::sleep_for(std::chrono::milliseconds(750));
+    std::this_thread::sleep_for(std::chrono::milliseconds(750)); // hard coded value for demo 
 
-    // End session
-    world.GetTimer().Stop("Game::Session");
+    world.GetTimer().Stop("Game::Session"); // End session
     const double durationSeconds = world.GetPlaytimeSeconds(); 
 
     // demo purposes: the world either provides a score or not
     // score provided by worlds: score is title .score not provided: duration is title
     //can toggle value (for now) to see behavior change
-    const bool hasScore = true;
+    const bool hasScore = false;
 
     // format seconds cleanly
     std::ostringstream playtimeStream;
     playtimeStream << std::fixed << std::setprecision(2) << durationSeconds;
     const std::string playtimeText = playtimeStream.str();
 
-    const double valuables = 10.0; // hard coded demo placeholder
-
     std::vector<cse498::Stat> stats;
-    stats.push_back({"Valuables", valuables});
     
     double score = 0.0;
 
     if (hasScore) {
-        score = (valuables * 100.0) - (durationSeconds * 10.0);
-
+        score = 1000.0 - (durationSeconds * 10.0);  // demo placeholder score
         // If score is the title, don't also have it as a stat below
         // still include playtime as a stat
         stats.push_back({"Playtime (sec)", durationSeconds});
@@ -56,7 +50,8 @@ int main() {
         //no score so playtime will be title
     }
 
-    std::vector<cse498::Stat> extra_stats = {
+    std::vector<cse498::Stat> example_world_stats = {
+        {"Valuables", 10.0},
         {"Accuracy",  94.5},
         {"Kills",     12.0},
         {"Deaths",     3.0},
@@ -64,7 +59,7 @@ int main() {
     };
 
     // Append extra stats so everything appears in one table
-    stats.insert(stats.end(), extra_stats.begin(), extra_stats.end());
+    stats.insert(stats.end(), example_world_stats.begin(), example_world_stats.end());
 
     cse498::DataLog<cse498::WorldPosition> heatmap;
     for (int i = 0; i < 10; ++i){
