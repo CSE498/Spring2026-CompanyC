@@ -8,22 +8,23 @@
 
 ## 0. Introduction
 
-This module implements **five concrete agent types** used across Company C simulations:
+This module implements **six concrete agent types** used across Company C simulations:
 
 | Agent | Primary use |
 |--------|-------------|
-| **`DynamicAgent`** | Dynamic / resource-building worlds |
-| **`HunterAgent`** | Interaction-heavy worlds (enemy pursuit) |
-| **`SmartAgent`** | LLM / NPC-driven grid movement |
-| **`SokobanAgent`** | Sokoban puzzle worlds |
-| **`TendencyAgent`** | Dynamic World with weighted personality-driven scoring |
+| **`DynamicAgent`** | DynamicWorld — role-based economy and phased building for the win condition |
+| **`HunterAgent`** | Interaction-heavy worlds — roam / alert / chase pursuit |
+| **`SmartAgent`** | Any grid with four cardinal moves — async LLM-driven movement (callback required) |
+| **`SokobanAgent`** | SokobanWorld — BFS puzzle solver |
+| **`TendencyAgent`** | DynamicWorld-style action sets — weighted personality scoring across all actions |
+| **`MazeSolverAgent`** | MazeWorld — BFS pathfinding toward exit or unexplored floor |
 
 All of them inherit **`AgentBase`** (`source/core/AgentBase.hpp`):
 
 - The world registers **action names → ids**; **`0`** means “no action.”
 - Each tick the world sets **`action_result`**, calls **`SelectAction(WorldGrid &)`**, and may send **`Notify(message, msg_type)`**.
 
-The **Web Interface** module (Settings → Simulation) can surface **behavior settings** (for example, tendency weights or external AI hooks); this document describes the **C++ policies** for the agents above.
+The **Web Interface** module (Settings → Simulation) can surface **behavior settings** (for example, tendency weights, `DynamicAgent` roles, or external AI hooks). This document describes the **C++ policies** for the agents above, including **`web_main.cpp`** examples where useful.
 
 ---
 
@@ -31,7 +32,7 @@ The **Web Interface** module (Settings → Simulation) can surface **behavior se
 
 ### Objective
 
-Provide **decision policies** that stay within each world’s **registered action set** while supporting different play styles: scripted economy (`DynamicAgent`), personality scoring (`TendencyAgent`), search (`SokobanAgent`), combat AI (`HunterAgent`), and external reasoning (`SmartAgent`).
+Provide **decision policies** that stay within each world’s **registered action set** while supporting different play styles: scripted economy (`DynamicAgent`), personality scoring (`TendencyAgent`), search (`SokobanAgent`, `MazeSolverAgent`), pursuit AI (`HunterAgent`), and external reasoning (`SmartAgent`).
 
 ---
 
@@ -39,49 +40,109 @@ Provide **decision policies** that stay within each world’s **registered actio
 
 1. **`Initialize()`** — Agent checks that required action names exist (via **`HasAction`**).
 2. **`SelectAction(grid)`** — Returns the next action id.
-3. **`Notify(...)`** — Optional; used for resources, goals, target hints, etc., depending on the agent.
+3. **`Notify(...)`** — Optional; used for resources, goals, target hints, failures, etc., depending on the agent.
 
 ---
 
 ### Base class (`AgentBase`)
 
 - **`action_map`**, **`GetActionID`**, **`HasAction`**, **`SetActionResult`**
-- **`SelectAction`** — implemented by each agent below
+- **`SelectAction`** — implemented by each concrete agent
 - **`Notify`** — overridden where agents need world feedback
 
 ---
 
 ## 2. Agent types
 
-The following sections describe the five agents in this module. Source: `source/Agents/*.hpp` and `*.cpp`.
+The following sections describe the six agents in this module. Source: `source/Agents/*.hpp` and `*.cpp`.
 
 ---
 
 ### 2.1 `DynamicAgent`
 
-**World:** Dynamic / resource-building simulation (see **Dynamic World** module).
+**World:** **DynamicWorld** (resource-building simulation; see **Dynamic World** module).
 
-**Roles** (via **`SetType`**, **`SetLeader`**, **`SetCollector`**, **`SetFarmer`**, **`SetMiner`**, **`SetWoodsman`**):
+Purpose-built for the win condition: **five quarries**, **five farms**, **five lumberyards**, then **one town hall**, in that order. A **`SyncPool()`** call at the start of **`SelectAction`** reads **`world_global_counts`** so all agents share accurate pool totals for affordability checks. (Static pool fields are also maintained for compatibility with resource **`Notify`** messages.)
+
+**Roles:**
 
 | Role | Behavior (summary) |
 |------|---------------------|
-| **Leader** | Does not collect; follows a **build phase** (quarry → farm → lumberyard → town hall) when the **shared resource pool** can afford each step |
-| **Collector** | Gathers the **least-needed** resource type toward win thresholds |
-| **Farmer / Miner / Woodsman** | Collects **wheat / stone / wood** only |
+| **Leader** | Does not collect; moves onto **grass** and issues **`build_*`** when the pool can afford the current phase; advances after **5** structures in the quarry/farm/lumberyard phases or **1** town hall |
+| **Collector** | Gathers whichever resource the pool has **least** of (toward thresholds) |
+| **Farmer / Miner / Woodsman** | Collects **wheat / stone / wood** (`tree`) only |
+| **Ghost** | **Moves only** — never collects or builds |
 
-**Pooling:** Static **`pool_wood`**, **`pool_stone`**, **`pool_wheat`**, **`pool_steel`** are updated in **`Notify`** when `msg_type == "resource"` so the leader can judge team-wide affordability.
+**Build phase sequence:**
+
+| Phase | Structure | Cost (each) |
+|------|-----------|-------------|
+| 1 | Quarry × 5 | 20 wood + 20 stone |
+| 2 | Farm × 5 | 20 wood + 20 wheat |
+| 3 | Lumberyard × 5 | 20 wood + 20 steel |
+| 4 | Town hall × 1 | 500 of each resource |
+
+**Usage in `web_main.cpp`:**
+
+```cpp
+else if (run_mode == "dynamic")
+{
+    auto &world = g_app->Initialize<cse498::DynamicWorld>();
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> x_pos(0, world.GetWidth() - 1);
+    std::uniform_int_distribution<int> y_pos(0, world.GetHeight() - 1);
+
+    world.AddAgent<cse498::DynamicAgent>("Builder")
+        .SetLeader(true)
+        .SetLocation(cse498::WorldPosition{x_pos(gen), y_pos(gen)});
+
+    world.AddAgent<cse498::DynamicAgent>("Farmer")
+        .SetFarmer()
+        .SetLocation(cse498::WorldPosition{x_pos(gen), y_pos(gen)});
+
+    world.AddAgent<cse498::DynamicAgent>("Miner")
+        .SetMiner()
+        .SetLocation(cse498::WorldPosition{x_pos(gen), y_pos(gen)});
+
+    world.AddAgent<cse498::DynamicAgent>("Woodsman")
+        .SetWoodsman()
+        .SetLocation(cse498::WorldPosition{x_pos(gen), y_pos(gen)});
+
+    world.AddAgent<cse498::DynamicAgent>("Collector")
+        .SetCollector()
+        .SetLocation(cse498::WorldPosition{x_pos(gen), y_pos(gen)});
+
+    g_auto_run = true;
+}
+```
 
 ---
 
 ### 2.2 `HunterAgent`
 
-**World:** **Interaction-heavy** worlds; contact / HP effects are applied by the world (for example **`ApplyEnemyContactDamage`**), not inside the hunter.
+**World:** **Interaction-heavy** worlds (e.g. **`InteractionHeavyWorld`**).
 
-**States:** **`Roam`** → **`Alert`** (one-tick delay after detection) → **`Chase`** (Chebyshev-greedy pursuit). Returns to roam if the target leaves **`mChaseRadius`**, with **`mChaseMemoryTicks`** of memory.
+An enemy **pursuit** agent. It does **not** apply damage — that is a **world** responsibility (for example contact damage or **`Notify`**, sometimes described as **`ApplyEnemyContactDamage()`** in design docs). The hunter only needs to become **adjacent** to the target.
 
-**Tuning:** **`SetDetectRadius`**, **`SetChaseRadius`**, **`SetChaseMemory`**.
+**States:**
 
-**Targets:** Scans for cells named **`player`** or **`agent`** within **`mDetectRadius`** (Chebyshev). Optional **`Notify("x,y", "target_position")`**.
+- **`Roam`** — wanders pseudo-randomly; holds a direction for several ticks to reduce jitter
+- **`Alert`** — target just entered range; **one-tick** delay before **`Chase`**
+- **`Chase`** — **Chebyshev-greedy** move toward the last known target; returns to roam if the target leaves **`mChaseRadius`**, with **`mChaseMemoryTicks`** of memory
+
+**Targets:** Scans for cells named **`"player"`** or **`"agent"`** within **`mDetectRadius`**. **`TendencyAgent`**-driven entities should be registered as **`"agent"`** if they should be hunted, or push positions via **`Notify("x,y", "target_position")`**. Hunters are not typically named `"player"` / `"agent"` on the grid.
+
+**Tuning:**
+
+```cpp
+world.AddAgent<cse498::HunterAgent>("Hunter")
+    .SetDetectRadius(10)   // default 8
+    .SetChaseRadius(15)    // default 12
+    .SetChaseMemory(20)    // default 10 ticks
+    .SetLocation(WorldPosition{5, 5});
+```
 
 **Actions:** **`up`**, **`down`**, **`left`**, **`right`**.
 
@@ -89,7 +150,9 @@ The following sections describe the five agents in this module. Source: `source/
 
 ### 2.3 `SmartAgent`
 
-**World:** Any grid world that exposes the four **cardinal** moves; designed for **async NPC / LLM** decisions.
+**World:** Any grid world that exposes the four **cardinal** moves.
+
+Designed to connect an **external LLM** (or other NPC backend) to a grid agent.
 
 **Flow:**
 
@@ -100,27 +163,97 @@ The following sections describe the five agents in this module. Source: `source/
 
 **Integration:** Install **`SmartAgent::SetNpcRequestCallback`** before simulation ticks; use **`GetSystemPrompt()`** for model system instructions.
 
+**Practicality:** Without a real async HTTP client or local model behind the callback, the agent cannot obtain replies. The current web demo does not ship that infrastructure — **`SmartAgent`** is **LLM-ready** but **not turnkey** until a callback is wired in.
+
+```cpp
+SmartAgent::SetNpcRequestCallback(myLlmCallback);
+```
+
 ---
 
 ### 2.4 `SokobanAgent`
 
-**World:** **Sokoban-style** levels only (cell types such as floor, wall, boulder, button, pressed, exit — as named by that world).
+**World:** **SokobanWorld** only.
 
-**Algorithm:** When the **grid hash** changes (new level), runs **BFS** on the combined **player + boulders** state space, fills a **solution queue**, then returns one **precomputed** action per **`SelectAction`** call.
+Solves Sokoban puzzles using **BFS** over the full combined state space (agent position + all boulder positions). Relies on cell type names such as **`floor`**, **`wall`**, **`boulder`**, **`button`**, **`pressed`**, **`exit`** — **not** valid in arbitrary worlds.
 
-**Warning:** **Not** for general grid worlds; behavior assumes Sokoban push rules and cell naming.
+**Behavior:**
+
+- When the **grid hash** changes (new level), runs BFS and stores the solution in a **deque**.
+- Each **`SelectAction()`** pops one action.
+- If the world **rejects** a move, the queue is cleared and the agent **re-solves** from the current state.
+
+**Adding in `web_main.cpp`:**
+
+```cpp
+else if (run_mode == "sokoban")
+{
+    auto &world = g_app->Initialize<cse498::SokobanWorld>();
+    world.AddAgent<cse498::SokobanAgent>("Solver")
+        .SetLocation(WorldPosition{1, 1});
+    g_auto_run = true;
+}
+```
 
 ---
 
 ### 2.5 `TendencyAgent`
 
-**World:** Same **Dynamic World** action space: eight directions + **`collect`** + **`build_*`** (names must match the world).
+**World:** Any world that exposes the same **action names** as **DynamicWorld** (eight directions, **`collect`**, **`build_*`**).
 
-**Design:** **`Tendencies`** — weights for explore, collect, build, persistence, avoidance, social, combat, survival, plus **resource affinities** and **building desires**. Each turn **`ScoreAction`** ranks **all** legal actions; the highest score wins. **`Goal`** is **recomputed** every tick (no fixed long-term plan).
+A **personality-driven** agent: each tick it scores **every** legal action and picks the highest scorer.
 
-**Configuration:** Fluent setters (**`SetExplore`**, **`SetCollect`**, **`SetWoodAffinity`**, **`SetTownhallDesire`**, etc.) in `TendencyAgent.hpp`.
+**Pipeline each tick:**
 
-**Memory:** Minimal — resource counts, last action success, per-direction failure counts — used in scoring only.
+1. **`ChooseGoal()`** — collect vs build intention. Build goals must be affordable and registered. **`BuildTownhall`** is treated as a **hard priority** when affordable.
+2. **`ScoreAction()`** — weighted sum of:
+   - **`ScoreExplore`** — baseline movement so the agent does not idle
+   - **`ScoreCollect`** — rewards progress toward the goal resource
+   - **`ScoreBuild`** — rewards the matching affordable build action
+   - **`ScorePersistence`** — rewards repeating recently successful actions
+   - **`ScoreAvoidance`** — penalizes directions that have repeatedly failed
+   - **`ScoreSocial`**, **`ScoreCombat`**, **`ScoreSurvival`** — **stubs** (return **0** until implemented)
+
+**Design:** The **`Tendencies`** struct holds explore, collect, build, persistence, avoidance, social, combat, survival, resource **affinities**, and building **desires**. **`Goal`** is **recomputed** every tick (no fixed long-term plan). Fluent setters live in `TendencyAgent.hpp`.
+
+**Configuration example:**
+
+```cpp
+world.AddAgent<cse498::TendencyAgent>("Explorer")
+    .SetExplore(1.5)
+    .SetCollect(1.5)
+    .SetCombat(0.6)
+    .SetStoneAffinity(1.2)
+    .SetLocation(WorldPosition{3, 1});
+```
+
+**Memory:** Resource counts, last action success, per-direction failure counts — used for scoring and affordability only.
+
+---
+
+### 2.6 `MazeSolverAgent`
+
+**World:** **MazeWorld**.
+
+Navigates using **BFS**. Priority: **exit** cell first, then nearest **unvisited** floor; see `MazeSolverAgent.hpp` for fallbacks. Keeps a **visited** map to limit redundant exploration.
+
+**Behavior:**
+
+- **`PlanPath()`** runs BFS when the path is exhausted or invalidated.
+- **Two** consecutive failed moves trigger an immediate **replan**.
+
+**Implementation note:** Walkability uses **`GetCellTypeName(...) != "wall"`** rather than relying only on **`IsTraversable`**. On some grids **`IsTraversable`** can be false for floor-like cells, which would leave BFS with no reachable nodes; the explicit wall check avoids that.
+
+**Adding in `web_main.cpp`:**
+
+```cpp
+#include "Agents/MazeSolverAgent.hpp"
+// ...
+world.AddAgent<cse498::MazeSolverAgent>("Solver")
+    .SetLocation(WorldPosition{1, 1});
+```
+
+**Actions:** **`up`**, **`down`**, **`left`**, **`right`**.
 
 ---
 
@@ -128,11 +261,12 @@ The following sections describe the five agents in this module. Source: `source/
 
 | Agent | Typical required actions |
 |--------|---------------------------|
-| `DynamicAgent` | `up`, `down`, `left`, `right`, `collect` (+ build action names for leader) |
+| `DynamicAgent` | Eight directions, `collect` (+ `build_*` for leader) |
 | `HunterAgent` | `up`, `down`, `left`, `right` |
 | `SmartAgent` | `up`, `down`, `left`, `right` |
 | `SokobanAgent` | `up`, `down`, `left`, `right` |
-| `TendencyAgent` | Dynamic World set: diagonals + cardinals, `collect`, `build_*` |
+| `TendencyAgent` | Diagonals + cardinals, `collect`, `build_*` |
+| `MazeSolverAgent` | `up`, `down`, `left`, `right` |
 
 Exact strings must match what the **world** registers on the agent.
 
@@ -140,14 +274,15 @@ Exact strings must match what the **world** registers on the agent.
 
 ## 4. UI and integration notes
 
-- **Settings** can serialize **tendency** parameters for **`TendencyAgent`** or roles for **`DynamicAgent`**.
+- **Settings** can serialize **tendency** parameters for **`TendencyAgent`**, roles for **`DynamicAgent`**, or hunter tuning for **`HunterAgent`**.
 - **`SmartAgent`** needs a **host-provided callback** (local model, HTTP client, or test stub) wired before the simulation loop.
+- **`web_main.cpp`** `run_mode` / URL parameters select the world and agents; see §2 for snippets.
 
 ---
 
 ## 5. Dependencies
 
-- **`AgentBase`**, **`WorldGrid`**, **`WorldBase`**, **`WorldPosition`** — `source/core/`
+- **`AgentBase`**, **`WorldGrid`**, **`WorldBase`**, **`WorldPosition`**, **`Location`** — `source/core/`
 - C++ standard library; **`SmartAgent`** uses **`<future>`**, **`<chrono>`**, etc.
 
 Build settings are integrated via the **repository Makefile** with the rest of the project.
@@ -180,6 +315,7 @@ DynamicAgent & SetFarmer();
 DynamicAgent & SetMiner();
 DynamicAgent & SetWoodsman();
 DynamicAgent & SetCollector();
+DynamicAgent & SetGhost();
 ```
 
 **`HunterAgent` (examples):**
@@ -196,15 +332,16 @@ HunterAgent & SetChaseMemory(int v);
 
 The **AI Agents** module delivers:
 
-- **`DynamicAgent`** — role-based economy and phased building with a shared resource pool  
-- **`HunterAgent`** — roam / alert / chase pursuit for interaction-heavy worlds  
-- **`SmartAgent`** — prompt-based, async **LLM-ready** movement on small grids  
-- **`SokobanAgent`** — **BFS** optimal replay for Sokoban levels  
-- **`TendencyAgent`** — **weighted scoring** over Dynamic World actions for configurable “personalities”  
+- **`DynamicAgent`** — phased **5+5+5+1** building, **`world_global_counts`**-synced pool, specialists, and **ghost** roam-only mode  
+- **`HunterAgent`** — **roam / alert / chase**; damage remains a **world** concern  
+- **`SmartAgent`** — prompt-based, async **LLM-ready** movement (callback required)  
+- **`SokobanAgent`** — **BFS** over full Sokoban state; re-solve on failure  
+- **`TendencyAgent`** — **weighted scoring** with **town-hall-first** goal when affordable  
+- **`MazeSolverAgent`** — **BFS** maze navigation with exit / exploration priorities  
 
 ---
 
 ## 8. Source layout
 
-- Implementations: **`source/Agents/`** (`DynamicAgent`, `HunterAgent`, `SmartAgent`, `SokobanAgent`, `TendencyAgent`)
+- Implementations: **`source/Agents/`** — `DynamicAgent`, `HunterAgent`, `SmartAgent`, `SokobanAgent`, `TendencyAgent`, `MazeSolverAgent`  
 - Tests (where present): **`tests/Agents/`**
