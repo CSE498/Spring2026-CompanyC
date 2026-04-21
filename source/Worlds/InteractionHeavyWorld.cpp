@@ -8,6 +8,7 @@
  * @note Status: FINAL
  */
 #include "InteractionHeavyWorld.hpp"
+#include "../Agents/GoblinAgent.hpp"
 #include "../Agents/HunterAgent.hpp"
 #include <algorithm>
 #include <fstream>
@@ -120,10 +121,10 @@ namespace cse498
         // Load dungeon layout from text file.
         std::vector<std::string> dungeon_layout;
 
-        std::ifstream infile("source/Worlds/interaction_world_maps/dungeon_map.txt");
+        std::ifstream infile("source/Worlds/interaction_world_maps/dungeon_map_small.txt");
         if (!infile)
         {
-            std::cerr << "Error: Could not open dungeon_map.txt\n";
+            std::cerr << "Error: Could not open dungeon_map_small.txt\n";
             return;
         }
 
@@ -180,7 +181,8 @@ namespace cse498
                     main_grid[pos] = mChestID;
                     break;
                 case 'H':
-                    // Hunters are spawned as agents, not stored in the terrain grid.
+                    // 'H' marks a goblin spawn in the map file. The cell stays as floor,
+                    // and web_main later reads these saved positions to place GoblinAgents.
                     main_grid[pos] = mFloorID;
                     mEnemySpawnPositions.push_back(pos);
                     break;
@@ -350,31 +352,38 @@ namespace cse498
 
         for (const auto &pos : neighbors)
         {
-            if (!main_grid.IsValid(pos))
-                continue;
-
-            size_t tile = main_grid[pos];
-
-            // Open a door
-            if (tile == mDoorID)
+            for (auto &ptr : agent_set)
             {
-                size_t required_gold = 20;
+                if (!ptr)
+                    continue;
+
+                auto *goblin = dynamic_cast<GoblinAgent *>(ptr.get());
+                if (!goblin)
+                    continue;
+
+                if (!ptr->GetLocation().AsWorldPosition().SameCell(pos))
+                    continue;
+
+                size_t required_gold = 1;
 
                 if (mGoldCount >= required_gold)
                 {
                     mGoldCount -= required_gold;
-                    main_grid[pos] = mDoorOpenID;
+                    goblin->ClearBlocking();
+                    goblin->SetLocation(GetOffGridPosition());
 
-                    std::cout << "The door has opened!.\n";
+                    std::cout << "The goblin steps aside.\n";
                     SyncResourceVector();
                 }
-                else 
+                else
                 {
-                    std::cout << "The door cannot be opened. You do not have enough gold!.\n";
+                    std::cout << "You do not have enough gold to pay the goblin.\n";
                 }
                 return;
             }
         }
+
+        std::cout << "There is no goblin nearby to pay.\n";
     }
 
     void InteractionHeavyWorld::ThrowStone(size_t x, size_t y, int dx, int dy)

@@ -41,6 +41,7 @@ grumpy: grumpy-agent
 
 # Sources shared by all build targets (native and web)
 BASE_SOURCES = Agents/ClassicAgent.cpp   \
+               Agents/GoblinAgent.cpp    \
                Agents/TendencyAgent.cpp  \
 			   Agents/HunterAgent.cpp  \
                tools/BehaviorTree.cpp    \

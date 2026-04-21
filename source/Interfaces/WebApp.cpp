@@ -71,8 +71,8 @@ namespace
       // Codes must match the ActionCode enum in WebApp.hpp.
       var map = { 'w': 5, 'arrowup': 5, 's': 6, 'arrowdown': 6,
                   'a': 7, 'arrowleft': 7, 'd': 8, 'arrowright': 8,
-                  'e': 9, 'b': 10,  'i': 11,'k': 12, 'j': 13, 'l': 14,
-                  'p': 15, 'r': 2, 'enter': 1 };
+                  'e': 9, 'o': 10, 'b': 11, 'i': 12, 'k': 13, 'j': 14,
+                  'l': 15, 'p': 16, 'r': 2, 'enter': 1 };
       if (!(key in map)) return;
       ev.preventDefault();
       Module.ccall('HandleAction', null, ['number'], [map[key]]); });
@@ -116,11 +116,12 @@ namespace
         [ 7, 'Left' ],
         [ 8, 'Right' ],
         [ 9, 'Collect' ],
-        [ 10, 'break_boulder' ],
-        [ 11, 'Throw Up' ],
-        [ 12, 'Throw Down' ],
-        [ 13, 'Throw Left' ],
-        [ 14, 'Throw Right' ]
+        [ 10, 'Pay' ],
+        [ 11, 'break_boulder' ],
+        [ 12, 'Throw Up' ],
+        [ 13, 'Throw Down' ],
+        [ 14, 'Throw Left' ],
+        [ 15, 'Throw Right' ]
       ];
 
       actionButtons.forEach(function(entry) {
@@ -274,6 +275,8 @@ std::string WebApp::ActionIdForCode(int code)
     return "right";
   case kActionCollect:
     return "collect";
+  case kActionPay:
+    return "pay";
   case kActionBuild:
     return "break_boulder";
   case kActionThrowUp:
@@ -311,6 +314,8 @@ int WebApp::CodeForActionId(const std::string &action_id)
     return kActionRight;
   if (action_id == "collect")
     return kActionCollect;
+  if (action_id == "pay")
+    return kActionPay;
   if (action_id == "break_boulder")
     return kActionBuild;
   if (action_id == "throw_up")

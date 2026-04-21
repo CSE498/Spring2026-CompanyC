@@ -16,6 +16,7 @@
 #include "Agents/SmartAgent.hpp"
 #include "Agents/TendencyAgent.hpp"
 #include "Agents/HunterAgent.hpp"
+#include "Agents/GoblinAgent.hpp"
 
 #include "Worlds/DynamicWorld.hpp"
 #include "Worlds/InteractionHeavyWorld.hpp"
@@ -95,12 +96,19 @@ int main()
   else if (run_mode == "interaction")
   {
     using world_t = cse498::InteractionHeavyWorld;
-    using agent_t = cse498::HunterAgent;
     auto &world = g_app->Initialize<world_t>();
-    world.AddAgent<agent_t>("Hunter 1").SetLocation(WorldPosition{3, 1});
-    world.AddAgent<agent_t>("Hunter 2").SetLocation(WorldPosition{6, 1});
-    world.AddAgent<agent_t>("Hunter 3").SetLocation(WorldPosition{7, 7});
-    world.AddAgent<agent_t>("Hunter 4").SetLocation(WorldPosition{8, 8});
+    world.AddAgent<cse498::HunterAgent>("Hunter 1").SetLocation(WorldPosition{3, 1});
+    world.AddAgent<cse498::HunterAgent>("Hunter 2").SetLocation(WorldPosition{6, 1});
+    world.AddAgent<cse498::HunterAgent>("Hunter 3").SetLocation(WorldPosition{7, 7});
+    world.AddAgent<cse498::HunterAgent>("Hunter 4").SetLocation(WorldPosition{8, 8});
+
+    // Goblins are spawned from the 'H' markers loaded from the interaction map.
+    const auto goblin_spawns = world.GetEnemySpawnPositions();
+    for (size_t i = 0; i < goblin_spawns.size(); ++i)
+    {
+      world.AddAgent<cse498::GoblinAgent>("Goblin " + std::to_string(i + 1))
+          .SetLocation(goblin_spawns[i]);
+    }
   }
   else if (run_mode == "maze")
   {
@@ -144,6 +152,7 @@ int main()
   g_app->RegisterActionMeta("left", Meta{"Left", "A", true});
   g_app->RegisterActionMeta("right", Meta{"Right", "D", true});
   g_app->RegisterActionMeta("collect", Meta{"Collect", "E", true});
+  g_app->RegisterActionMeta("pay", Meta{"Pay", "O", true});
   g_app->RegisterActionMeta("break_boulder", Meta{"Break", "B", true});
   g_app->RegisterActionMeta("throw_up", Meta{"Throw Up", "I", true});
   g_app->RegisterActionMeta("throw_down", Meta{"Throw Down", "K", true});

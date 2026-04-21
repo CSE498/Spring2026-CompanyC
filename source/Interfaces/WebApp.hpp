@@ -81,12 +81,13 @@ private:
     kActionLeft = 7,
     kActionRight = 8,
     kActionCollect = 9,
-    kActionBuild = 10,
-    kActionThrowUp = 11,
-    kActionThrowDown = 12,
-    kActionThrowLeft = 13,
-    kActionThrowRight = 14,
-    kActionInventory = 15
+    kActionPay = 10,
+    kActionBuild = 11,
+    kActionThrowUp = 12,
+    kActionThrowDown = 13,
+    kActionThrowLeft = 14,
+    kActionThrowRight = 15,
+    kActionInventory = 16
   };
 
   static std::string ActionIdForCode(int code);
