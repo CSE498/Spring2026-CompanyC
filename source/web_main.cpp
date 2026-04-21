@@ -16,6 +16,7 @@
 #include "Agents/SmartAgent.hpp"
 #include "Agents/TendencyAgent.hpp"
 #include "Interfaces/WebApp.hpp"
+#include "Agents/ClassicDynamicAgent.hpp"
 
 #include "Worlds/DynamicWorld.hpp"
 #include "Worlds/InteractionHeavyWorld.hpp"
@@ -73,7 +74,7 @@ int main()
 
     using world_t = cse498::DynamicWorld;
     auto &world = g_app->Initialize<world_t>();
-    world.AddAgent<StubAgent>("Leader").SetLocation(Location{{0, 0}});
+    world.AddAgent<ClassicDynamicAgent>("Leader").SetLocation(Location{{0, 0}});
 
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -83,7 +84,7 @@ int main()
     for (int i = 0; i < basicAgentCount; i++)
     {
       std::string name = "Basic Agent " + std::to_string(i + 1);
-      world.AddAgent<StubAgent>(name).SetLocation(
+      world.AddAgent<ClassicDynamicAgent>(name).SetLocation(
           cse498::WorldPosition{x_pos(gen), y_pos(gen)});
     }
   }

@@ -1,14 +1,15 @@
 #pragma once
 #include "ClassicAgent.hpp"
 
-namespace cse498{
+namespace cse498 {
 
-class ClassicDynamicAgent : public ClassicAgent{
+class ClassicDynamicAgent : public ClassicAgent {
 protected:
     void BuildTree() override;
+    void Sense(WorldGrid& grid) override;
 
 public:
-    ClassicDynamicAgent(size_t id, const std::string & name, const WorldBase & world)
+    ClassicDynamicAgent(size_t id, const std::string& name, const WorldBase& world)
         : ClassicAgent(id, name, world) {}
 };
 
