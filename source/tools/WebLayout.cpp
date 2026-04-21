@@ -248,6 +248,14 @@ void WebLayout::createShell()
     interactionWorldOption->element.set("value", std::string("interaction"));
     interactionWorldOption->element.set("textContent", std::string("Interaction World"));
 
+    Node* sokobanWorldOption = createElement(worldSelect, "option");
+    sokobanWorldOption->element.set("value", std::string("sokoban"));
+    sokobanWorldOption->element.set("textContent", std::string("Sokoban World"));
+
+    Node* dynamicWorldOption = createElement(worldSelect, "option");
+    dynamicWorldOption->element.set("value", std::string("dynamic"));
+    dynamicWorldOption->element.set("textContent", std::string("Dynamic World"));
+
     // Topbar buttons
     Node* startBtn = createElement(topbar, "button", "cse498btn-1");
     startBtn->element.set("textContent", std::string("Start"));

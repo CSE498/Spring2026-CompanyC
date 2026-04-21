@@ -105,7 +105,13 @@
     // Adding world select dropdown function
     var worldSelect = document.getElementById('cse498_world_select');
     if (worldSelect && !worldSelect.__cse498_bound) {
-      var validWorlds = { stub: true, maze: true, interaction: true };
+      var validWorlds = {
+        stub: true,
+        maze: true,
+        interaction: true,
+        sokoban: true,
+        dynamic: true
+      };
       var params = new URLSearchParams(window.location.search);
       var currentWorld = params.get('world') || 'stub';
       if (!validWorlds[currentWorld]) currentWorld = 'stub';
