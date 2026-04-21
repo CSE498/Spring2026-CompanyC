@@ -109,7 +109,7 @@ FLAGS_web_base = -std=c++23 -I. \
                  -sEXPORTED_FUNCTIONS=_main,_HandleAction \
                  -sEXPORTED_RUNTIME_METHODS=ccall,cwrap \
                  -lembind \
-				         --preload-file ../source/Worlds/interaction_world_maps
+				 --preload-file ../source/Worlds/interaction_world_maps \
                  -lwebsocket
 
 FLAGS_web_opt   = $(FLAGS_web_base) -O3 -DNDEBUG
