@@ -84,9 +84,6 @@ namespace cse498
         // After action cells
         mMaterialID = main_grid.AddCellType("material", "Dropped material", 'M', true);
         mChestOpenID = main_grid.AddCellType("chest_open", "Opened chest", 'c', false);
-
-        // Hunters are agents now, so the enemy tile is not used for combat.
-        // mEnemyID = main_grid.AddCellType("enemy", "Hostile", 'H', false);
     }
 
     WorldPosition InteractionHeavyWorld::GetStartPosition() const { return mStartPosition; }
@@ -153,7 +150,10 @@ namespace cse498
         LoadDungeon(dungeon_layout);
 
         // Place random boulders after the map has been loaded.
-        PlaceBoulders(1, 4);
+        int minBoulders = 1;
+        int maxBoulders = 4;
+
+        PlaceBoulders(minBoulders, maxBoulders);
     }
 
     void InteractionHeavyWorld::LoadDungeon(const std::vector<std::string> &dungeon_layout)
