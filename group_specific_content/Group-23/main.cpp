@@ -1,5 +1,7 @@
 #include "../../source/tools/EndGameScreen.hpp"
 #include "../../source/tools/Timer.hpp"
+#include "../../source/core/WorldPosition.hpp"
+#include "../../source/tools/DataLog.hpp"
 #include <fstream>
 #include <iostream>
 #include <thread>
@@ -7,6 +9,7 @@
 #include <vector>
 #include <string>
 
+// To run this file "g++ -std=c++23 -Wall -I../source -o test main.cpp ../../source/tools/Timer.cpp"
 // This is a file used to help show the functionality of the end game screen file
 // written with the help of claude ai
 int main() {
@@ -40,16 +43,21 @@ int main() {
         {"Damage",  4821.0},
     };
 
-    std::vector<std::vector<int>> heatmap = {
-        {1,  4,  9,  2},
-        {5,  8,  3,  7},
-        {2,  6, 10,  4},
-        {0,  3,  5,  8},
-    };
+    cse498::DataLog<cse498::WorldPosition> heatmap;
+    for (int i = 0; i < 10; ++i){
+        int count = 0;
+        for (int j = 0; j < 10; ++j){
+            for (int k = 0; k < count; ++k){
+                cse498::WorldPosition coord(i,j);
+                heatmap.Add(coord); 
+            }
+            ++count;
+        }
+    }
 
     const std::string title = "Score: " + std::to_string(static_cast<long long>(score));
     stats.insert(stats.end(), extra_stats.begin(), extra_stats.end());
-    const std::string html = cse498::generateScoreScreen(title, stats, heatmap);
+    const std::string html = cse498::generateScoreScreen(title, stats, heatmap, 10);
 
     std::ofstream out("result.html");
     if (!out) {

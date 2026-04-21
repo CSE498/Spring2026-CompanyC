@@ -14,6 +14,8 @@
 #include <algorithm>
 #include <limits>
 #include <stdexcept>
+#include "../core/WorldPosition.hpp"
+#include "DataLog.hpp"
  
 namespace cse498
 { 
@@ -55,17 +57,24 @@ namespace cse498
      *
      * @param title      The score/title shown at the top (e.g. "Score: 8420")
      * @param stats      A vector of Stat structs (label + numeric value)
-     * @param heatmap    A 2D vector of ints used to render a heatmap
-     *                   Values are auto-normalized across the entire grid.
+     * @param dataLogHM  A vector holding every coordinate that an agent has ever been om
+	 * @param size		 The size of the map
      * @param precision  Decimal places to show for stat values (default: 2)
      * @return           A complete HTML document string ready to display or write to file
      */
     inline std::string generateScoreScreen(
     const std::string& title,
     const std::vector<Stat>& stats,
-    const std::vector<std::vector<int>>& heatmap,
+	const cse498::DataLog<cse498::WorldPosition>& dataLogHM,
+    const int size,
     int precision = 2)
 		{
+			std::vector<std::vector<int>> heatmap(size, std::vector<int>(size, 0));
+			std::vector<WorldPosition> hm = dataLogHM.Values();
+			for (const auto& cord: hm){
+				heatmap[cord.X()][cord.Y()] += 1;
+			}
+
 			// --- Normalize heatmap values ---
 			int minVal = heatmap[0][0];
 			int maxVal = heatmap[0][0];
