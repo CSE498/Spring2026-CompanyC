@@ -42,7 +42,6 @@ int main() {
 
     if (hasScore) {
         score = 1000.0 - (durationSeconds * 10.0);  // demo placeholder score
-        // If score is the title, don't also have it as a stat below
         // still include playtime as a stat
         stats.push_back({"Playtime (sec)", durationSeconds});
     }
@@ -50,6 +49,7 @@ int main() {
         //no score so playtime will be title
     }
 
+    // Example world stats
     std::vector<cse498::Stat> example_world_stats = {
         {"Valuables", 10.0},
         {"Accuracy",  94.5},
@@ -58,7 +58,7 @@ int main() {
         {"Damage",  4821.0},
     };
 
-    // Append extra stats so everything appears in one table
+    // Append extra stats 
     stats.insert(stats.end(), example_world_stats.begin(), example_world_stats.end());
 
     cse498::DataLog<cse498::WorldPosition> heatmap;
@@ -73,7 +73,7 @@ int main() {
         }
     }
 
-    // (title) if score exists, show score at the top. If no score, show playtime at the top instead.
+    // (title) if score exists, show score as title. If no score, show playtime as title instead.
     const std::string title =
         hasScore
             ? ("Score: " + std::to_string(static_cast<long long>(score)))
