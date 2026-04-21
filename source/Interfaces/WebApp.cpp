@@ -371,7 +371,7 @@
   }
 
   void WebApp::PerformSave() {
-    if (!sync_.IsRunning()) {
+    if (!sync_.IsRunning() || !ws_client_.IsConnected()) {
       if (interface_) interface_->Notify("Not connected to server.", "status");
       RenderWorld();
       return;
@@ -399,7 +399,7 @@
 }
 
   void WebApp::PerformLoad() {
-    if (!sync_.IsRunning()) {
+    if (!sync_.IsRunning() || !ws_client_.IsConnected()) {
       if (interface_) interface_->Notify("Not connected to server.", "status");
       RenderWorld();
       return;
@@ -511,8 +511,24 @@ return;
 const std::string action_id = ActionIdForCode(action_code);
 if (action_id.empty()) return;
 
+    if (action_code == kActionSave) {
+      PerformSave();
+      return;
+    }
+
+    if (action_code == kActionLoad) {
+      PerformLoad();
+      return;
+    }
+
     if (action_code == kActionReset) {
       StopAutoTickLoop();
+      if (!interface_->HasAction("reset")) {
+        // Stop the sim and re-render.
+        interface_->Notify("Simulation stopped.", "status");
+        RenderWorld();
+        return;
+      }
     }
 
     if (action_code == kActionStart) {
