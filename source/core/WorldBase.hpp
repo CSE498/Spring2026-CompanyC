@@ -14,8 +14,10 @@
 
 #include "AgentBase.hpp"
 #include "ItemBase.hpp"
+#include "WorldPosition.hpp"
 #include "WorldGrid.hpp"
 #include "../tools/ActionLog.hpp"
+#include "../tools/DataLog.hpp"
 #include "../tools/Timer.hpp"
 
 namespace cse498 {
@@ -51,6 +53,9 @@ namespace cse498 {
     /// Action log to keep track of all the actions done by agents in this world
     ActionLog mActionLog;
 
+    /// Position collected when an agent's world position changes.
+    DataLog<WorldPosition> mPositionLog;
+
   public:
     WorldBase() = default;
     virtual ~WorldBase() = default;
@@ -81,6 +86,9 @@ namespace cse498 {
 
     /// Access the ActionLog
     ActionLog & GetActionLog() { return mActionLog; }
+
+    /// Access the position log 
+    DataLog<WorldPosition> & GetPositionLog() { return mPositionLog; }
 
     /// Return a reference to an Item with a given ID.
     [[nodiscard]] ItemBase & GetItem(size_t id) {
@@ -156,6 +164,8 @@ namespace cse498 {
     /// @note Override function to control which grid each agent receives.
     virtual void RunAgents() {
       for (const auto & agent_ptr : agent_set) {
+        const Location before_location = agent_ptr->GetLocation();
+
         size_t action_id = agent_ptr->SelectAction(main_grid);
         int result = DoAction(*agent_ptr, action_id);
         if (result){
@@ -163,6 +173,13 @@ namespace cse498 {
                                   std::chrono::steady_clock::now().time_since_epoch()));
         }
         agent_ptr->SetActionResult(result);
+
+        const Location& after_location = agent_ptr->GetLocation();
+        if (after_location.IsPosition() &&
+            (!before_location.IsPosition() ||
+             before_location.AsWorldPosition() != after_location.AsWorldPosition())) {
+          mPositionLog.Add(after_location.AsWorldPosition());
+        }
       }
     }
 
