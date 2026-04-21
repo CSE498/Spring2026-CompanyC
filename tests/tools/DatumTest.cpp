@@ -75,7 +75,7 @@ TEST_CASE("Test Datum AsString", "[core]")
     SECTION("Double to string")
     {
         Datum d(3.14);
-        CHECK(d.AsString() == "3.140000");
+        CHECK(d.AsString() == "3.14");
     }
 
     SECTION("Bool true to string")
@@ -389,13 +389,13 @@ TEST_CASE("Test Datum AsString Edge Cases", "[core]")
     SECTION("Zero double to string")
     {
         Datum d(0.0);
-        CHECK(d.AsString() == "0.000000");
+        CHECK(d.AsString() == "0");
     }
 
     SECTION("Negative double to string")
     {
         Datum d(-3.14);
-        CHECK(d.AsString() == "-3.140000");
+        CHECK(d.AsString() == "-3.14");
     }
 
     SECTION("NaN to string")

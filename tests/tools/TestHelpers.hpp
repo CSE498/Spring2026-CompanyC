@@ -1,14 +1,30 @@
 #pragma once
 
+#include <chrono>
 #include <cstdio>
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <thread>
 
 namespace cse498
 {
   namespace test
   {
+
+    /// Polling helper for async tests. Returns true if pred() becomes true
+    /// before timeout_ms, false if it times out.
+    template <typename Pred>
+    bool WaitFor(Pred pred, int timeout_ms = 2000, int poll_interval_ms = 10)
+    {
+      auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
+      while (!pred())
+      {
+        if (std::chrono::steady_clock::now() > deadline) return false;
+        std::this_thread::sleep_for(std::chrono::milliseconds(poll_interval_ms));
+      }
+      return true;
+    }
 
     /** Path to a temp log file under Group-23/tests/ for file tests. */
     inline std::string TempLogPath() { return "tmp_run.log"; }

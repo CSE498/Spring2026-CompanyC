@@ -5,6 +5,8 @@
 #include "core/AgentBase.hpp"
 #include "core/WorldGrid.hpp"
 #include "core/WorldPosition.hpp"
+#include "core/Database.hpp"
+#include "core/WorldHelpers.hpp"
 #include "tools/WebInterface.hpp"  // needed for dynamic_cast in COLLECT and BUILD
 
 namespace cse498 {
@@ -89,15 +91,12 @@ int StubWorld::DoAction(AgentBase& agent, size_t action_id) {
     return 1;
   }
 
-  case SAVE: {
-    agent.Notify("Save not yet implemented.", "status");
+  case SAVE:
+  case LOAD:
+    // Handled by WebApp — these meta-actions are intercepted before DoAction.
+    // If we reach here (e.g., native test without WebApp), just report.
+    agent.Notify("Save/Load requires WebApp integration.", "status");
     return 0;
-  }
-
-  case LOAD: {
-    agent.Notify("Load not yet implemented.", "status");
-    return 0;
-  }
 
   case REMAIN_STILL:
     return 1;
@@ -276,6 +275,41 @@ bool StubWorld::TryCollectAt_(AgentBase& agent, int x, int y) {
 void StubWorld::SendResources_(AgentBase& agent) const {
   for (const auto& [key, val] : resources_) {
     agent.Notify(key + ":" + std::to_string(val), "resource");
+  }
+}
+
+
+void StubWorld::SaveState(const std::string& world_name) {
+  if (!db_) return;
+
+  // base fields: grid, agents, items, meta
+  (void)SaveWorld(*db_, world_name, *this);
+
+  // custom fields
+  (void)db_->Store("world:" + world_name + ":started", started_);
+  for (const auto& [name, count] : resources_) {
+    (void)db_->Store("world:" + world_name + ":resources:" + name, count);
+  }
+}
+
+void StubWorld::LoadState(const std::string& world_name) {
+  if (!db_) return;
+
+  // restore base fields: grid, agent positions/names/symbols, items
+  auto result = LoadWorld(*db_, world_name, *this);
+  if (!result) return;
+
+  // restore custom fields
+  if (auto val = db_->Load<bool>("world:" + world_name + ":started"))
+    started_ = *val;
+  for (auto& [name, count] : resources_) {
+    if (auto val = db_->Load<int>("world:" + world_name + ":resources:" + name))
+      count = *val;
+  }
+
+  //send updated state to agents
+  for (const auto& agent : agent_set) {
+    SendResources_(*agent);
   }
 }
 

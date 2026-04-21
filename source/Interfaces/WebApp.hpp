@@ -24,6 +24,12 @@
 #include "core/WorldBase.hpp"
 #include "core/WorldPosition.hpp"
 
+#include <functional>
+
+#include "core/Database.hpp"
+#include "core/SyncManager.hpp"
+#include "tools/WebSocketConnection.hpp"
+
 /// Read a URL query parameter by name.  Returns the parameter value, or
 /// default_value if the parameter is absent.  Available to any main driver
 /// that includes WebApp.hpp.
@@ -65,7 +71,22 @@ public:
   /// Dispatch an action code received from a JS button or keyboard event.
   void HandleAction(int action_code);
 
-private:
+  /// Access the persistence Database.
+  cse498::Database& GetDatabase() { return db_; }
+
+  /// Connect to a SaveServer at the given WebSocket URL.
+  /// Starts the SyncManager client and a 100ms poll timer.
+  void ConnectToServer(const std::string& url);
+
+  /// Set the callback invoked when "save" is triggered.
+  /// The callback should write world state to the Database.
+  void SetSaveCallback(std::function<void()> cb) { save_callback_ = std::move(cb); }
+
+  /// Set the callback invoked when a load response arrives.
+  /// The callback should read world state from the Database.
+  void SetLoadCallback(std::function<void()> cb) { load_callback_ = std::move(cb); }
+
+ private:
   // Action codes shared between C++ dispatch and the JavaScript bridge.
   // NOTE: these integer values are part of the JS/C++ ABI and must also match
   // the world's ActionType enum — any change here must be reflected in both
@@ -108,6 +129,19 @@ private:
 
   // Legend is built once in Render() and reused on every subsequent frame.
   std::unordered_map<int, cse498::LegendEntry> legend_by_id_;
+
+  // --- Persistence stack (Phase 8a) ---
+  cse498::Database db_;
+  cse498::WebSocketConnection ws_client_;
+  cse498::SyncManager sync_{db_, ws_client_};
+
+  std::function<void()> save_callback_;
+  std::function<void()> load_callback_;
+
+  long poll_timer_id_ = 0;
+
+  void PerformSave();
+  void PerformLoad();
 };
 
 /// Single application instance — defined in WebApp.cpp, used by

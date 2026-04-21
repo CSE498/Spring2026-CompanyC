@@ -38,6 +38,10 @@
 *.app
 run_tests
 source/simple
+source/agent
+source/SaveServer
+source/Group09
+web/
 
 # debug information files
 *.dwo
@@ -61,6 +65,10 @@ tests/web/build/
 .claude
 docs/superpowers/
 
+
+# Save server data
+saves/
+test_saves/
 
 # IDE files
 .vscode/

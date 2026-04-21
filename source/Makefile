@@ -19,6 +19,13 @@ SQLITE_OBJ = sqlite3.o
 $(SQLITE_OBJ): $(SQLITE_DIR)/sqlite3.c
 	cc -O2 -DSQLITE_THREADSAFE=1 -c $< -o $@
 
+# SQLite compiled for Emscripten (web build)
+SQLITE_OBJ_WEB = build/sqlite3_web.o
+
+$(SQLITE_OBJ_WEB): $(SQLITE_DIR)/sqlite3.c
+	@mkdir -p build
+	emcc -O2 -DSQLITE_THREADSAFE=0 -c $< -o $@
+
 # --- IXWebSocket (Group 9 - WebSocket) ---
 IXWS_DIR = ../third-party/ixwebsocket
 IXWS_SRCS = $(wildcard $(IXWS_DIR)/*.cpp)
@@ -84,6 +91,16 @@ WEB_SOURCES = web_main.cpp            \
                tools/WebCanvas.cpp    \
                tools/WebTextbox.cpp   \
                tools/WebInterface.cpp \
+               tools/WebSocketConnection.cpp \
+               tools/SQLiteConnection.cpp \
+               tools/Serializer.cpp   \
+               tools/StringCompressor.cpp \
+               tools/StringDiff.cpp   \
+               tools/DataGrid.cpp     \
+               tools/Datum.cpp        \
+               core/Database.cpp      \
+               core/SyncManager.cpp   \
+               core/WorldHelpers.cpp  \
                Worlds/StubWorld.cpp   \
               $(BASE_SOURCES)
 
@@ -92,20 +109,21 @@ FLAGS_web_base = -std=c++23 -I. \
                  -sEXPORTED_FUNCTIONS=_main,_HandleAction \
                  -sEXPORTED_RUNTIME_METHODS=ccall,cwrap \
                  -lembind \
-				 --preload-file ../source/Worlds/interaction_world_maps
+				         --preload-file ../source/Worlds/interaction_world_maps
+                 -lwebsocket
 
 FLAGS_web_opt   = $(FLAGS_web_base) -O3 -DNDEBUG
 FLAGS_web_debug = $(FLAGS_web_base) -O0 -g
 
 WEB_OUT_DIR = ../web
 
-web web-opt: $(WEB_SOURCES)
+web web-opt: $(WEB_SOURCES) $(SQLITE_OBJ_WEB)
 	@mkdir -p $(WEB_OUT_DIR)
-	$(EMCC) $(WEB_SOURCES) $(FLAGS_web_opt) -o $(WEB_OUT_DIR)/demo.html
+	$(EMCC) $(WEB_SOURCES) $(SQLITE_OBJ_WEB) $(FLAGS_web_opt) -o $(WEB_OUT_DIR)/demo.html
 
-web-debug: $(WEB_SOURCES)
+web-debug: $(WEB_SOURCES) $(SQLITE_OBJ_WEB)
 	@mkdir -p $(WEB_OUT_DIR)
-	$(EMCC) $(WEB_SOURCES) $(FLAGS_web_debug) -o $(WEB_OUT_DIR)/demo.html
+	$(EMCC) $(WEB_SOURCES) $(SQLITE_OBJ_WEB) $(FLAGS_web_debug) -o $(WEB_OUT_DIR)/demo.html
 # ─────────────────────────────────────────────────────────────────────────────
 
 server:
@@ -151,7 +169,7 @@ grumpy-%: $(SQLITE_OBJ)
 	$(CXX) $*_main.cpp $(BASE_SOURCES) $(SQLITE_OBJ) $(FLAGS_grumpy) -I. -o $*
 
 FILES_backup	= *~ *.dSYM
-FILES_generated = *.o $(SQLITE_OBJ) $(EXECUTABLES) SaveServer Group09
+FILES_generated = *.o $(SQLITE_OBJ) $(SQLITE_OBJ_WEB) $(EXECUTABLES) SaveServer Group09
 
 clean:
 	rm -rf $(FILES_backup) $(FILES_generated) build/

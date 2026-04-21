@@ -87,6 +87,13 @@ public:
     /// Register callback for save list responses
     void OnSaveListReceived(std::function<void(const std::vector<SaveInfo>&)> callback);
 
+    /// Register callback for when a FULL_STATE (load response) 
+    void OnLoadComplete(std::function<void()> callback);
+
+    /// Set a custom log handler. Default writes to std::cout.
+    /// Pass nullptr to silence all log output.
+    void SetLogHandler(std::function<void(const std::string&)> handler);
+
     /// Encode a message frame: [msg_type:uint8][payload_length:uint64 BE][payload]
     [[nodiscard]] static std::expected<std::vector<uint8_t>, SyncError> EncodeMessage(SyncMessageType type, const std::vector<uint8_t>& payload);
 
