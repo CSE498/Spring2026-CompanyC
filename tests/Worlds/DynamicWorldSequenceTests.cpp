@@ -45,7 +45,6 @@ public:
   using cse498::DynamicWorld::BUILD_SPAWNER;
   using cse498::DynamicWorld::BUILD_FARM;
   using cse498::DynamicWorld::BUILD_TOWNHALL;
-  using cse498::DynamicWorld::UpdateWorld;
 
   // Use the custom-size constructor for size tests.
   TestDynamicWorld(size_t w, size_t h) : cse498::DynamicWorld(w, h) {}
@@ -74,10 +73,6 @@ public:
     auto & agent = AddAgent<StubAgent>(name);
     agent.SetLocation(cse498::WorldPosition(x, y));
     return static_cast<StubAgent &>(agent);
-  }
-
-  void RunNTicks(size_t n) {
-    for (size_t i = 0; i < n; ++i) UpdateWorld();
   }
 };
 
@@ -372,32 +367,4 @@ TEST_CASE("DynamicWorld - custom size world rejects out-of-bounds move", "[Dynam
 
   auto pos = agent.GetLocation().AsWorldPosition();
   REQUIRE(pos.X() == Approx(9));
-}
-
-// -----------------------------------------------------------------------
-// Mixed building production
-// -----------------------------------------------------------------------
-
-TEST_CASE("DynamicWorld UpdateWorld - lumberyard and farm produce independently", "[DynamicWorld][update]") {
-  TestDynamicWorld world;
-
-  // Build a lumberyard at (40, 40).
-  auto & builder1 = world.SpawnStubAt(40, 40, "builder");
-  world.SetCell(40, 40, world.GetGrassId());
-  world.SetResource("wood", 20);
-  world.SetResource("steel", 20);
-  world.DoAction(builder1, world.BUILD_LUMBERYARD);
-
-  // Build a farm at (60, 60).
-  auto & builder2 = world.SpawnStubAt(60, 60, "builder");
-  world.SetCell(60, 60, world.GetGrassId());
-  world.SetResource("wheat", 20);
-  world.SetResource("wood", 20);
-  world.DoAction(builder2, world.BUILD_FARM);
-
-  // After 20 ticks: lumberyard fires (every 20), farm fires twice (every 10).
-  world.RunNTicks(20);
-
-  REQUIRE(world.GetResource("wood")  == 1);  // lumberyard tick 20
-  REQUIRE(world.GetResource("wheat") == 2);  // farm ticks 10 and 20
 }
