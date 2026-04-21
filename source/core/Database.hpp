@@ -299,7 +299,11 @@ std::expected<void, DatabaseError> Database::Store(const std::string& key, const
         if (type_it == mTypeIdMap.end()) {
             return std::unexpected(DatabaseError::SerializationFailed);
         }
-        serialized = mSerializer.Serialize(type_it->second, obj);
+        auto serialize_result = mSerializer.Serialize(type_it->second, obj);
+        if (!serialize_result) {
+            return std::unexpected(DatabaseError::SerializationFailed);
+        }
+        serialized = std::move(*serialize_result);
     }
 
     std::string type_tag;
@@ -374,7 +378,11 @@ std::expected<void, DatabaseError> Database::Update(const std::string& key, cons
         if (type_it == mTypeIdMap.end()) {
             return std::unexpected(DatabaseError::SerializationFailed);
         }
-        updated_serialized = mSerializer.Serialize(type_it->second, obj);
+        auto serialize_result = mSerializer.Serialize(type_it->second, obj);
+        if (!serialize_result) {
+            return std::unexpected(DatabaseError::SerializationFailed);
+        }
+        updated_serialized = std::move(*serialize_result);
     }
 
     std::string type_tag;
