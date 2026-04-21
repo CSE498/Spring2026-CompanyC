@@ -77,12 +77,15 @@ namespace cse498 {
 
     /// World specific score for end of game summary.
     /// Default is 0; each world can override with its own scoring logic
+    /// Old plan: worlds override GetScore() New plan: worlds can pass score text into EndGameScreen.
+    /// Keeping this as a fallback in case we want a shared numeric score later.
     [[nodiscard]] virtual double GetScore() const { return 0.0; } 
 
     /// Total playtime (seconds) for the current session.
     /// Reads from the shared Timer using the standard session name.
     [[nodiscard]] double GetPlaytimeSeconds() const {             
     return mTimer.Elapsed("Game::Session");}
+
 
     /// Access the ActionLog
     ActionLog & GetActionLog() { return mActionLog; }
