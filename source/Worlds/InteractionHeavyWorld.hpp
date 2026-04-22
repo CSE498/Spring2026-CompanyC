@@ -21,10 +21,10 @@ namespace cse498
         // Player and combat state
         // ---------------------------------------------------------------------
         int mPlayerHP = 100;
-        int mHunterDefaultHP = 10;
-        int mThrowDamage = 10;
-        int mThrowRange = 4;
-        int mEnemyContactDamage = 1;
+        static constexpr int mHunterDefaultHP = 10;
+        static constexpr int mThrowDamage = 10;
+        static constexpr int mThrowRange = 4;
+        static constexpr int mEnemyContactDamage = 1;
         bool mTimerStarted = false;
 
         // ---------------------------------------------------------------------
@@ -201,19 +201,19 @@ namespace cse498
          * @brief Get the player's stone count.
          * @return Number of stones in inventory.
          */
-        size_t GetStoneCount() const;
+        constexpr size_t GetStoneCount() const { return mStoneCount; }
 
         /**
          * @brief Get the player's gold count.
          * @return Number of gold pieces in inventory.
          */
-        size_t GetGoldCount() const;
+        constexpr size_t GetGoldCount() const { return mGoldCount; }
 
         /**
          * @brief Get the player's HP.
          * @return Current player HP.
          */
-        int GetPlayerHP() const;
+        constexpr int GetPlayerHP() const { return mPlayerHP; }
 
         // ---------------------------------------------------------------------
         // Position getters
