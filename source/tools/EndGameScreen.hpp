@@ -25,7 +25,7 @@ namespace cse498
         double value;
     };
 
-		// Used claude ai to help with this function
+	// Used claude ai to help with this function
     // Internal helper: maps a normalized value [0,1] to an RGB heatmap color (blue -> green -> red)
     static std::string heatmapColor(double t) {
         // Clamp
@@ -51,7 +51,47 @@ namespace cse498
         return oss.str();
     }
 
-		// Used claude ai to help with the implementation of the heatmap
+	// Forward declaration so helpers can call
+	inline std::string generateScoreScreen(
+	const std::string& title,
+	const std::vector<Stat>& stats,
+	const cse498::DataLog<cse498::WorldPosition>& dataLogHM,
+	int size,
+	int precision = 2
+	);
+
+	// builds the title + stats table
+	// if hasScore is true, title = Score: X, include playtime/duration as a stat
+	// if hasScore is false, title = Playtime: Y sec, score not included
+	inline std::string BuildEndGameHtml(
+	bool hasScore,
+	double scoreValue, // ignored if hasScore is false
+	double playtimeSeconds,
+	std::vector<Stat> statsFromWorld,  //whatever the world wants to show (Valuables, Kills, etc.)
+	const cse498::DataLog<cse498::WorldPosition>& dataLogHM,
+	int size,
+	int precision = 2
+	) {
+	// format playtime decimals
+	std::ostringstream playtimeStream;
+	playtimeStream << std::fixed << std::setprecision(precision) << playtimeSeconds;
+	const std::string playtimeText = playtimeStream.str();
+
+	// add playtime as a stat when Score is the title 
+	if (hasScore) {
+		statsFromWorld.insert(statsFromWorld.begin(), {"Playtime (sec)", playtimeSeconds});
+	}
+
+	const std::string title =
+		hasScore
+		? ("Score: " + std::to_string(static_cast<long long>(scoreValue)))
+		: ("Playtime: " + playtimeText + " sec");
+
+	return generateScoreScreen(title, statsFromWorld, dataLogHM, size, precision);
+	}
+
+
+	// Used claude ai to help with the implementation of the heatmap
     /**
      * Generates an HTML string displaying a score screen.
      *
@@ -67,7 +107,7 @@ namespace cse498
     const std::vector<Stat>& stats,
 	const cse498::DataLog<cse498::WorldPosition>& dataLogHM,
     const int size,
-    int precision = 2)
+    int precision)
 		{
 			std::vector<std::vector<int>> heatmap(size, std::vector<int>(size, 0));
 			std::vector<WorldPosition> hm = dataLogHM.Values();
