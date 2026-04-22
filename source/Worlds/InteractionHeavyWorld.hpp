@@ -69,13 +69,6 @@ namespace cse498
         int &GetHunterHP(size_t agent_id);
 
         /**
-         * @brief Check whether an agent is a HunterAgent.
-         * @param agent Agent to check.
-         * @return True if the agent is a hunter.
-         */
-        bool IsHunterAgent(const AgentBase &agent) const;
-
-        /**
          * @brief Check whether an agent is a combat participant (hunter or Pacing).
          * @param agent Agent to check.
          * @return True if the agent is a hunter or Pacing.
@@ -87,7 +80,7 @@ namespace cse498
          * @param agent Hunter agent to check.
          * @return True if the hunter has HP remaining.
          */
-        bool IsHunterAlive(const AgentBase &agent) const;
+        bool IsCombatAgentAlive(const AgentBase &agent) const;
 
         /**
          * @brief Find a live hunter at a grid cell.

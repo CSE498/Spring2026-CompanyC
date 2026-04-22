@@ -110,7 +110,7 @@ namespace cse498
                 continue;
             if (!IsCombatAgent(*ptr))
                 continue;
-            if (!IsHunterAlive(*ptr))
+            if (!IsCombatAgentAlive(*ptr))
                 continue;
 
             WorldPosition hunter_pos = ptr->GetLocation().AsWorldPosition();
@@ -126,7 +126,7 @@ namespace cse498
         std::vector<std::string> dungeon_layout;
 
         // Note: To test on a smaller map, change the file path to "source/Worlds/interaction_world_maps/dungeon_map_small.txt"
-        std::ifstream infile("source/Worlds/interaction_world_maps/dungeon_map.txt");
+        std::ifstream infile("source/Worlds/interaction_world_maps/dungeon_map_small.txt");
         if (!infile)
         {
             std::cerr << "Error: Could not open dungeon_map.txt (ignore if running tests)\n";
@@ -152,8 +152,8 @@ namespace cse498
         // Place random boulders after the map has been loaded. 
         // Note: Adjust the boulder count to smaller numbers if testing on the smaller map. If not,
         // the map will not load.
-        int minBoulders = 60;
-        int maxBoulders = 80;
+        int minBoulders = 1;
+        int maxBoulders = 4;
 
         PlaceBoulders(minBoulders, maxBoulders);
     }
@@ -473,7 +473,7 @@ namespace cse498
                 continue;
             if (!IsCombatAgent(*ptr))
                 continue;
-            if (!IsHunterAlive(*ptr))
+            if (!IsCombatAgentAlive(*ptr))
                 continue;
 
             WorldPosition hunter_pos = ptr->GetLocation().AsWorldPosition();
@@ -513,18 +513,13 @@ namespace cse498
         return it->second;
     }
 
-    bool InteractionHeavyWorld::IsHunterAgent(const AgentBase &agent) const
-    {
-        return dynamic_cast<const HunterAgent *>(&agent) != nullptr;
-    }
-
     bool InteractionHeavyWorld::IsCombatAgent(const AgentBase &agent) const
     {
         return dynamic_cast<const HunterAgent *>(&agent) != nullptr
             || dynamic_cast<const PacingAgent *>(&agent) != nullptr;
     }
 
-    bool InteractionHeavyWorld::IsHunterAlive(const AgentBase &agent) const
+    bool InteractionHeavyWorld::IsCombatAgentAlive(const AgentBase &agent) const
     {
         if (!IsCombatAgent(agent))
             return false;
@@ -545,7 +540,7 @@ namespace cse498
                 continue;
             if (!IsCombatAgent(*ptr))
                 continue;
-            if (!IsHunterAlive(*ptr))
+            if (!IsCombatAgentAlive(*ptr))
                 continue;
 
             WorldPosition pos = ptr->GetLocation().AsWorldPosition();
@@ -582,7 +577,7 @@ namespace cse498
                 continue;
 
             // Dead combat agents should not block.
-            if (IsCombatAgent(*ptr) && !IsHunterAlive(*ptr))
+            if (IsCombatAgent(*ptr) && !IsCombatAgentAlive(*ptr))
                 continue;
 
             // Live agents block movement so actors cannot stack on one cell.
@@ -632,7 +627,7 @@ namespace cse498
         if (IsCombatAgent(agent))
         {
             GetHunterHP(agent.GetID());
-            if (!IsHunterAlive(agent))
+            if (!IsCombatAgentAlive(agent))
             {
                 return false;
             }
