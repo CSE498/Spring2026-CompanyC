@@ -114,7 +114,7 @@ int main()
           .SetLocation(goblin_spawns[i]);
     }
 
-    const auto pacer_spawns = world.GetPacerSpawnPositions();
+    const auto pacer_spawns = world.GetPacingSpawnPositions();
     std::mt19937 gen(std::random_device{}());
     std::uniform_int_distribution<> coin(0, 1);
     for (size_t i = 0; i < pacer_spawns.size(); ++i)

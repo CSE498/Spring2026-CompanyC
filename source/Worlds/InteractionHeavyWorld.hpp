@@ -55,7 +55,7 @@ namespace cse498
         WorldPosition mStartPosition;
         std::vector<WorldPosition> mHunterSpawnPositions;
         std::vector<WorldPosition> mGoblinSpawnPositions;
-        std::vector<WorldPosition> mPacerSpawnPositions;
+        std::vector<WorldPosition> mPacingSpawnPositions;
 
 
         // ---------------------------------------------------------------------
@@ -74,6 +74,13 @@ namespace cse498
          * @return True if the agent is a hunter.
          */
         bool IsHunterAgent(const AgentBase &agent) const;
+
+        /**
+         * @brief Check whether an agent is a combat participant (hunter or Pacing).
+         * @param agent Agent to check.
+         * @return True if the agent is a hunter or Pacing.
+         */
+        bool IsCombatAgent(const AgentBase &agent) const;
 
         /**
          * @brief Check whether a hunter is still alive.
@@ -248,15 +255,15 @@ namespace cse498
         std::vector<WorldPosition> GetGoblinSpawnPositions() const;
 
         /**
-         * @brief Get pacer spawn positions loaded from the map.
-         * @return Vector of pacer spawn positions.
+         * @brief Get Pacing spawn positions loaded from the map.
+         * @return Vector of Pacing spawn positions.
          */
-        std::vector<WorldPosition> GetPacerSpawnPositions() const;
+        std::vector<WorldPosition> GetPacingSpawnPositions() const;
 
         /**
-         * @brief Check whether a live hunter is at a position.
+         * @brief Check whether a live combat agent is at a position.
          * @param pos Position to check.
-         * @return True if a live hunter is on that cell.
+         * @return True if a live combat agent is on that cell.
          */
         bool IsEnemyAt(const WorldPosition &pos) const;
 

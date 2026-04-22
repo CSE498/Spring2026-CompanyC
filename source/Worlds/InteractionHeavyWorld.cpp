@@ -14,6 +14,7 @@
 #include "InteractionHeavyWorld.hpp"
 #include "../Agents/GoblinAgent.hpp"
 #include "../Agents/HunterAgent.hpp"
+#include "../Agents/PacingAgent.hpp"
 #include <algorithm>
 #include <fstream>
 #include <random>
@@ -96,9 +97,9 @@ namespace cse498
         return mGoblinSpawnPositions;
     }
 
-    std::vector<WorldPosition> InteractionHeavyWorld::GetPacerSpawnPositions() const
+    std::vector<WorldPosition> InteractionHeavyWorld::GetPacingSpawnPositions() const
     {
-        return mPacerSpawnPositions;
+        return mPacingSpawnPositions;
     }
 
     bool InteractionHeavyWorld::IsEnemyAt(const WorldPosition &pos) const
@@ -107,7 +108,7 @@ namespace cse498
         {
             if (!ptr)
                 continue;
-            if (!IsHunterAgent(*ptr))
+            if (!IsCombatAgent(*ptr))
                 continue;
             if (!IsHunterAlive(*ptr))
                 continue;
@@ -124,10 +125,11 @@ namespace cse498
         // Load dungeon layout from text file.
         std::vector<std::string> dungeon_layout;
 
+        // Note: To test on a smaller map, change the file path to "source/Worlds/interaction_world_maps/dungeon_map_small.txt"
         std::ifstream infile("source/Worlds/interaction_world_maps/dungeon_map.txt");
         if (!infile)
         {
-            std::cerr << "Error: Could not open dungeon_map.txt\n";
+            std::cerr << "Error: Could not open dungeon_map.txt (ignore if running tests)\n";
             return;
         }
 
@@ -147,7 +149,9 @@ namespace cse498
         main_grid.Resize(width, height, mFloorID);
         LoadDungeon(dungeon_layout);
 
-        // Place random boulders after the map has been loaded.
+        // Place random boulders after the map has been loaded. 
+        // Note: Adjust the boulder count to smaller numbers if testing on the smaller map. If not,
+        // the map will not load.
         int minBoulders = 60;
         int maxBoulders = 80;
 
@@ -184,8 +188,8 @@ namespace cse498
                     main_grid[pos] = mChestID;
                     break;
                 case 'H':
-                    // 'H' marks a goblin spawn in the map file. The cell stays as floor,
-                    // and web_main later reads these saved positions to place GoblinAgents.
+                    // 'H' marks a hunter spawn in the map file. The cell stays as floor,
+                    // and web_main later reads these saved positions to place HunterAgents.
                     main_grid[pos] = mFloorID;
                     mHunterSpawnPositions.push_back(pos);
                     break;
@@ -197,7 +201,7 @@ namespace cse498
                     break;
                 case 'P':
                     main_grid[pos] = mFloorID;
-                    mPacerSpawnPositions.push_back(pos);
+                    mPacingSpawnPositions.push_back(pos);
                     break;
                 }
             }
@@ -210,7 +214,7 @@ namespace cse498
         size_t dx = std::abs((int)pos.CellX() - (int)mStartPosition.CellX());
         size_t dy = std::abs((int)pos.CellY() - (int)mStartPosition.CellY());
 
-        int minDistance = 5;
+        size_t minDistance = 5;
 
         if (dx + dy < minDistance)
             return true;
@@ -429,7 +433,7 @@ namespace cse498
             AgentBase *hunter = FindLiveHunterAt(target.CellX(), target.CellY());
             if (hunter != nullptr)
             {
-                // Hunters are tracked as agents, so projectile hits check agent location.
+                // Combat agents are tracked as agents, so projectile hits check agent location.
                 mStoneCount--;
                 SyncResourceVector();
 
@@ -467,7 +471,7 @@ namespace cse498
         {
             if (!ptr)
                 continue;
-            if (!IsHunterAgent(*ptr))
+            if (!IsCombatAgent(*ptr))
                 continue;
             if (!IsHunterAlive(*ptr))
                 continue;
@@ -479,7 +483,7 @@ namespace cse498
 
             if (dx + dy == 1)
             {
-                // Contact damage happens when a live hunter is directly adjacent.
+                // Contact damage happens when a live combat agent is directly adjacent.
                 mPlayerHP -= mEnemyContactDamage;
                 if (mPlayerHP < 0)
                     mPlayerHP = 0;
@@ -504,7 +508,7 @@ namespace cse498
 
     int &InteractionHeavyWorld::GetHunterHP(size_t agent_id)
     {
-        // Create HP on first access so newly added hunters work automatically.
+        // Create HP on first access so newly added agents work automatically.
         auto [it, inserted] = hunter_hp.emplace(agent_id, mHunterDefaultHP);
         return it->second;
     }
@@ -514,9 +518,15 @@ namespace cse498
         return dynamic_cast<const HunterAgent *>(&agent) != nullptr;
     }
 
+    bool InteractionHeavyWorld::IsCombatAgent(const AgentBase &agent) const
+    {
+        return dynamic_cast<const HunterAgent *>(&agent) != nullptr
+            || dynamic_cast<const PacingAgent *>(&agent) != nullptr;
+    }
+
     bool InteractionHeavyWorld::IsHunterAlive(const AgentBase &agent) const
     {
-        if (!IsHunterAgent(agent))
+        if (!IsCombatAgent(agent))
             return false;
 
         auto it = hunter_hp.find(agent.GetID());
@@ -533,7 +543,7 @@ namespace cse498
                 continue;
             if (ignore && ptr.get() == ignore)
                 continue;
-            if (!IsHunterAgent(*ptr))
+            if (!IsCombatAgent(*ptr))
                 continue;
             if (!IsHunterAlive(*ptr))
                 continue;
@@ -549,12 +559,12 @@ namespace cse498
 
     WorldPosition InteractionHeavyWorld::GetPlayerPosition() const
     {
-        // The player is the non-hunter interface agent in this world.
+        // The player is the non-combat interface agent in this world.
         for (const auto &ptr : agent_set)
         {
             if (!ptr)
                 continue;
-            if (!IsHunterAgent(*ptr))
+            if (!IsCombatAgent(*ptr))
             {
                 return ptr->GetLocation().AsWorldPosition();
             }
@@ -571,8 +581,8 @@ namespace cse498
             if (ignore && ptr.get() == ignore)
                 continue;
 
-            // Dead hunters should not block.
-            if (IsHunterAgent(*ptr) && !IsHunterAlive(*ptr))
+            // Dead combat agents should not block.
+            if (IsCombatAgent(*ptr) && !IsHunterAlive(*ptr))
                 continue;
 
             // Live agents block movement so actors cannot stack on one cell.
@@ -592,7 +602,7 @@ namespace cse498
 
     void InteractionHeavyWorld::DefeatHunter(AgentBase &hunter)
     {
-        // Move defeated hunters out of the map so they stop blocking and rendering.
+        // Move defeated combat agents out of the map so they stop blocking and rendering.
         hunter_hp[hunter.GetID()] = 0;
         hunter.SetLocation(GetOffGridPosition());
     }
@@ -618,8 +628,8 @@ namespace cse498
         WorldPosition cur_position = agent.GetLocation().AsWorldPosition();
         WorldPosition new_position;
 
-        // Dead hunters do not get turns.
-        if (IsHunterAgent(agent))
+        // Dead combat agents do not get turns.
+        if (IsCombatAgent(agent))
         {
             GetHunterHP(agent.GetID());
             if (!IsHunterAlive(agent))
@@ -676,10 +686,10 @@ namespace cse498
 
         auto notify_failed_move = [&agent, action_id, this]()
         {
-            if (!IsHunterAgent(agent))
+            if (!IsCombatAgent(agent))
                 return;
 
-            // Hunters use failed movement feedback to avoid repeating bad moves.
+            // Combat agents use failed movement feedback to avoid repeating bad moves.
             switch (action_id)
             {
             case MOVE_UP:
@@ -712,9 +722,9 @@ namespace cse498
         if (blocking_agent != nullptr)
         {
             notify_failed_move();
-            if (IsHunterAgent(agent) && !IsHunterAgent(*blocking_agent))
+            if (IsCombatAgent(agent) && !IsCombatAgent(*blocking_agent))
             {
-                // Hunters cannot step onto the player, so blocked contact still hurts.
+                // Combat agents cannot step onto the player, so blocked contact still hurts.
                 ApplyEnemyContactDamage(GetPlayerPosition());
             }
             return false;
