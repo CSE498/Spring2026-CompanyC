@@ -70,6 +70,13 @@ public:
     WorldPosition GetStartPosition() const;
 
     /**
+     * @brief Check whether a position is reserved (start, exit, or enemy spawn).
+     * @param pos Position to test.
+     * @return True if the position is reserved and should not have boulders placed on it.
+     */
+    bool IsReservedPosition(const WorldPosition& pos) const;
+
+    /**
      * @brief Get a random valid floor position away from the start.
      * @return Random floor position.
      */
@@ -231,8 +238,8 @@ private:
     static constexpr int   kMaxBoulderGold       = 4;
 
     // Default boulder counts loaded by GenerateWorld.
-    static constexpr int kSmallMapMinBoulders = 2;
-    static constexpr int kSmallMapMaxBoulders = 4;
+    static constexpr int kSmallMapMinBoulders = 3;
+    static constexpr int kSmallMapMaxBoulders = 5;
     static constexpr int kLargeMapMinBoulders = 75;
     static constexpr int kLargeMapMaxBoulders = 110;
 
@@ -263,12 +270,14 @@ private:
     size_t mChestOpenCellID = 0;
 
     // =========================================================================
-    // Player and combat state
+    // Player, combat, and game state
     // =========================================================================
 
     int  mPlayerHP        = kPlayerStartHP;
+    int  mEnemiesKilled   = 0;
     bool mDamagedThisTurn = false;
     bool mTimerStarted    = false;
+    bool mGameOver        = false;
 
     // =========================================================================
     // Inventory and resources
@@ -388,6 +397,16 @@ private:
      * @brief Push HP, stone, and gold values into the WorldBase resource vector.
      */
     void SyncResources();
+
+    // =========================================================================
+    // Private endgame helper
+    // =========================================================================
+
+    /**
+     * @brief Handle end-of-game logic, including victory vs. defeat and any cleanup.
+     * @param won True if the player won, false if defeated.
+     */
+    void EndGame(bool won);
 };
 
 } // namespace cse498

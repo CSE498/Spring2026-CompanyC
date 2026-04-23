@@ -202,6 +202,23 @@ bool InteractionHeavyWorld::NearStartingPosition(const WorldPosition& pos) const
     return (dx + dy) < static_cast<size_t>(kMinSpawnDistance);
 }
 
+bool InteractionHeavyWorld::IsReservedPosition(const WorldPosition& pos) const
+{
+    if (pos.SameCell(mStartPosition))
+        return true;
+
+    for (const auto& p : mHunterSpawnPositions)
+        if (pos.SameCell(p)) return true;
+
+    for (const auto& p : mGoblinSpawnPositions)
+        if (pos.SameCell(p)) return true;
+
+    for (const auto& p : mPacingSpawnPositions)
+        if (pos.SameCell(p)) return true;
+
+    return false;
+}
+
 WorldPosition InteractionHeavyWorld::GetRandomPosition() const
 {
     static std::mt19937 rng(std::random_device{}());
@@ -212,7 +229,7 @@ WorldPosition InteractionHeavyWorld::GetRandomPosition() const
     {
         const WorldPosition pos(xDist(rng), yDist(rng));
         if (main_grid[pos] == mFloorCellID
-            && !pos.SameCell(mStartPosition)
+            && !IsReservedPosition(pos)
             && !NearStartingPosition(pos))
         {
             return pos;
@@ -252,7 +269,7 @@ void InteractionHeavyWorld::PlaceBoulders(int minBoulders, int maxBoulders)
     {
         const WorldPosition pos = GetRandomPosition();
         if (main_grid[pos] == mFloorCellID
-            && !pos.SameCell(mStartPosition)
+            && !IsReservedPosition(pos)
             && !NearStartingPosition(pos))
         {
             main_grid[pos] = mBoulderCellID;
@@ -270,7 +287,8 @@ void InteractionHeavyWorld::PrintInventory() const
     std::cout << "\nCurrent Stats:\n"
               << "  HP:    " << mPlayerHP    << "\n"
               << "  Stone: " << mStoneCount  << "\n"
-              << "  Gold:  " << mGoldCount   << "\n\n";
+              << "  Gold:  " << mGoldCount   << "\n"
+              << "  Enemies killed: " << mEnemiesKilled << "\n\n";
 }
 
 void InteractionHeavyWorld::BreakBoulder(size_t x, size_t y)
@@ -458,12 +476,7 @@ void InteractionHeavyWorld::ApplyEnemyContactDamage(const WorldPosition& playerP
 
     if (mPlayerHP <= 0)
     {
-        if (mTimerStarted)
-        {
-            GetTimer().Stop("Game::Session");
-            mTimerStarted = false;
-        }
-        std::cout << "You died.\n";
+        EndGame(false);
     }
 }
 int& InteractionHeavyWorld::GetCombatAgentHP(size_t agentId)
@@ -527,6 +540,7 @@ void InteractionHeavyWorld::DefeatCombatAgent(AgentBase& agent)
 {
     mCombatAgentHP[agent.GetID()] = 0;
     agent.SetLocation(GetOffGridPosition());
+    ++mEnemiesKilled;
 }
 
 bool InteractionHeavyWorld::IsEnemyAt(const WorldPosition& pos) const
@@ -553,12 +567,34 @@ void InteractionHeavyWorld::SyncResources()
     SetWorldResourceCount(RESOURCE_GOLD,  static_cast<int>(mGoldCount));
 }
 
+void InteractionHeavyWorld::EndGame(bool won)
+{
+    if (mTimerStarted)
+    {
+        GetTimer().Stop("Game::Session");
+        mTimerStarted = false;
+    }
+
+    if (won)
+        std::cout << "Congratulations! You reached the exit with "
+                  << mStoneCount << " stone and " << mGoldCount << " gold!\n";
+    else
+        std::cout << "You died.\n";
+
+    mGameOver = true;
+}
+
 // =============================================================================
 // Main action dispatch
 // =============================================================================
 
 int InteractionHeavyWorld::DoAction(AgentBase& agent, size_t actionId)
 {
+    if (mGameOver)
+    {
+        return false;
+    }
+
     if (agent.GetName() == "Player")
         mDamagedThisTurn = false;
 
@@ -682,14 +718,7 @@ int InteractionHeavyWorld::DoAction(AgentBase& agent, size_t actionId)
     // Win condition: player steps onto the exit tile.
     if (destTile == mExitCellID && agent.GetName() == "Player")
     {
-        if (mTimerStarted)
-        {
-            GetTimer().Stop("Game::Session");
-            mTimerStarted = false;
-        }
-        std::cout << "Congratulations! You reached the exit with "
-                  << mStoneCount << " stone and " << mGoldCount << " gold!\n";
-        exit(0);
+        EndGame(true);
     }
 
     return true;
