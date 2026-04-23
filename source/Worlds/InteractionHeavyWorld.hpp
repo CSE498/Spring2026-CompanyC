@@ -218,14 +218,14 @@ private:
     // Constants
     // =========================================================================
 
-    static constexpr std::string_view kDungeonMapFile = "source/Worlds/interaction_world_maps/DungeonMapLarge.txt";
+    static constexpr std::string_view kDungeonMapFile = "source/Worlds/interaction_world_maps/DungeonMapSmall.txt";
     static constexpr int   kPlayerStartHP        = 100;
     static constexpr int   kHunterDefaultHP      = 10;
     static constexpr int   kThrowDamage          = 10;
     static constexpr int   kThrowRange           = 4;
     static constexpr int   kEnemyContactDamage   = 1;
     static constexpr int   kChestGoldReward      = 4;
-    static constexpr int   kGoblinGoldCost       = 15;
+    static constexpr int   kGoblinGoldCost       = 5;
     static constexpr int   kMinSpawnDistance     = 5;
     static constexpr int   kMaxBoulderStone      = 15;
     static constexpr int   kMaxBoulderGold       = 4;
@@ -233,8 +233,8 @@ private:
     // Default boulder counts loaded by GenerateWorld.
     static constexpr int kSmallMapMinBoulders = 2;
     static constexpr int kSmallMapMaxBoulders = 4;
-    static constexpr int kLargeMapMinBoulders = 60;
-    static constexpr int kLargeMapMaxBoulders = 80;
+    static constexpr int kLargeMapMinBoulders = 75;
+    static constexpr int kLargeMapMaxBoulders = 110;
 
     // =========================================================================
     // Nested types
