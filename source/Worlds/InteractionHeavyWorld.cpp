@@ -84,7 +84,7 @@ void InteractionHeavyWorld::ConfigureCellTypes()
 void InteractionHeavyWorld::GenerateWorld()
 {
     // Note: swap the filename for "DungeonMapSmall.txt" to use the smaller test map.
-    std::ifstream file(kDungeonMapFile);
+    std::ifstream file(kDungeonMapFile.data());
     if (!file)
     {
         std::cerr << "Error: Could not open " << kDungeonMapFile << " (ignore if running tests)\n";
@@ -106,8 +106,11 @@ void InteractionHeavyWorld::GenerateWorld()
 
     LoadDungeon(dungeonLayout);
 
-    // Note: reduce boulder counts when testing on the small map to avoid overfilling it.
-    PlaceBoulders(kDefaultMinBoulders, kDefaultMaxBoulders);
+    // Place boulders randomly on the map, with quantity based on map size.
+    if (kDungeonMapFile.find("Small") == std::string_view::npos)
+        PlaceBoulders(kLargeMapMinBoulders, kLargeMapMaxBoulders);
+    else
+        PlaceBoulders(kSmallMapMinBoulders, kSmallMapMaxBoulders);
 }
 
 void InteractionHeavyWorld::LoadDungeon(const std::vector<std::string>& dungeonLayout)

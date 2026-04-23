@@ -16,6 +16,7 @@
 #include "../core/WorldBase.hpp"
 #include <map>
 #include <vector>
+#include <string_view>
 
 namespace cse498
 {
@@ -217,7 +218,7 @@ private:
     // Constants
     // =========================================================================
 
-    static constexpr const char* kDungeonMapFile = "source/Worlds/interaction_world_maps/DungeonMap.txt";
+    static constexpr std::string_view kDungeonMapFile = "source/Worlds/interaction_world_maps/DungeonMapLarge.txt";
     static constexpr int   kPlayerStartHP        = 100;
     static constexpr int   kHunterDefaultHP      = 10;
     static constexpr int   kThrowDamage          = 10;
@@ -230,8 +231,10 @@ private:
     static constexpr int   kMaxBoulderGold       = 4;
 
     // Default boulder counts loaded by GenerateWorld.
-    static constexpr int   kDefaultMinBoulders  = 1;
-    static constexpr int   kDefaultMaxBoulders  = 4;
+    static constexpr int kSmallMapMinBoulders = 2;
+    static constexpr int kSmallMapMaxBoulders = 4;
+    static constexpr int kLargeMapMinBoulders = 60;
+    static constexpr int kLargeMapMaxBoulders = 80;
 
     // =========================================================================
     // Nested types
