@@ -211,6 +211,19 @@ protected:
         RESOURCE_COUNT = 3
     };
 
+    // =========================================================================
+    // Cell-type IDs (assigned during ConfigureCellTypes)
+    // =========================================================================
+
+    size_t mWallCellID      = 0;
+    size_t mFloorCellID     = 0;
+    size_t mStartCellID     = 0;
+    size_t mExitCellID      = 0;
+    size_t mBoulderCellID   = 0;
+    size_t mChestCellID     = 0;
+    size_t mMaterialCellID  = 0;
+    size_t mChestOpenCellID = 0;
+
     // -------------------------------------------------------------------------
     // WorldBase overrides
     // -------------------------------------------------------------------------
@@ -220,6 +233,26 @@ protected:
      * @param agent Agent to configure.
      */
     void ConfigAgent(AgentBase& agent) override;
+
+    // =========================================================================
+    // Setup helpers
+    // =========================================================================
+
+    /**
+     * @brief Register all cell types used by this world.
+     */
+    void ConfigureCellTypes();
+
+    /**
+     * @brief Load the dungeon from a text file and place initial boulders.
+     */
+    void GenerateWorld();
+
+    /**
+     * @brief Populate the grid from a vector of text rows.
+     * @param dungeonLayout One string per row; each character maps to a cell type.
+     */
+    void LoadDungeon(const std::vector<std::string>& dungeonLayout);
 
 private:
     // =========================================================================
@@ -258,19 +291,6 @@ private:
     };
 
     // =========================================================================
-    // Cell-type IDs (assigned during ConfigureCellTypes)
-    // =========================================================================
-
-    size_t mWallCellID      = 0;
-    size_t mFloorCellID     = 0;
-    size_t mStartCellID     = 0;
-    size_t mExitCellID      = 0;
-    size_t mBoulderCellID   = 0;
-    size_t mChestCellID     = 0;
-    size_t mMaterialCellID  = 0;
-    size_t mChestOpenCellID = 0;
-
-    // =========================================================================
     // Player, combat, and game state
     // =========================================================================
 
@@ -306,25 +326,6 @@ private:
 
     std::map<size_t, int> mCombatAgentHP;
 
-    // =========================================================================
-    // Private setup helpers
-    // =========================================================================
-
-    /**
-     * @brief Register all cell types used by this world.
-     */
-    void ConfigureCellTypes();
-
-    /**
-     * @brief Load the dungeon from a text file and place initial boulders.
-     */
-    void GenerateWorld();
-
-    /**
-     * @brief Populate the grid from a vector of text rows.
-     * @param dungeonLayout One string per row; each character maps to a cell type.
-     */
-    void LoadDungeon(const std::vector<std::string>& dungeonLayout);
 
     // =========================================================================
     // Private combat helpers
