@@ -112,11 +112,12 @@ public:
     bool IsEnemyAt(const WorldPosition& pos) const;
 
     /**
-     * @brief Check whether a position is near the player start.
+     * @brief Check whether a position is near a reference position.
      * @param pos Position to test.
-     * @return True if the position is within the minimum safe distance of the start.
+     * @param referencePos Reference position for comparison.
+     * @return True if the position is within the minimum safe distance of the reference position.
      */
-    bool NearStartingPosition(const WorldPosition& pos) const;
+    bool NearPosition(const WorldPosition& pos, const WorldPosition& referencePos) const;
 
     // -------------------------------------------------------------------------
     // Resource actions (callable from DoAction or tests)
@@ -294,6 +295,7 @@ private:
     // =========================================================================
 
     WorldPosition              mStartPosition;
+    WorldPosition              mExitPosition;
     std::vector<WorldPosition> mHunterSpawnPositions;
     std::vector<WorldPosition> mGoblinSpawnPositions;
     std::vector<WorldPosition> mPacingSpawnPositions;

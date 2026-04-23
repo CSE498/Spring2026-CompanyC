@@ -134,6 +134,7 @@ void InteractionHeavyWorld::LoadDungeon(const std::vector<std::string>& dungeonL
 
             case 'X':
                 main_grid[pos] = mExitCellID;
+                mExitPosition = pos;
                 break;
 
             case 'S':
@@ -195,10 +196,10 @@ std::vector<WorldPosition> InteractionHeavyWorld::GetPacingSpawnPositions() cons
     return mPacingSpawnPositions;
 }
 
-bool InteractionHeavyWorld::NearStartingPosition(const WorldPosition& pos) const
+bool InteractionHeavyWorld::NearPosition(const WorldPosition& pos, const WorldPosition& referencePos) const
 {
-    const size_t dx = std::abs(static_cast<int>(pos.CellX()) - static_cast<int>(mStartPosition.CellX()));
-    const size_t dy = std::abs(static_cast<int>(pos.CellY()) - static_cast<int>(mStartPosition.CellY()));
+    const size_t dx = std::abs(static_cast<int>(pos.CellX()) - static_cast<int>(referencePos.CellX()));
+    const size_t dy = std::abs(static_cast<int>(pos.CellY()) - static_cast<int>(referencePos.CellY()));
     return (dx + dy) < static_cast<size_t>(kMinSpawnDistance);
 }
 
@@ -230,7 +231,8 @@ WorldPosition InteractionHeavyWorld::GetRandomPosition() const
         const WorldPosition pos(xDist(rng), yDist(rng));
         if (main_grid[pos] == mFloorCellID
             && !IsReservedPosition(pos)
-            && !NearStartingPosition(pos))
+            && !NearPosition(pos, mStartPosition)
+            && !NearPosition(pos, mExitPosition))
         {
             return pos;
         }
@@ -270,7 +272,8 @@ void InteractionHeavyWorld::PlaceBoulders(int minBoulders, int maxBoulders)
         const WorldPosition pos = GetRandomPosition();
         if (main_grid[pos] == mFloorCellID
             && !IsReservedPosition(pos)
-            && !NearStartingPosition(pos))
+            && !NearPosition(pos, mStartPosition)
+            && !NearPosition(pos, mExitPosition))
         {
             main_grid[pos] = mBoulderCellID;
             ++placed;
