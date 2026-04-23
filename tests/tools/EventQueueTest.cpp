@@ -43,6 +43,8 @@ TEST_CASE("Test EventQueue Default, Copy, and Assignment Constructor", "[EventQu
     REQUIRE(eq.Size() == 0);
 
     eq.Push(Event<std::string>("Event 1", 1));
+    REQUIRE(eq.Size() == 1);
+    REQUIRE(eq.Top()->GetData() == "Event 1");
 
     EventQueue<std::string> copy(eq);
     REQUIRE(copy.Size() == 1);
@@ -311,6 +313,7 @@ TEST_CASE("Test PopTop", "[EventQueue]")
 
     auto empty = eq.PopTop();
     REQUIRE(empty.has_value() == false);
+    REQUIRE(eq.Size() == 0);
 
     eq.Push(Event<std::string>("Event 1", 2));
     eq.Push(Event<std::string>("Event 2", 1));
@@ -321,15 +324,84 @@ TEST_CASE("Test PopTop", "[EventQueue]")
     auto e1 = eq.PopTop();
     REQUIRE(e1.has_value());
     REQUIRE(e1->GetData() == "Event 2");
+    REQUIRE(e1->GetPriority() == 1);
+    REQUIRE(eq.Size() == 2); 
 
     auto e2 = eq.PopTop();
     REQUIRE(e2.has_value());
     REQUIRE(e2->GetData() == "Event 1");
+    REQUIRE(e2->GetPriority() == 2);
+    REQUIRE(eq.Size() == 1);
 
     auto e3 = eq.PopTop();
     REQUIRE(e3.has_value());
     REQUIRE(e3->GetData() == "Event 3");
+    REQUIRE(e3->GetPriority() == 3);
+    REQUIRE(eq.Size() == 0); 
+    REQUIRE(eq.Empty());
 
     auto e4 = eq.PopTop();
     REQUIRE(e4.has_value() == false);
+    REQUIRE(eq.Size() == 0);
+}
+
+TEST_CASE("Test Negative Priority Values", "[EventQueue]")
+{
+    EventQueue<std::string> eq;
+
+    eq.Push(Event<std::string>("Zero",     0));
+    eq.Push(Event<std::string>("Negative", -5));
+    eq.Push(Event<std::string>("Positive",  3));
+    eq.Push(Event<std::string>("LowNeg",   -10));
+    eq.Push(Event<std::string>("NegOne",   -1));
+
+    REQUIRE(eq.Size() == 5);
+
+    // Expected dequeue order: -10, -5, -1, 0, 3
+    REQUIRE(eq.Top()->GetData() == "LowNeg");
+    REQUIRE(eq.Top()->GetPriority() == -10);
+    REQUIRE(eq.Pop());
+    REQUIRE(eq.Size() == 4);
+
+    REQUIRE(eq.Top()->GetData() == "Negative");
+    REQUIRE(eq.Top()->GetPriority() == -5);
+    REQUIRE(eq.Pop());
+    REQUIRE(eq.Size() == 3);
+
+    REQUIRE(eq.Top()->GetData() == "NegOne");
+    REQUIRE(eq.Top()->GetPriority() == -1);
+    REQUIRE(eq.Pop());
+    REQUIRE(eq.Size() == 2);
+
+    REQUIRE(eq.Top()->GetData() == "Zero");
+    REQUIRE(eq.Top()->GetPriority() == 0);
+    REQUIRE(eq.Pop());
+    REQUIRE(eq.Size() == 1);
+
+    REQUIRE(eq.Top()->GetData() == "Positive");
+    REQUIRE(eq.Top()->GetPriority() == 3);
+    REQUIRE(eq.Pop());
+    REQUIRE(eq.Empty());
+}
+
+TEST_CASE("Test Equal Negative Priority Tiebreaking", "[EventQueue]")
+{
+    EventQueue<std::string> eq;
+
+    eq.Push(Event<std::string>("First",  -3));
+    eq.Push(Event<std::string>("Second", -3));
+    eq.Push(Event<std::string>("Third",  -3));
+
+    REQUIRE(eq.Size() == 3);
+
+    REQUIRE(eq.Top()->GetData() == "First");
+    REQUIRE(eq.Pop());
+
+    REQUIRE(eq.Top()->GetData() == "Second");
+    REQUIRE(eq.Pop());
+
+    REQUIRE(eq.Top()->GetData() == "Third");
+    REQUIRE(eq.Pop());
+
+    REQUIRE(eq.Empty());
 }
