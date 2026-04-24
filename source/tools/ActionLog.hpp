@@ -27,7 +27,7 @@ namespace cse498
   class ActionLog {
   private:
     // Unordered map holding all the actions done by all the agents using their ID's as a key
-    std::unordered_map<size_t, std::vector<ActionEntry>> agentActions;
+    std::unordered_map<size_t, std::vector<ActionEntry>> AgentActions;
     
   public:
     /// Constructor
@@ -38,10 +38,11 @@ namespace cse498
      * 
      * @param id the id of the agent the action belongs to
      * @param action the action the agent is performing
+     * @param time the time when the action has started
      */
     void recordAction(size_t id, size_t action, std::chrono::microseconds time) {
       ActionEntry entry{time, action, std::chrono::microseconds::zero()};
-      agentActions[id].push_back(entry);
+      AgentActions[id].push_back(entry);
     }
 
     /**
@@ -50,19 +51,19 @@ namespace cse498
      * @return The unordered map holding all the actions
      */
     [[nodiscard]] const std::unordered_map<size_t, std::vector<ActionEntry>>& getActions() const {
-      return agentActions;
+      return AgentActions;
     }
     
     /**
      * @brief Returns all the actions done by one agent
      * 
-     * @param agent the agent whose actions is requested
+     * @param agent the id of the agent whose actions is requested
      * @return The vector of all the agents actions
      */
     [[nodiscard]] const std::vector<ActionEntry>& getActionsByAgent(size_t id) const {
-      auto it = agentActions.find(id);
+      auto it = AgentActions.find(id);
       
-      if (it != agentActions.end()) {
+      if (it != AgentActions.end()) {
         return it->second;
       }
 
@@ -74,11 +75,12 @@ namespace cse498
      * @brief Ends an agents action if it took time to complete
      * 
      * @param agent the agent whos action is ending
+     * @param time the time at which the action was completed
      */
     void actionEnd(size_t id, std::chrono::microseconds time){
-      auto it = agentActions.find(id);
+      auto it = AgentActions.find(id);
 
-      if (it != agentActions.end() && !it->second.empty()) {
+      if (it != AgentActions.end() && !it->second.empty()) {
           auto& last = it->second.back();
           last.duration = std::chrono::duration_cast<std::chrono::microseconds>(
               time - last.timeOfAction);
@@ -89,7 +91,7 @@ namespace cse498
      * @brief Clears the action log
      */
     void clear() {
-      agentActions.clear();
+      AgentActions.clear();
     }
 
     /**
@@ -100,7 +102,7 @@ namespace cse498
     [[nodiscard]] int getNumberofActions(){
       int count = 0;
 
-      for (const auto& [key, value] : agentActions) {
+      for (const auto& [key, value] : AgentActions) {
           count += value.size();
       }
 
@@ -113,10 +115,10 @@ namespace cse498
      * @param action the action that is wanted
      * @return the number of times that action was done
      */
-    [[nodiscard]] int getNumofSpecificAction(size_t action){
+    [[nodiscard]] int getNumOfSpecificAction(size_t action){
       int count = 0;
 
-      for (const auto& [key, value] : agentActions) {
+      for (const auto& [key, value] : AgentActions) {
           for (const auto& entry: value){
             if (entry.actionType == action){
               ++count;
