@@ -21,6 +21,9 @@
 #include <type_traits>
 #include <vector>
 
+#include "../core/Database.hpp"
+#include "../core/WorldPosition.hpp"
+
 namespace cse498 {
 
 /// Defaults to double 
@@ -151,6 +154,40 @@ class DataLog {
    * @brief Removes all logged values.
    */
   constexpr void Clear() noexcept { mDataValues.clear(); }
+
+  /**
+   * @brief Registers DataLog<WorldPosition> with the database.
+   */
+  void RegisterWithDatabase(cse498::Database& db)
+    requires std::same_as<T, WorldPosition>
+  {
+    db.RegisterType<DataLog<T>>("DataLogWorldPosition",
+        [](const DataLog<T>& log) -> std::string {
+            cse498::Serializer s;
+            std::string data = s.Serialize(static_cast<unsigned long>(log.Values().size()));
+            for (const auto& world_pos : log.Values()) {
+              data += s.Serialize(world_pos.X());
+              data += s.Serialize(world_pos.Y());
+            }
+            return data;
+        },
+        [](const std::string& data) -> std::optional<DataLog<T>> {
+            cse498::Serializer s;
+            size_t pos = 0;
+            auto count = s.DeserializeAt<unsigned long>(data, pos);
+            if (!count) return std::nullopt;
+
+            DataLog<T> log;
+            for (unsigned long i = 0; i < *count; ++i) {
+              auto x = s.DeserializeAt<double>(data, pos);
+              auto y = s.DeserializeAt<double>(data, pos);
+              if (!x || !y) return std::nullopt;
+              log.Add(WorldPosition(*x, *y));
+            }
+            return log;
+        }
+    );
+  }
 };
 
 }  // namespace cse498

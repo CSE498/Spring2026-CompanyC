@@ -7,14 +7,17 @@
 #pragma once
 
 #include <cassert>
+#include <chrono>
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "AgentBase.hpp"
 #include "ItemBase.hpp"
+#include "WorldPosition.hpp"
 #include "WorldGrid.hpp"
 #include "../tools/ActionLog.hpp"
+#include "../tools/DataLog.hpp"
 #include "../tools/Timer.hpp"
 
 namespace cse498
@@ -52,6 +55,9 @@ namespace cse498
     /// Action log to keep track of all the actions done by agents in this world
     ActionLog mActionLog;
 
+    /// Position collected when an agent's world position changes.
+    DataLog<WorldPosition> mPositionLog;
+
   public:
     WorldBase() = default;
     virtual ~WorldBase() = default;
@@ -71,8 +77,23 @@ namespace cse498
     /// Access the shared Timer for this world (const overload)
     const Timer &GetTimer() const { return mTimer; }
 
+    /// World specific score for end of game summary.
+    /// Default is 0; each world can override with its own scoring logic
+    /// Old plan: worlds override GetScore() New plan: worlds can pass score text into EndGameScreen.
+    /// Keeping this as a fallback in case we want a shared numeric score later.
+    [[nodiscard]] virtual double GetScore() const { return 0.0; } 
+
+    /// Total playtime (seconds) for the current session.
+    /// Reads from the shared Timer using the standard session name.
+    [[nodiscard]] double GetPlaytimeSeconds() const {             
+    return mTimer.Elapsed("Game::Session");}
+
+
     /// Access the ActionLog
     ActionLog &GetActionLog() { return mActionLog; }
+
+    /// Access the position log 
+    DataLog<WorldPosition> & GetPositionLog() { return mPositionLog; }
 
     /// Return a reference to an Item with a given ID.
     [[nodiscard]] ItemBase &GetItem(size_t id)
@@ -185,17 +206,29 @@ namespace cse498
     /// @brief Step through each agent giving them a chance to take an action.
     /// @note Override function to control execution order of agents.
     /// @note Override function to control which grid each agent receives.
-    virtual void RunAgents()
-    {
-      for (const auto &agent_ptr : agent_set)
-      {
+    virtual void RunAgents() {
+      for (const auto &agent_ptr : agent_set) {
+        const Location before_location = agent_ptr->GetLocation();
+
         size_t action_id = agent_ptr->SelectAction(main_grid);
         int result = DoAction(*agent_ptr, action_id);
-        if (result)
-        {
-          mActionLog.recordAction(*agent_ptr, action_id);
+        if (result) {
+          mActionLog.recordAction(
+            agent_ptr->GetID(),
+            action_id,
+            std::chrono::duration_cast<std::chrono::microseconds>(
+              std::chrono::steady_clock::now().time_since_epoch()
+            )
+          );
         }
         agent_ptr->SetActionResult(result);
+
+        const Location &after_location = agent_ptr->GetLocation();
+        if (after_location.IsPosition() &&
+            (!before_location.IsPosition() ||
+             before_location.AsWorldPosition() != after_location.AsWorldPosition())) {
+          mPositionLog.Add(after_location.AsWorldPosition());
+        }
       }
     }
 
