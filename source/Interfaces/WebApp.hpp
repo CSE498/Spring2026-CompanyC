@@ -58,11 +58,19 @@ public:
 
   /// Configure the CSS fill color and glyph for a named cell type.
   void SetCellVisual(const std::string &cell_type_name,
-                     std::string fill_css, std::string glyph);
+                     std::string fill_css, std::string glyph,
+                     std::string image_url = {});
 
   /// Register display label, hotkey, and live-mode requirement for an action.
   void RegisterActionMeta(const std::string &action_id,
                           cse498::WebInterface::ActionMeta meta);
+
+  /// Assign a sprite image URL to agents whose glyph character matches.
+  void RegisterEntityVisual(char glyph, std::string image_url);
+
+  /// Register a background image to draw beneath a named cell type's sprite.
+  void RegisterCellBackground(const std::string& cell_type_name,
+                              std::string bg_image_url);
 
   /// Build the legend cache and draw the first frame.
   /// Must be called after Initialize() and all SetCellVisual()/RegisterActionMeta() calls.
@@ -129,6 +137,7 @@ public:
 
   // Legend is built once in Render() and reused on every subsequent frame.
   std::unordered_map<int, cse498::LegendEntry> legend_by_id_;
+  std::unordered_map<std::string, std::string> cell_backgrounds_;
 
   // --- Persistence stack (Phase 8a) ---
   cse498::Database db_;

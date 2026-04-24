@@ -146,19 +146,36 @@ int main()
     g_app->SetLoadCallback([&stub]() { stub.LoadState("stub_world"); });
   }
 
-  g_app->SetCellVisual("grass", "#8fd17f", ".");
-  g_app->SetCellVisual("wall", "#0c1523", "#");
+  g_app->SetCellVisual("grass", "#8fd17f", ".", "assets/grass.png");
+  g_app->SetCellVisual("wall", "#0c1523", "#", "assets/wall.png");
   g_app->SetCellVisual("button", "#629cfa", "o");
   g_app->SetCellVisual("built", "#8b5cf6", "B");
   g_app->SetCellVisual("diamond_ore", "#eae2fb", "D");
-  g_app->SetCellVisual("exit", "#a12989", "E");
+  g_app->SetCellVisual("exit", "#a12989", "E", "assets/exit.png");
   g_app->SetCellVisual("gold_ore", "#e1e827", "G");
   g_app->SetCellVisual("iron_ore", "#525252", "I");
-  g_app->SetCellVisual("boulder", "#6e4f08", "O");
+  g_app->SetCellVisual("boulder", "#6e4f08", "O", "assets/boulder.png");
   g_app->SetCellVisual("stone", "#9ca3af", "S");
   g_app->SetCellVisual("tree", "#3f8f3f", "T");
   g_app->SetCellVisual("wheat", "#f4d35e", "W");
   g_app->SetCellVisual("pressed", "#0f30ee", "X");
+  g_app->SetCellVisual("floor", "#f3f4f6", "", "assets/floor.png");
+  g_app->SetCellVisual("start", "#86efac", "S", "assets/start.png");
+  g_app->SetCellVisual("chest", "#b45309", "C", "assets/chest_closed.png");
+  g_app->SetCellVisual("chest_open", "#92400e", "c", "assets/chest_open.png");
+  g_app->SetCellVisual("material", "#9ca3af", "M", "assets/boulder_broken.png");
+
+  g_app->RegisterCellBackground("start", "assets/floor.png");
+  g_app->RegisterCellBackground("exit", "assets/floor.png");
+  g_app->RegisterCellBackground("boulder", "assets/floor.png");
+  g_app->RegisterCellBackground("chest", "assets/floor.png");
+  g_app->RegisterCellBackground("chest_open", "assets/floor.png");
+  g_app->RegisterCellBackground("material", "assets/floor.png");
+
+  g_app->RegisterEntityVisual('P', "assets/player.png");
+  g_app->RegisterEntityVisual('*', "assets/agent.png");
+  g_app->RegisterEntityVisual('E', "assets/enemy.png");
+  g_app->RegisterEntityVisual('G', "assets/goblin.png");
 
   using Meta = cse498::WebInterface::ActionMeta;
   g_app->RegisterActionMeta("start", Meta{"Start", "Enter", false});

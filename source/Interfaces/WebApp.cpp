@@ -269,10 +269,34 @@ void WebApp::PerformLoad() {
 }
 
 void WebApp::SetCellVisual(const std::string& cell_type_name,
-                            std::string fill_css, std::string glyph) {
+                            std::string fill_css, std::string glyph,
+                            std::string image_url) {
   if (interface_) {
-    interface_->SetCellVisual(cell_type_name, std::move(fill_css), std::move(glyph));
+    if (!image_url.empty()) {
+      cse498::WebCanvas::PreloadImage(image_url);
+    }
+    interface_->SetCellVisual(cell_type_name, std::move(fill_css), std::move(glyph),
+                              std::move(image_url));
   }
+}
+
+void WebApp::RegisterEntityVisual(char glyph, std::string image_url)
+{
+  if (interface_) {
+    if (!image_url.empty()) {
+      cse498::WebCanvas::PreloadImage(image_url);
+    }
+    interface_->SetEntityVisual(glyph, std::move(image_url));
+  }
+}
+
+void WebApp::RegisterCellBackground(const std::string& cell_type_name,
+                                    std::string bg_image_url)
+{
+  if (!bg_image_url.empty()) {
+    cse498::WebCanvas::PreloadImage(bg_image_url);
+  }
+  cell_backgrounds_[cell_type_name] = std::move(bg_image_url);
 }
 
 void WebApp::RegisterActionMeta(const std::string &action_id,
@@ -430,8 +454,30 @@ void WebApp::RenderWorld()
 
                         const std::string fill = entry ? entry->fill_css : kColorCellFallback;
                         const std::string glyph = entry ? entry->glyph : "?";
+                        const std::string image_url = entry ? entry->image_url : "";
 
-                        canvas_->DrawCell(col, row, cell_w, cell_h, fill, glyph, kColorCellText);
+                        if (entry)
+                        {
+                          const auto bg_it = cell_backgrounds_.find(entry->key);
+                          if (bg_it != cell_backgrounds_.end() && !bg_it->second.empty())
+                          {
+                            canvas_->DrawImage(bg_it->second,
+                                               static_cast<float>(col * cell_w),
+                                               static_cast<float>(row * cell_h),
+                                               static_cast<float>(cell_w),
+                                               static_cast<float>(cell_h),
+                                               fill);
+                          }
+                        }
+
+                        if (!image_url.empty())
+                        {
+                          canvas_->DrawCellImage(col, row, cell_w, cell_h, image_url, fill, glyph);
+                        }
+                        else
+                        {
+                          canvas_->DrawCell(col, row, cell_w, cell_h, fill, glyph, kColorCellText);
+                        }
 
                         if (cell.selected)
                         {
@@ -448,12 +494,24 @@ void WebApp::RenderWorld()
   const float entity_radius = 0.4f * static_cast<float>(std::min(cell_w, cell_h));
   for (const auto &entity : interface_->GetEntities())
   {
-    const float center_x =
-        static_cast<float>(entity.x * cell_w + cell_w / 2);
-    const float center_y =
-        static_cast<float>(entity.y * cell_h + cell_h / 2);
-    canvas_->DrawEntity(center_x, center_y, entity_radius, entity.fill_css,
-                        entity.glyph, kColorEntityText);
+    if (!entity.image_url.empty())
+    {
+      canvas_->DrawImage(entity.image_url,
+                         static_cast<float>(entity.x * cell_w),
+                         static_cast<float>(entity.y * cell_h),
+                         static_cast<float>(cell_w),
+                         static_cast<float>(cell_h),
+                         entity.fill_css);
+    }
+    else
+    {
+      const float center_x =
+          static_cast<float>(entity.x * cell_w + cell_w / 2);
+      const float center_y =
+          static_cast<float>(entity.y * cell_h + cell_h / 2);
+      canvas_->DrawEntity(center_x, center_y, entity_radius, entity.fill_css,
+                          entity.glyph, kColorEntityText);
+    }
   }
 
   // Draw grid lines after cells so they appear on top.
@@ -482,6 +540,12 @@ void WebApp::RenderWorld()
   for (const auto &entry : hud.resources)
   {
     hud_text << "- " << entry.first << ": " << entry.second << "\n";
+  }
+
+  const std::string& panel_text = interface_->GetPanelText();
+  if (!panel_text.empty())
+  {
+    hud_text << "\nDetails\n" << panel_text << "\n";
   }
 
   hud_text_->SetText(hud_text.str());

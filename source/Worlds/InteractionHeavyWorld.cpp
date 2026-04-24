@@ -18,6 +18,7 @@
 #include "../Agents/PacingAgent.hpp"
 #include <algorithm>
 #include <fstream>
+#include <sstream>
 #include <random>
 
 namespace cse498
@@ -199,6 +200,11 @@ std::vector<WorldPosition> InteractionHeavyWorld::GetGoblinSpawnPositions() cons
 std::vector<WorldPosition> InteractionHeavyWorld::GetPacingSpawnPositions() const
 {
     return mPacingSpawnPositions;
+}
+
+double InteractionHeavyWorld::GetScore() const
+{
+    return static_cast<double>(mGoldCount * 10 + mStoneCount + mEnemiesKilled * 25 + mPlayerHP);
 }
 
 bool InteractionHeavyWorld::NearPosition(const WorldPosition& pos, const WorldPosition& referencePos) const
@@ -599,6 +605,42 @@ void InteractionHeavyWorld::EndGame(bool won)
     {
         GetTimer().Stop("Game::Session");
         mTimerStarted = false;
+    }
+
+    std::vector<Stat> stats = {
+        {"Gold", static_cast<double>(mGoldCount)},
+        {"Stone", static_cast<double>(mStoneCount)},
+        {"Enemies Defeated", static_cast<double>(mEnemiesKilled)},
+        {"Remaining HP", static_cast<double>(mPlayerHP)},
+        {"Outcome", won ? 1.0 : 0.0}
+    };
+
+    const int worldSize = static_cast<int>(std::max(main_grid.GetWidth(), main_grid.GetHeight()));
+    mEndGameHtml = BuildEndGameHtml(
+        true,
+        GetScore(),
+        GetPlaytimeSeconds(),
+        stats,
+        GetPositionLog(),
+        worldSize
+    );
+
+    std::ostringstream panel;
+    panel << "Results ready\n"
+          << "Score: " << static_cast<long long>(GetScore()) << "\n"
+          << "Playtime: " << GetPlaytimeSeconds() << " sec\n"
+          << "Gold: " << mGoldCount << "\n"
+          << "Stone: " << mStoneCount << "\n"
+          << "Enemies Defeated: " << mEnemiesKilled << "\n"
+          << "HTML payload generated for UI.";
+
+    for (auto& ptr : agent_set)
+    {
+        if (!ptr || !ptr->IsInterface())
+            continue;
+
+        ptr->Notify("Game over. Endgame HTML generated.", "status");
+        ptr->Notify(panel.str(), "panel_text");
     }
 
     if (won)

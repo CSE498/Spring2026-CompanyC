@@ -111,9 +111,10 @@ const std::string& WebInterface::GetPanelText() const {
 }
 
 void WebInterface::SetCellVisual(const std::string& cell_type_name,
-                                 std::string fill_css, std::string glyph) {
+                                 std::string fill_css, std::string glyph,
+                                 std::string image_url) {
   cell_visuals_[cell_type_name] =
-      CellVisual{std::move(fill_css), std::move(glyph)};
+      CellVisual{std::move(fill_css), std::move(glyph), std::move(image_url)};
 }
 
 void WebInterface::SetEntityVisual(char glyph, std::string image_url) {
@@ -148,6 +149,7 @@ std::vector<LegendEntry> WebInterface::GetLegend() const {
     if (vis != cell_visuals_.end()) {
       entry.fill_css = vis->second.fill_css;
       entry.glyph    = vis->second.glyph;
+      entry.image_url = vis->second.image_url;
     } else {
       // Fallback: grey fill, cell-type symbol (or "?" if none assigned).
       entry.fill_css = "#e5e7eb";

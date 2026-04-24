@@ -32,6 +32,7 @@ class WebInterface : public InterfaceBase {
   struct CellVisual {
     std::string fill_css;  ///< CSS background color (e.g., "#8fd17f")
     std::string glyph;     ///< Symbol drawn on the cell (e.g., ".")
+    std::string image_url; ///< Optional sprite path for the cell
   };
 
   /// UI metadata for one action button (visual / UX layer only).
@@ -81,7 +82,8 @@ class WebInterface : public InterfaceBase {
 
   /// Assign CSS color and glyph to a named cell type.
   void SetCellVisual(const std::string& cell_type_name,
-                     std::string fill_css, std::string glyph);
+                     std::string fill_css, std::string glyph,
+                     std::string image_url = {});
 
   /// Assign a sprite image URL to an agent glyph character.
   /// When an entity's glyph matches, its image_url is set instead of drawing

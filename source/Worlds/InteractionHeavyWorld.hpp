@@ -14,7 +14,9 @@
 #pragma once
 
 #include "../core/WorldBase.hpp"
+#include "../tools/EndGameScreen.hpp"
 #include <map>
+#include <string>
 #include <vector>
 #include <string_view>
 
@@ -58,6 +60,18 @@ public:
      * @return Current player HP.
      */
     constexpr int GetPlayerHP() const { return mPlayerHP; }
+
+    /**
+     * @brief Get the most recently generated endgame HTML payload.
+     * @return HTML string for the results screen, or empty if the game has not ended yet.
+     */
+    const std::string& GetEndGameHtml() const { return mEndGameHtml; }
+
+    /**
+     * @brief Compute a simple score for the interaction world.
+     * @return Aggregate score based on valuables, kills, and remaining HP.
+     */
+    [[nodiscard]] double GetScore() const override;
 
     // -------------------------------------------------------------------------
     // Position getters
@@ -259,7 +273,7 @@ private:
     // Constants
     // =========================================================================
 
-    static constexpr std::string_view kDungeonMapFile = "source/Worlds/interaction_world_maps/DungeonMapSmall.txt";
+    static constexpr std::string_view kDungeonMapFile = "source/Worlds/interaction_world_maps/DungeonMapLarge.txt";
     static constexpr int   kPlayerStartHP        = 100;
     static constexpr int   kHunterDefaultHP      = 10;
     static constexpr int   kThrowDamage          = 10;
@@ -299,6 +313,7 @@ private:
     bool mDamagedThisTurn = false;
     bool mTimerStarted    = false;
     bool mGameOver        = false;
+    std::string mEndGameHtml;
 
     // =========================================================================
     // Inventory and resources

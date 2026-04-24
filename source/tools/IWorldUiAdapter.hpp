@@ -18,6 +18,7 @@ struct LegendEntry {
   std::string label;
   std::string fill_css;
   std::string glyph;
+  std::string image_url;
   bool blocks_movement = false;
 };
 
