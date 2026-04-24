@@ -54,6 +54,11 @@ void InteractionHeavyWorld::ConfigAgent(AgentBase& agent)
     agent.AddAction("throw_down",      ACTION_THROW_DOWN);
     agent.AddAction("throw_left",      ACTION_THROW_LEFT);
     agent.AddAction("throw_right",     ACTION_THROW_RIGHT);
+
+    if (agent.IsInterface())
+    {
+        NotifyInterfaceResources(agent);
+    }
 }
 
 // =============================================================================
@@ -568,6 +573,24 @@ void InteractionHeavyWorld::SyncResources()
     SetWorldResourceCount(RESOURCE_HP,    mPlayerHP);
     SetWorldResourceCount(RESOURCE_STONE, static_cast<int>(mStoneCount));
     SetWorldResourceCount(RESOURCE_GOLD,  static_cast<int>(mGoldCount));
+
+    for (auto& ptr : agent_set)
+    {
+        if (!ptr)
+            continue;
+
+        NotifyInterfaceResources(*ptr);
+    }
+}
+
+void InteractionHeavyWorld::NotifyInterfaceResources(AgentBase& agent) const
+{
+    if (!agent.IsInterface())
+        return;
+
+    agent.Notify("HP:" + std::to_string(mPlayerHP), "resource");
+    agent.Notify("Stone:" + std::to_string(mStoneCount), "resource");
+    agent.Notify("Gold:" + std::to_string(mGoldCount), "resource");
 }
 
 void InteractionHeavyWorld::EndGame(bool won)

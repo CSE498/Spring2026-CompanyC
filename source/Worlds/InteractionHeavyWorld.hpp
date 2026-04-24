@@ -401,6 +401,12 @@ private:
      */
     void SyncResources();
 
+    /**
+     * @brief Send the current HUD resources to an interface agent.
+     * @param agent Interface agent to notify.
+     */
+    void NotifyInterfaceResources(AgentBase& agent) const;
+
     // =========================================================================
     // Private endgame helper
     // =========================================================================
