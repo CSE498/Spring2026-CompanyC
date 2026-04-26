@@ -287,6 +287,8 @@ private:
   }
 
 
+protected:
+
   /**
    * @brief Update the world state each tick.
    *
@@ -294,7 +296,9 @@ private:
    */
   void UpdateWorld() override;
 
-  /** 
+public:
+
+  /**
    * @brief  Override to return the current tick count for use in agents or buildings.
    * @return the current tick count since the world started running.
    */
