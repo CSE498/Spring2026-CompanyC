@@ -74,3 +74,32 @@ TEST_CASE("EnemyAgent attacks when adjacent", "[EnemyAgent]") {
 
   REQUIRE(action == enemy.GetActionID("attack"));
 }
+
+TEST_CASE("EnemyAgent reverses patrol when blocked", "[EnemyAgent]") {
+  cse498::TestWorld world;
+
+  auto &player = world.AddAgent<cse498::WebInterface>("Player");
+  player.SetLocation(cse498::WorldPosition{9, 9});
+
+  auto &enemy = world.AddAgent<cse498::EnemyAgent>("Enemy");
+  enemy.SetHorizontal().SetVisionRadius(1).SetLocation(
+      cse498::WorldPosition{9, 5});
+
+  size_t action = enemy.SelectAction(world.GetGrid());
+
+  REQUIRE(action == enemy.GetActionID("left"));
+}
+
+TEST_CASE("EnemyAgent chases left when player is to the left", "[EnemyAgent]") {
+  cse498::TestWorld world;
+
+  auto &player = world.AddAgent<cse498::WebInterface>("Player");
+  player.SetLocation(cse498::WorldPosition{2, 3});
+
+  auto &enemy = world.AddAgent<cse498::EnemyAgent>("Enemy");
+  enemy.SetVisionRadius(5).SetLocation(cse498::WorldPosition{4, 3});
+
+  size_t action = enemy.SelectAction(world.GetGrid());
+
+  REQUIRE(action == enemy.GetActionID("left"));
+}

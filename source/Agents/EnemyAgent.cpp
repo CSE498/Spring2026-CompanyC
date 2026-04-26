@@ -3,10 +3,10 @@
 #include <cmath>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "../core/WorldBase.hpp"
-#include "../tools/PathGenerator.hpp"
 
 namespace cse498 {
 
@@ -68,9 +68,9 @@ bool IsWalkableCell(const WorldGrid &grid, const WorldPosition &pos) {
  * @return The corresponding movement action, if valid.
  */
 std::optional<std::string> ActionFromStep(const WorldPosition &from,
-                                          const Point &to_point) {
-  const int to_x = static_cast<int>(to_point.x);
-  const int to_y = static_cast<int>(to_point.y);
+                                          const WorldPosition &to_pos) {
+  const int to_x = static_cast<int>(to_pos.CellX());
+  const int to_y = static_cast<int>(to_pos.CellY());
 
   const int from_x = static_cast<int>(from.CellX());
   const int from_y = static_cast<int>(from.CellY());
@@ -86,6 +86,71 @@ std::optional<std::string> ActionFromStep(const WorldPosition &from,
     return "down";
   if (dx == 0 && dy == -1)
     return "up";
+
+  return std::nullopt;
+}
+
+/**
+ * @brief Choose a direct four-way chase action toward the player.
+ * @param grid The world grid.
+ * @param enemy_pos The enemy's current position.
+ * @param player_pos The sensed player position.
+ * @return The chase movement action if a valid step is available.
+ */
+std::optional<std::string>
+GetDirectChaseAction(const WorldGrid &grid, const WorldPosition &enemy_pos,
+                     const WorldPosition &player_pos) {
+  const int enemy_x = static_cast<int>(enemy_pos.CellX());
+  const int enemy_y = static_cast<int>(enemy_pos.CellY());
+
+  const int player_x = static_cast<int>(player_pos.CellX());
+  const int player_y = static_cast<int>(player_pos.CellY());
+
+  const int dx = player_x - enemy_x;
+  const int dy = player_y - enemy_y;
+
+  std::vector<std::pair<std::string, WorldPosition>> options;
+
+  auto try_add_move = [&](const std::string &action, int x, int y) {
+    if (x < 0 || y < 0) {
+      return;
+    }
+
+    options.push_back({action, WorldPosition(static_cast<size_t>(x),
+                                             static_cast<size_t>(y))});
+  };
+
+  if (std::abs(dx) >= std::abs(dy)) {
+    if (dx > 0) {
+      try_add_move("right", enemy_x + 1, enemy_y);
+    } else if (dx < 0) {
+      try_add_move("left", enemy_x - 1, enemy_y);
+    }
+
+    if (dy > 0) {
+      try_add_move("down", enemy_x, enemy_y + 1);
+    } else if (dy < 0) {
+      try_add_move("up", enemy_x, enemy_y - 1);
+    }
+  } else {
+    if (dy > 0) {
+      try_add_move("down", enemy_x, enemy_y + 1);
+    } else if (dy < 0) {
+      try_add_move("up", enemy_x, enemy_y - 1);
+    }
+
+    if (dx > 0) {
+      try_add_move("right", enemy_x + 1, enemy_y);
+    } else if (dx < 0) {
+      try_add_move("left", enemy_x - 1, enemy_y);
+    }
+  }
+
+  for (const auto &[action, next_pos] : options) {
+    if (IsWalkableCell(grid, next_pos)) {
+      return action;
+    }
+  }
 
   return std::nullopt;
 }
@@ -121,28 +186,6 @@ std::optional<WorldPosition> GetPatrolNextPos(const WorldGrid &grid,
   }
 
   return next_pos;
-}
-
-/**
- * @brief Build a pathfinding view from the current grid.
- * @param grid The world grid.
- * @return A WorldView containing blocked cells.
- */
-WorldView BuildWorldView(const WorldGrid &grid) {
-  WorldView world_view(static_cast<int>(grid.GetWidth()),
-                       static_cast<int>(grid.GetHeight()));
-
-  for (size_t y = 0; y < grid.GetHeight(); ++y) {
-    for (size_t x = 0; x < grid.GetWidth(); ++x) {
-      WorldPosition pos(x, y);
-      if (!IsWalkableCell(grid, pos)) {
-        world_view.SetBlocked(
-            StateGridPosition(static_cast<int>(x), static_cast<int>(y)));
-      }
-    }
-  }
-
-  return world_view;
 }
 
 } // namespace
@@ -243,20 +286,7 @@ void EnemyAgent::Sense(WorldGrid &grid) {
     player_adjacent = IsAdjacent(my_pos, *sensed_player_pos);
 
     if (player_in_vision && !player_adjacent) {
-      WorldView world_view = BuildWorldView(grid);
-
-      PathGenerator generator;
-      generator.SetWorldView(world_view);
-
-      WorldPath path = generator.GenerateShortestPath(
-          StateGridPosition(static_cast<int>(my_pos.CellX()),
-                            static_cast<int>(my_pos.CellY())),
-          StateGridPosition(static_cast<int>(sensed_player_pos->CellX()),
-                            static_cast<int>(sensed_player_pos->CellY())));
-
-      if (path.size() >= 2) {
-        chase_action = ActionFromStep(my_pos, path[1]);
-      }
+      chase_action = GetDirectChaseAction(grid, my_pos, *sensed_player_pos);
     }
   }
 
@@ -268,9 +298,7 @@ void EnemyAgent::Sense(WorldGrid &grid) {
   }
 
   if (next_pos.has_value()) {
-    Point next_point{static_cast<double>(next_pos->CellX()),
-                     static_cast<double>(next_pos->CellY())};
-    patrol_action = ActionFromStep(my_pos, next_point);
+    patrol_action = ActionFromStep(my_pos, *next_pos);
   }
 }
 
