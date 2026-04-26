@@ -19,8 +19,8 @@ namespace cse498{
                 mResources[resourceName] = generationPeriod;
             }
 
-            const std::unordered_map<std::string, size_t>& GetResources() const { return mResources;}
+            [[nodiscard]] const std::unordered_map<std::string, size_t>& GetResources() const { return mResources;}
 
-            size_t GetBuiltTime() const { return mInternalCounter; }
+            [[nodiscard]] size_t GetBuiltTime() const { return mInternalCounter; }
     };
 }

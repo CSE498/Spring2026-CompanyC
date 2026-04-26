@@ -6,7 +6,7 @@
 
 #include "../core/WorldBase.hpp"
 #include "../core/Building.hpp"
-#include "../Agents/PacingAgent.hpp"
+#include "../Agents/TendencyAgent.hpp"
 
 namespace cse498 {
 
@@ -73,8 +73,7 @@ public:
   void Run() override {
     run_over = false;
     while (!run_over) {
-      RunAgents();
-      UpdateWorld();
+      Tick();
 
       if (mUpdateCounter % 500 == 0) {
         for (size_t i = 0; i < mWorldResourceNames.size(); ++i) {
@@ -85,13 +84,58 @@ public:
     }
   }
 
-  /**
-   * @brief Run the agents and update the world one time
-   */
-  void Tick() override {
-      RunAgents();
-      UpdateWorld();
+/**
+ * @brief Run the agents and update the world one time
+ */
+void Tick() override {
+  if (!mSessionStarted) {
+    GetTimer().Start("Game::Session");
+    mSessionStarted = true;
   }
+  RunAgents();
+  UpdateWorld();
+
+  size_t wood = mWorldResourceCounts[ResourceIndex("wood")];
+  size_t stone = mWorldResourceCounts[ResourceIndex("stone")];
+  size_t steel = mWorldResourceCounts[ResourceIndex("steel")];
+  size_t wheat = mWorldResourceCounts[ResourceIndex("wheat")];
+
+  size_t lumberyards = 0;
+  size_t quarries = 0;
+  size_t farms = 0;
+
+  for (const auto & building : mBuildings) {
+    const auto & resources = building.GetResources();
+
+    if (resources.count("wood") && resources.size() == 1) {
+      ++lumberyards;
+    }
+    else if (resources.count("wheat") && resources.size() == 1) {
+      ++farms;
+    }
+    else if (resources.count("stone") && resources.count("steel")) {
+      ++quarries;
+    }
+  }
+
+  std::string message =
+    "Tick " + std::to_string(mUpdateCounter) +
+    " | Agents: " + std::to_string(agent_set.size()) +
+    " | Buildings: " + std::to_string(mBuildings.size()) + "\n" +
+    "Resources -> Wood: " + std::to_string(wood) +
+    ", Stone: " + std::to_string(stone) +
+    ", Steel: " + std::to_string(steel) +
+    ", Wheat: " + std::to_string(wheat) + "\n" +
+    "Production -> Lumberyards: " + std::to_string(lumberyards) +
+    ", Quarries: " + std::to_string(quarries) +
+    ", Farms: " + std::to_string(farms);
+
+  for (const auto & agent_ptr : agent_set) {
+    if (agent_ptr->GetName() == "Player") {
+      agent_ptr->Notify(message);
+    }
+  }
+}
 
   /**
    * @brief Provides a mapping of resource name to index of that resource
@@ -106,48 +150,17 @@ public:
   }
 
   /**
-   * @brief Initialize an agent that only has the ability to move in order to be used by UI team.
-  */
-  template <typename AGENT_T>
-  void AddGhostAgent() {
-    auto agent_ptr = std::make_unique<AGENT_T>(agent_set.size(), "ghost", *this);
-    
-    if (agent_ptr->Initialize() == false) {
-      std::cerr << "Failed to initialize ghost agent." << std::endl;
-    }
-
-    mGhostAgent = std::move(agent_ptr);
-    AddMovementFunctions(*mGhostAgent);
-  }
-
-  /**
-   * @brief Calls DoAction on the metaparameter GhostAgent given an action_id
-  */
-  void PerformGhostAction(size_t action_id) {
-    assert(mGhostAgent != nullptr);
-    DoAction(*mGhostAgent, action_id);
-  }
-
-  /**
-   * @brief Returns location object of ghost object
-  */
-  Location GetGhostLocation() {
-    assert(mGhostAgent != nullptr);
-    return mGhostAgent->GetLocation();
-  }
-
-  /**
    * @brief Getters for Ids
    */
-  size_t GetGrassId()      const { return mGrassId; }
-  size_t GetTreeId()       const { return mTreeId; }
-  size_t GetStoneId()      const { return mStoneId; }
-  size_t GetWheatId()      const { return mWheatId; }
-  size_t GetQuarryId()     const { return mQuarryId; }
-  size_t GetLumberyardId() const { return mLumberyardId; }
-  size_t GetFarmId()       const { return mFarmId; }
-  size_t GetSpawnerId()    const { return mSpawnerId; }
-  size_t GetTownhallId()   const { return mTownhallId; }
+  [[nodiscard]] size_t GetGrassId()      const { return mGrassId; }
+  [[nodiscard]] size_t GetTreeId()       const { return mTreeId; }
+  [[nodiscard]] size_t GetStoneId()      const { return mStoneId; }
+  [[nodiscard]] size_t GetWheatId()      const { return mWheatId; }
+  [[nodiscard]] size_t GetQuarryId()     const { return mQuarryId; }
+  [[nodiscard]] size_t GetLumberyardId() const { return mLumberyardId; }
+  [[nodiscard]] size_t GetFarmId()       const { return mFarmId; }
+  [[nodiscard]] size_t GetSpawnerId()    const { return mSpawnerId; }
+  [[nodiscard]] size_t GetTownhallId()   const { return mTownhallId; }
 
 private:
 
@@ -177,6 +190,13 @@ private:
   size_t mSpawnerId = 0;
   size_t mTownhallId = 0;
 
+  /// @brief  Flag to track if the session timer has started.
+  bool mSessionStarted = false;
+
+  /**
+  * @brief Configure an agent with movement actions.
+  * @param agent The agent to configure.
+  */
   void AddMovementFunctions(AgentBase & agent) {
     agent.AddAction("up", MOVE_UP);
     agent.AddAction("down", MOVE_DOWN);
@@ -190,7 +210,7 @@ private:
 
    /** @brief Configure an agent with available actions.
    *
-   * The first agent added becomes the "leader" and gains build abilities.
+   * Any agent named "builder" gains build abilities.
    *
    * @param agent The agent to configure.
    */
@@ -204,7 +224,9 @@ private:
     }
 
     AddMovementFunctions(agent);
-    agent.AddAction("collect", COLLECT);
+    if(agent.GetName() != "Player"){
+      agent.AddAction("collect", COLLECT);
+    }
   }
 
   /**

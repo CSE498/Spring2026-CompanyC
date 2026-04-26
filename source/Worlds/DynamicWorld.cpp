@@ -155,7 +155,7 @@ int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
   if (action_id >= REMAIN_STILL && action_id <= MOVE_DOWN_RIGHT) {
     if (!main_grid.IsValid(next))
       return 0;
-    if (!main_grid.IsTraversable(main_grid[next]))
+    if (!main_grid.IsTraversable(main_grid[next]) && agent.GetName() != "Player")
       return 0;
     agent.SetLocation(next);
     return 1;
@@ -178,7 +178,7 @@ void cse498::DynamicWorld::UpdateWorld() {
     }
   }
 
-  // Spawner logic: spawn a PacingAgent at the closest grass cell every 60 ticks
+  // Spawner logic: spawn a TendencyAgent at the closest grass cell every 60 ticks
   for (const auto & [pos, built_time] : mSpawners) {
     size_t ticks_since_built = mUpdateCounter - built_time;
     if (ticks_since_built > 0 && ticks_since_built % 60 == 0) {
@@ -195,7 +195,7 @@ void cse498::DynamicWorld::UpdateWorld() {
             if (!main_grid.IsValid(nx, ny)) continue;
             WorldPosition spawn_pos(nx, ny);
             if (main_grid[spawn_pos] == mGrassId) {
-              auto & agent = AddAgent<PacingAgent>("spawned_agent");
+              auto & agent = AddAgent<TendencyAgent>("spawned_agent");
               agent.SetLocation(spawn_pos);
               placed = true;
             }
@@ -205,7 +205,8 @@ void cse498::DynamicWorld::UpdateWorld() {
     }
   }
 
-  if (mCutoffTime >= mUpdateCounter) {
+  if (mCutoffTime <= mUpdateCounter) {
     run_over = true;
+    this->GetTimer().Stop("Game::Session");
   }
 }
