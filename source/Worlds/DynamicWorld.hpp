@@ -179,6 +179,28 @@ private:
   std::unique_ptr<AgentBase> mGhostAgent;
 
   /// @brief Cell type IDs for terrain and structures.
+  /**
+   * @brief Check whether the world has enough of each listed resource.
+   * @param costs List of (resource name, amount) pairs to check.
+   * @return true if all resources are available in sufficient quantity.
+   */
+  bool HasResources(std::initializer_list<std::pair<std::string, size_t>> costs) const {
+    for (const auto & [name, amount] : costs) {
+      if (mWorldResourceCounts.at(ResourceIndex(name)) < amount) return false;
+    }
+    return true;
+  }
+
+  /**
+   * @brief Deduct the listed resources from the world's counts.
+   * @param costs List of (resource name, amount) pairs to deduct.
+   */
+  void SpendResources(std::initializer_list<std::pair<std::string, size_t>> costs) {
+    for (const auto & [name, amount] : costs) {
+      mWorldResourceCounts[ResourceIndex(name)] -= amount;
+    }
+  }
+
   size_t mGrassId = 0;
   size_t mTreeId = 0;
   size_t mStoneId = 0;
@@ -281,6 +303,8 @@ private:
     assert(mQuarryId != 0 && mLumberyardId != 0 && mFarmId != 0 && mSpawnerId != 0 && mTownhallId != 0); // Ensure all building types are configured.
 
     main_grid.Resize(width, height, mGrassId);
+
+    assert(width >= 5 && height >= 5); // Distribution requires upper bound (width-3) >= lower bound (2), so minimum is 5.
 
     std::random_device rd;
     std::mt19937 gen(rd());
