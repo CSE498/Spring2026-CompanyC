@@ -1,12 +1,19 @@
 #include <algorithm>
 #include "./DynamicWorld.hpp"
 
-const std::unordered_map<std::string, size_t> ResourceTick = {
+constexpr std::array<std::pair<std::string_view, size_t>, 4> kResourceTick = {{
   {"wood", 20},
   {"steel", 10},
   {"stone", 10},
   {"wheat", 10}
-};
+}};
+constexpr size_t ResourceTickRate(std::string_view name) {
+  for (const auto& [n, rate] : kResourceTick) {
+    if (n == name) return rate;
+  }
+  return 0;
+}
+
 
 // Number of ticks between each spawner agent spawn.
 constexpr size_t kSpawnerTickInterval = 60;
@@ -92,7 +99,7 @@ int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
     SpendResources({{"wood", lumberyardWoodBuildCondition}, {"steel", lumberyardSteelBuildCondition}});
     main_grid[cur] = mLumberyardId;
     Building lumberyard(mUpdateCounter);
-    lumberyard.AddResource("wood", ResourceTick.at("wood"));
+      lumberyard.AddResource("wood", ResourceTickRate("wood"));
     mBuildings.push_back(lumberyard);
     return 1;
   }
@@ -102,8 +109,8 @@ int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
     SpendResources({{"stone", quarryStoneBuildCondition}, {"wood", quarryWoodBuildCondition}});
     main_grid[cur] = mQuarryId;
     Building quarry(mUpdateCounter);
-    quarry.AddResource("steel", ResourceTick.at("steel"));
-    quarry.AddResource("stone", ResourceTick.at("stone"));
+      quarry.AddResource("steel", ResourceTickRate("steel"));
+      quarry.AddResource("stone", ResourceTickRate("stone"));
     mBuildings.push_back(quarry);
     return 1;
   }
@@ -121,7 +128,7 @@ int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
     SpendResources({{"wheat", farmWheatBuildCondition}, {"wood", farmWoodBuildCondition}});
     main_grid[cur] = mFarmId;
     Building farm(mUpdateCounter);
-    farm.AddResource("wheat", ResourceTick.at("wheat"));
+      farm.AddResource("wheat", ResourceTickRate("wheat"));
     mBuildings.push_back(farm);
     return 1;
   }
@@ -142,7 +149,7 @@ int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
   if (action_id >= REMAIN_STILL && action_id <= MOVE_DOWN_RIGHT) {
     if (!main_grid.IsValid(next))
       return 0;
-    if (!main_grid.IsTraversable(main_grid[next]) && agent.GetName() != "Player")
+    if (!main_grid.IsTraversable(main_grid[next]) && agent.GetName() != kGhostAgentName)
       return 0;
     agent.SetLocation(next);
     return 1;
