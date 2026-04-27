@@ -1,6 +1,4 @@
-[Directory](/DIRECTORY.md)
-
-# CLASS NAME
+# WebLayout
 Documented By: (Author of the Documention)
 
 Developed By: (Developer of the Class)
