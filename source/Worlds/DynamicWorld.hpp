@@ -79,7 +79,6 @@ public:
         for (size_t i = 0; i < mWorldResourceNames.size(); ++i) {
           std::cout << mWorldResourceNames[i] << ": " << mWorldResourceCounts[i] << " ";
         }
-        std::cout << std::endl;
       }
     }
   }
@@ -168,7 +167,7 @@ private:
   size_t mUpdateCounter = 0;
 
   /// @brief The tick counter cutoff for ending the run
-  size_t mCutoffTime = 15000;
+  size_t mCutoffTime = 150000;
 
   /// @brief Stores all buildings currently in the world.
   std::vector<Building> mBuildings;
