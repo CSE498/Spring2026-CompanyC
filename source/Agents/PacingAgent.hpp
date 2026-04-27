@@ -33,7 +33,7 @@ namespace cse498 {
     }
 
     /// Choose the action to take a step in the appropriate direction.
-    size_t SelectAction(const WorldGrid & /* grid*/) override
+    size_t SelectAction(WorldGrid & /* grid*/) override
     {
       // If the last step failed, try going in the other direction.
       if (action_result == 0) ToggleDirection();
