@@ -36,8 +36,7 @@ public:
     std::mt19937 gen(rd());
 
     std::uniform_int_distribution<int> choice(0, this->action_map.size()-1);
-    std::cout << this->action_map.size()-1 << std::endl;
-    return choice(gen); 
+    return choice(gen);
   }
 };
 

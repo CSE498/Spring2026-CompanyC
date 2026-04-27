@@ -8,6 +8,9 @@ const std::unordered_map<std::string, size_t> ResourceTick = {
   {"wheat", 10}
 };
 
+// Number of ticks between each spawner agent spawn.
+constexpr size_t kSpawnerTickInterval = 60;
+
 // Amount of wood required to build a town hall (win condition).
 constexpr size_t townHallWoodWinCondition = 500;
 // Amount of stone required to build a town hall (win condition).
@@ -84,25 +87,19 @@ int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
     return 0;
   }
   case BUILD_LUMBERYARD: {
-    if (main_grid[cur] != mGrassId)
-      return 0;
-    if (mWorldResourceCounts.at(ResourceIndex("wood")) < lumberyardWoodBuildCondition || mWorldResourceCounts.at(ResourceIndex("steel")) < lumberyardSteelBuildCondition)
-      return 0;
-    mWorldResourceCounts[ResourceIndex("wood")] -= lumberyardWoodBuildCondition;
-    mWorldResourceCounts[ResourceIndex("steel")] -= lumberyardSteelBuildCondition;
+    if (main_grid[cur] != mGrassId) return 0;
+    if (!HasResources({{"wood", lumberyardWoodBuildCondition}, {"steel", lumberyardSteelBuildCondition}})) return 0;
+    SpendResources({{"wood", lumberyardWoodBuildCondition}, {"steel", lumberyardSteelBuildCondition}});
     main_grid[cur] = mLumberyardId;
     Building lumberyard(mUpdateCounter);
     lumberyard.AddResource("wood", ResourceTick.at("wood"));
     mBuildings.push_back(lumberyard);
-    return 1; 
+    return 1;
   }
   case BUILD_QUARRY: {
-    if (main_grid[cur] != mGrassId)
-      return 0;
-    if (mWorldResourceCounts.at(ResourceIndex("stone")) < quarryStoneBuildCondition || mWorldResourceCounts.at(ResourceIndex("wood")) < quarryWoodBuildCondition)
-      return 0;
-    mWorldResourceCounts[ResourceIndex("stone")] -= quarryStoneBuildCondition;
-    mWorldResourceCounts[ResourceIndex("wood")] -= quarryWoodBuildCondition;
+    if (main_grid[cur] != mGrassId) return 0;
+    if (!HasResources({{"stone", quarryStoneBuildCondition}, {"wood", quarryWoodBuildCondition}})) return 0;
+    SpendResources({{"stone", quarryStoneBuildCondition}, {"wood", quarryWoodBuildCondition}});
     main_grid[cur] = mQuarryId;
     Building quarry(mUpdateCounter);
     quarry.AddResource("steel", ResourceTick.at("steel"));
@@ -111,23 +108,17 @@ int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
     return 1;
   }
   case BUILD_SPAWNER: {
-    if (main_grid[cur] != mGrassId)
-      return 0;
-    if (mWorldResourceCounts.at(ResourceIndex("stone")) < spawnerStoneBuildCondition || mWorldResourceCounts.at(ResourceIndex("wheat")) < spawnerWheatBuildCondition)
-      return 0;
-    mWorldResourceCounts[ResourceIndex("stone")] -= spawnerStoneBuildCondition;
-    mWorldResourceCounts[ResourceIndex("wheat")] -= spawnerWheatBuildCondition;
+    if (main_grid[cur] != mGrassId) return 0;
+    if (!HasResources({{"stone", spawnerStoneBuildCondition}, {"wheat", spawnerWheatBuildCondition}})) return 0;
+    SpendResources({{"stone", spawnerStoneBuildCondition}, {"wheat", spawnerWheatBuildCondition}});
     main_grid[cur] = mSpawnerId;
     mSpawners.push_back({cur, mUpdateCounter});
     return 1;
   }
   case BUILD_FARM: {
-    if (main_grid[cur] != mGrassId)
-      return 0;
-    if (mWorldResourceCounts.at(ResourceIndex("wheat")) < farmWheatBuildCondition || mWorldResourceCounts.at(ResourceIndex("wood")) < farmWoodBuildCondition)
-      return 0;
-    mWorldResourceCounts[ResourceIndex("wheat")] -= farmWheatBuildCondition;
-    mWorldResourceCounts[ResourceIndex("wood")] -= farmWoodBuildCondition;
+    if (main_grid[cur] != mGrassId) return 0;
+    if (!HasResources({{"wheat", farmWheatBuildCondition}, {"wood", farmWoodBuildCondition}})) return 0;
+    SpendResources({{"wheat", farmWheatBuildCondition}, {"wood", farmWoodBuildCondition}});
     main_grid[cur] = mFarmId;
     Building farm(mUpdateCounter);
     farm.AddResource("wheat", ResourceTick.at("wheat"));
@@ -135,15 +126,11 @@ int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
     return 1;
   }
   case BUILD_TOWNHALL: {
-    if (main_grid[cur] != mGrassId)
-      return 0;
-    if (mWorldResourceCounts.at(ResourceIndex("wood")) < townHallWoodWinCondition || mWorldResourceCounts.at(ResourceIndex("stone")) < townHallStoneWinCondition ||
-        mWorldResourceCounts.at(ResourceIndex("steel")) < townHallSteelWinCondition || mWorldResourceCounts.at(ResourceIndex("wheat")) < townHallWheatWinCondition)
-      return 0;
-    mWorldResourceCounts[ResourceIndex("wood")] -= townHallWoodWinCondition;
-    mWorldResourceCounts[ResourceIndex("stone")] -= townHallStoneWinCondition;
-    mWorldResourceCounts[ResourceIndex("steel")] -= townHallSteelWinCondition;
-    mWorldResourceCounts[ResourceIndex("wheat")] -= townHallWheatWinCondition;
+    if (main_grid[cur] != mGrassId) return 0;
+    if (!HasResources({{"wood", townHallWoodWinCondition}, {"stone", townHallStoneWinCondition},
+                       {"steel", townHallSteelWinCondition}, {"wheat", townHallWheatWinCondition}})) return 0;
+    SpendResources({{"wood", townHallWoodWinCondition}, {"stone", townHallStoneWinCondition},
+                    {"steel", townHallSteelWinCondition}, {"wheat", townHallWheatWinCondition}});
     main_grid[cur] = mTownhallId;
     run_over = true;
     return 1;
@@ -170,10 +157,10 @@ void cse498::DynamicWorld::UpdateWorld() {
 
   for(const auto& building : mBuildings){
     if (building.GetResources().size() == 0) continue;
-    for (const auto& resource : building.GetResources()){
+    for (const auto& [name, tick_rate] : building.GetResources()){
       const size_t ticks_since_built = mUpdateCounter - building.GetBuiltTime();
-      if (resource.second > 0 && ticks_since_built % resource.second == 0) {
-        ++mWorldResourceCounts[ResourceIndex(resource.first)];
+      if (tick_rate > 0 && ticks_since_built % tick_rate == 0) {
+        ++mWorldResourceCounts[ResourceIndex(name)];
       }
     }
   }
@@ -181,7 +168,7 @@ void cse498::DynamicWorld::UpdateWorld() {
   // Spawner logic: spawn a TendencyAgent at the closest grass cell every 60 ticks
   for (const auto & [pos, built_time] : mSpawners) {
     size_t ticks_since_built = mUpdateCounter - built_time;
-    if (ticks_since_built > 0 && ticks_since_built % 60 == 0) {
+    if (ticks_since_built > 0 && ticks_since_built % kSpawnerTickInterval == 0) {
       // Search outward for the nearest grass cell to place the new agent
       int sx = static_cast<int>(pos.X());
       int sy = static_cast<int>(pos.Y());

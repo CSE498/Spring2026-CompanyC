@@ -419,6 +419,70 @@ TEST_CASE("DynamicWorld Tick - spawner creates an agent at tick 60", "[DynamicWo
   REQUIRE(world.GetNumAgents() == agents_before + 1);
 }
 
+// -----------------------------------------------------------------------
+// Player notification tests
+// -----------------------------------------------------------------------
+
+// Agent that records the last message passed to Notify().
+class PlayerAgent : public cse498::AgentBase {
+public:
+  std::string last_message;
+
+  PlayerAgent(size_t id, const std::string & name, const cse498::WorldBase & world)
+    : AgentBase(id, name, world) {}
+
+  size_t SelectAction(cse498::WorldGrid &) override { return 0; }
+
+  void Notify(const std::string & message, const std::string & /*msg_type*/ = "none") override {
+    last_message = message;
+  }
+};
+
+TEST_CASE("DynamicWorld Tick - Player agent receives notification", "[DynamicWorld][tick][player]") {
+  TestDynamicWorld world;
+  auto & player = world.AddAgent<PlayerAgent>("Player");
+  player.SetLocation(cse498::WorldPosition(10, 10));
+
+  world.Tick();
+
+  // Notify must have been called — message should not be empty.
+  REQUIRE(!player.last_message.empty());
+}
+
+TEST_CASE("DynamicWorld Tick - Player notification contains tick count", "[DynamicWorld][tick][player]") {
+  TestDynamicWorld world;
+  auto & player = world.AddAgent<PlayerAgent>("Player");
+  player.SetLocation(cse498::WorldPosition(10, 10));
+
+  world.Tick();
+
+  // After one tick, mUpdateCounter == 1, so message should mention "Tick 1".
+  REQUIRE(player.last_message.find("Tick 1") != std::string::npos);
+}
+
+TEST_CASE("DynamicWorld Tick - Player notification contains resource counts", "[DynamicWorld][tick][player]") {
+  TestDynamicWorld world;
+  auto & player = world.AddAgent<PlayerAgent>("Player");
+  player.SetLocation(cse498::WorldPosition(10, 10));
+
+  world.SetResource("wood", 42);
+
+  world.Tick();
+
+  REQUIRE(player.last_message.find("42") != std::string::npos);
+}
+
+TEST_CASE("DynamicWorld Tick - non-Player agent does not receive notification", "[DynamicWorld][tick][player]") {
+  TestDynamicWorld world;
+  // Add a regular stub agent — it should NOT get notified.
+  auto & other = world.AddAgent<PlayerAgent>("other_agent");
+  other.SetLocation(cse498::WorldPosition(10, 10));
+
+  world.Tick();
+
+  REQUIRE(other.last_message.empty());
+}
+
 TEST_CASE("DynamicWorld Tick - spawner creates a second agent at tick 120", "[DynamicWorld][tick][spawner]") {
   TestDynamicWorld world;
   auto & agent = world.SpawnStubAt(50, 50, "builder");
