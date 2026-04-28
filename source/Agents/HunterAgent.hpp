@@ -27,6 +27,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <climits>
 #include <string>
 #include <vector>
@@ -38,24 +39,36 @@ namespace cse498
     class HunterAgent : public AgentBase
     {
     public:
-
-        /** Chebyshev radius within which the hunter detects any target. */
-        int mDetectRadius = 8;
-
-        /** Chebyshev radius within which the hunter maintains active chase; should be >= mDetectRadius. */
-        int mChaseRadius = 12;
-
-        /** Ticks the hunter continues chasing after losing sight of the target. */
-        int mChaseMemoryTicks = 10;
-
         /** Sets the detection radius. */
-        HunterAgent &SetDetectRadius(int v) { mDetectRadius = v; return *this; }
+        HunterAgent &SetDetectRadius(int v)
+        {
+            mDetectRadius = std::max(0, v);
+            mChaseRadius = std::max(mChaseRadius, mDetectRadius);
+            return *this;
+        }
 
         /** Sets the chase radius. */
-        HunterAgent &SetChaseRadius(int v) { mChaseRadius = v; return *this; }
+        HunterAgent &SetChaseRadius(int v)
+        {
+            mChaseRadius = std::max(mDetectRadius, v);
+            return *this;
+        }
 
         /** Sets the number of chase-memory ticks. */
-        HunterAgent &SetChaseMemory(int v) { mChaseMemoryTicks = v; return *this; }
+        HunterAgent &SetChaseMemory(int v)
+        {
+            mChaseMemoryTicks = std::max(0, v);
+            return *this;
+        }
+
+        /** Gets the detection radius. */
+        [[nodiscard]] int GetDetectRadius() const { return mDetectRadius; }
+
+        /** Gets the chase radius. */
+        [[nodiscard]] int GetChaseRadius() const { return mChaseRadius; }
+
+        /** Gets the chase-memory tick count. */
+        [[nodiscard]] int GetChaseMemoryTicks() const { return mChaseMemoryTicks; }
 
         enum class State
         {
@@ -73,6 +86,16 @@ namespace cse498
         size_t SelectAction(WorldGrid &grid) override;
         void Notify(const std::string &message,
                     const std::string &msg_type = "none") override;
+
+    private:
+        /** Chebyshev radius within which the hunter detects any target. */
+        int mDetectRadius = 8;
+
+        /** Chebyshev radius within which the hunter maintains active chase; should be >= mDetectRadius. */
+        int mChaseRadius = 12;
+
+        /** Ticks the hunter continues chasing after losing sight of the target. */
+        int mChaseMemoryTicks = 10;
 
     protected:
 
