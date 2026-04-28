@@ -65,7 +65,7 @@ int main() {
 
     using world_t = cse498::DynamicWorld;
     auto & world = g_app->Initialize<world_t>();
-    world.AddAgent<StubAgent>("Leader").SetLocation(Location{{0, 0}});
+    world.AddAgent<StubAgent>(std::string(cse498::DynamicWorld::kBuilderAgentName)).SetLocation(Location{{0, 0}});
 
     std::random_device rd;
     std::mt19937 gen(rd());

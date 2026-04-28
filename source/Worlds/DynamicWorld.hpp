@@ -1,8 +1,10 @@
 #pragma once
 
-#include <random>
-#include <iostream>
 #include <algorithm>
+#include <cassert>
+#include <iostream>
+#include <random>
+#include <stdexcept>
 
 #include "../core/WorldBase.hpp"
 #include "../core/Building.hpp"
@@ -86,55 +88,61 @@ public:
 /**
  * @brief Run the agents and update the world one time
  */
-void Tick() override {
-  if (!mSessionStarted) {
-    GetTimer().Start("Game::Session");
-    mSessionStarted = true;
-  }
-  RunAgents();
-  UpdateWorld();
-
-  size_t wood = mWorldResourceCounts[ResourceIndex("wood")];
-  size_t stone = mWorldResourceCounts[ResourceIndex("stone")];
-  size_t steel = mWorldResourceCounts[ResourceIndex("steel")];
-  size_t wheat = mWorldResourceCounts[ResourceIndex("wheat")];
-
-  size_t lumberyards = 0;
-  size_t quarries = 0;
-  size_t farms = 0;
-
-  for (const auto & building : mBuildings) {
-    const auto & resources = building.GetResources();
-
-    if (resources.count("wood") && resources.size() == 1) {
-      ++lumberyards;
+  void Tick() override {
+    if (!mSessionStarted) {
+      GetTimer().Start("Game::Session");
+      mSessionStarted = true;
     }
-    else if (resources.count("wheat") && resources.size() == 1) {
-      ++farms;
-    }
-    else if (resources.count("stone") && resources.count("steel")) {
-      ++quarries;
+    RunAgents();
+    UpdateWorld();
+
+    const std::string message = BuildStatusMessage();
+    for (const auto & agent_ptr : agent_set) {
+      if (agent_ptr->GetName() == kGhostAgentName) {
+        agent_ptr->Notify(message);
+      }
     }
   }
 
-  std::string message =
-    "Tick " + std::to_string(mUpdateCounter) +
-    " | Agents: " + std::to_string(agent_set.size()) +
-    " | Buildings: " + std::to_string(mBuildings.size()) + "\n" +
-    "Resources -> Wood: " + std::to_string(wood) +
-    ", Stone: " + std::to_string(stone) +
-    ", Steel: " + std::to_string(steel) +
-    ", Wheat: " + std::to_string(wheat) + "\n" +
-    "Production -> Lumberyards: " + std::to_string(lumberyards) +
-    ", Quarries: " + std::to_string(quarries) +
-    ", Farms: " + std::to_string(farms);
+  /**
+   * @brief Builds a human-readable status string summarizing the current world
+   *        state — tick count, agents, buildings, resource totals, and per-type
+   *        production counts. Used to notify the ghost ("Player") agent.
+   */
+  std::string BuildStatusMessage() const {
+    const size_t wood  = mWorldResourceCounts[ResourceIndex("wood")];
+    const size_t stone = mWorldResourceCounts[ResourceIndex("stone")];
+    const size_t steel = mWorldResourceCounts[ResourceIndex("steel")];
+    const size_t wheat = mWorldResourceCounts[ResourceIndex("wheat")];
 
-  for (const auto & agent_ptr : agent_set) {
-    if (agent_ptr->GetName() == kGhostAgentName) {
-      agent_ptr->Notify(message);
+    size_t lumberyards = 0;
+    size_t quarries = 0;
+    size_t farms = 0;
+    for (const auto & building : mBuildings) {
+      const auto & resources = building.GetResources();
+      if (resources.count("wood") && resources.size() == 1) {
+        ++lumberyards;
+      }
+      else if (resources.count("wheat") && resources.size() == 1) {
+        ++farms;
+      }
+      else if (resources.count("stone") && resources.count("steel")) {
+        ++quarries;
+      }
     }
+
+    return
+      "Tick " + std::to_string(mUpdateCounter) +
+      " | Agents: " + std::to_string(agent_set.size()) +
+      " | Buildings: " + std::to_string(mBuildings.size()) + "\n" +
+      "Resources -> Wood: " + std::to_string(wood) +
+      ", Stone: " + std::to_string(stone) +
+      ", Steel: " + std::to_string(steel) +
+      ", Wheat: " + std::to_string(wheat) + "\n" +
+      "Production -> Lumberyards: " + std::to_string(lumberyards) +
+      ", Quarries: " + std::to_string(quarries) +
+      ", Farms: " + std::to_string(farms);
   }
-}
 
   /**
    * @brief Provides a mapping of resource name to index of that resource
@@ -211,6 +219,7 @@ private:
 
   /// @brief Name reserved for the ghost agent — bypasses traversability for UI/spectator purposes.
   static constexpr std::string_view kGhostAgentName = "Player";
+  static constexpr std::string_view kBuilderAgentName = "builder";
 
   /// @brief  Flag to track if the session timer has started.
   bool mSessionStarted = false;
@@ -230,14 +239,26 @@ private:
     agent.AddAction("down_right", MOVE_DOWN_RIGHT);
   }
 
-   /** @brief Configure an agent with available actions.
-   *
-   * Any agent named "builder" gains build abilities.
-   *
-   * @param agent The agent to configure.
-   */
+  /**
+ * @brief Configure an agent with available actions based on its name.
+ *
+ * Agents are assigned actions according to their name:
+ * - An agent named "builder" gains all build actions
+ *   (lumberyard, quarry, spawner, farm, townhall) in addition to
+ *   movement and collection.
+ * - The ghost agent (named kGhostAgentName, currently "Player") receives
+ *   only movement actions — no collect, no build. It also bypasses
+ *   traversability checks elsewhere in the world (see DoAction).
+ * - Any other agent receives movement actions plus the collect action.
+ *
+ * @note This replaces the earlier "leader agent" model in which the first
+ *       agent added was implicitly assigned build abilities. Build access
+ *       is now opt-in by name ("builder") rather than by insertion order.
+ *
+ * @param agent The agent to configure.
+ */
   void ConfigAgent(AgentBase & agent) override {
-    if (agent.GetName() == "builder") {
+    if (agent.GetName() == kBuilderAgentName) {
       agent.AddAction("build_lumberyard", BUILD_LUMBERYARD);
       agent.AddAction("build_quarry", BUILD_QUARRY);
       agent.AddAction("build_spawner", BUILD_SPAWNER);
@@ -299,14 +320,30 @@ private:
    * @param height Height of the world.
    */
   void GenerateWorld(size_t width, size_t height) {
+    // Resource cell types must be configured before world generation.
+    assert(mGrassId != 0 && mTreeId != 0 && mStoneId != 0 && mWheatId != 0);
+    if (mGrassId == 0 || mTreeId == 0 || mStoneId == 0 || mWheatId == 0) {
+      throw std::logic_error(
+        "GenerateWorld called before resource cell types were configured");
+    }
 
-    assert(mGrassId != 0 && mTreeId != 0 && mStoneId != 0 && mWheatId != 0); // Ensure cell types are configured before generating world.
-    assert(mQuarryId != 0 && mLumberyardId != 0 && mFarmId != 0 && mSpawnerId != 0 && mTownhallId != 0); // Ensure all building types are configured.
+    // Building cell types must be configured before world generation.
+    assert(mQuarryId != 0 && mLumberyardId != 0 && mFarmId != 0 &&
+           mSpawnerId != 0 && mTownhallId != 0);
+    if (mQuarryId == 0 || mLumberyardId == 0 || mFarmId == 0 ||
+        mSpawnerId == 0 || mTownhallId == 0) {
+      throw std::logic_error(
+        "GenerateWorld called before building cell types were configured");
+        }
+
+    // Cluster generation requires width and height of at least 5.
+    assert(width >= 5 && height >= 5);
+    if (width < 5 || height < 5) {
+      throw std::invalid_argument(
+        "GenerateWorld requires width >= 5 and height >= 5");
+    }
 
     main_grid.Resize(width, height, mGrassId);
-
-    assert(width >= 5 && height >= 5); // Distribution requires upper bound (width-3) >= lower bound (2), so minimum is 5.
-
     std::random_device rd;
     std::mt19937 gen(rd());
 
