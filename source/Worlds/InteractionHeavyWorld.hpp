@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 #include <string_view>
+#include <optional>
 
 namespace cse498
 {
@@ -95,9 +96,15 @@ namespace cse498
 
         /**
          * @brief Get a random valid floor position away from the start and reserved cells.
-         * @return Random floor position.
+         * @return Random floor position, or std::nullopt if none available.
          */
-        WorldPosition GetRandomValidFloorPosition() const;
+        std::optional<WorldPosition> GetRandomValidFloorPosition() const;
+
+        /**
+         * @brief Collect all valid floor positions.
+         * @return Vector of valid floor positions.
+         */
+        std::vector<WorldPosition> CollectValidFloorPositions() const;
 
         /**
          * @brief Get hunter spawn positions loaded from the map.

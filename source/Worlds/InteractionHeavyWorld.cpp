@@ -221,37 +221,46 @@ namespace cse498
 
     bool InteractionHeavyWorld::IsReservedPosition(const WorldPosition &pos) const
     {
-        if (pos.SameCell(mStartPosition))
+        if (pos.SameCell(mStartPosition) || pos.SameCell(mExitPosition))
             return true;
 
-        for (const auto &p : mHunterSpawnPositions)
-            if (pos.SameCell(p))
-                return true;
+        auto occupies = [&pos](const WorldPosition &p) { return pos.SameCell(p); };
 
-        for (const auto &p : mGoblinSpawnPositions)
-            if (pos.SameCell(p))
-                return true;
-
-        for (const auto &p : mPacingSpawnPositions)
-            if (pos.SameCell(p))
-                return true;
+        return std::any_of(mHunterSpawnPositions.begin(), mHunterSpawnPositions.end(), occupies)
+            || std::any_of(mGoblinSpawnPositions.begin(), mGoblinSpawnPositions.end(), occupies)
+            || std::any_of(mPacingSpawnPositions.begin(), mPacingSpawnPositions.end(), occupies);
 
         return false;
     }
 
-    WorldPosition InteractionHeavyWorld::GetRandomValidFloorPosition() const
+    std::vector<WorldPosition> InteractionHeavyWorld::CollectValidFloorPositions() const
     {
-        std::uniform_int_distribution<size_t> xDist(0, main_grid.GetWidth() - 1);
-        std::uniform_int_distribution<size_t> yDist(0, main_grid.GetHeight() - 1);
-
-        while (true)
+        std::vector<WorldPosition> validPositions;
+        for (size_t y = 0; y < main_grid.GetHeight(); ++y)
         {
-            const WorldPosition pos(xDist(mRng), yDist(mRng));
-            if (main_grid[pos] == mFloorCellID && !IsReservedPosition(pos) && !NearPosition(pos, mStartPosition) && !NearPosition(pos, mExitPosition))
+            for (size_t x = 0; x < main_grid.GetWidth(); ++x)
             {
-                return pos;
+                const WorldPosition pos(x, y);
+                if (main_grid[pos] == mFloorCellID
+                    && !IsReservedPosition(pos)
+                    && !NearPosition(pos, mStartPosition)
+                    && !NearPosition(pos, mExitPosition))
+                {
+                    validPositions.push_back(pos);
+                }
             }
         }
+        return validPositions;
+    }
+
+    std::optional<WorldPosition> InteractionHeavyWorld::GetRandomValidFloorPosition() const
+    {
+        const auto valid = CollectValidFloorPositions();
+        if (valid.empty())
+            return std::nullopt;
+
+        std::uniform_int_distribution<size_t> dist(0, valid.size() - 1);
+        return valid[dist(mRng)];
     }
 
     WorldPosition InteractionHeavyWorld::GetPlayerPosition() const
@@ -276,20 +285,16 @@ namespace cse498
 
     void InteractionHeavyWorld::PlaceBoulders(int minBoulders, int maxBoulders)
     {
+        auto validPositions = CollectValidFloorPositions();
+        if (validPositions.empty())
+            return;
+
         std::uniform_int_distribution<int> countDist(minBoulders, maxBoulders);
+        const int target = std::min(countDist(mRng), static_cast<int>(validPositions.size()));
 
-        const int target = countDist(mRng);
-        int placed = 0;
-
-        while (placed < target)
-        {
-            const WorldPosition pos = GetRandomValidFloorPosition();
-            if (main_grid[pos] == mFloorCellID && !IsReservedPosition(pos) && !NearPosition(pos, mStartPosition) && !NearPosition(pos, mExitPosition))
-            {
-                main_grid[pos] = mBoulderCellID;
-                ++placed;
-            }
-        }
+        std::shuffle(validPositions.begin(), validPositions.end(), mRng);
+        for (int i = 0; i < target; ++i)
+            main_grid[validPositions[i]] = mBoulderCellID;
     }
 
     // =============================================================================
