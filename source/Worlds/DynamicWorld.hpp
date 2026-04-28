@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <iostream>
 #include <random>
@@ -11,6 +12,24 @@
 #include "../Agents/TendencyAgent.hpp"
 
 namespace cse498 {
+
+// Default side length used by the no-arg DynamicWorld constructor.
+inline constexpr size_t kDefaultWorldSize = 80;
+
+// Tick interval at which Run() dumps global resource counts to stdout.
+inline constexpr size_t kStdoutDumpInterval = 500;
+
+// Default tick at which a run ends if no win condition has been met.
+inline constexpr size_t kDefaultCutoffTime = 15000;
+
+// Minimum width/height required for cluster generation.
+inline constexpr size_t kMinWorldDim = 5;
+
+// Margin (in cells) kept clear at the world edges when placing clusters.
+inline constexpr int kClusterEdgeMargin = 2;
+
+// Cluster radii placed for each clustered resource type (trees, stone, wheat).
+inline constexpr std::array<int, 5> kClusterSizes = {2, 3, 4, 4, 5};
 
 /**
  * @class DynamicWorld
@@ -47,7 +66,7 @@ public:
   /**
    * @brief Construct a DynamicWorld with default size and configured cell types.
    */
-  DynamicWorld() : DynamicWorld(80, 80) { }
+  DynamicWorld() : DynamicWorld(kDefaultWorldSize, kDefaultWorldSize) { }
   /**
    * @brief Construct a DynamicWorld with default size and configured cell types.
    * @param width the width of the world
@@ -77,7 +96,7 @@ public:
     while (!run_over) {
       Tick();
 
-      if (mUpdateCounter % 500 == 0) {
+      if (mUpdateCounter % kStdoutDumpInterval == 0) {
         for (size_t i = 0; i < mWorldResourceNames.size(); ++i) {
           std::cout << mWorldResourceNames[i] << ": " << mWorldResourceCounts[i] << " ";
         }
@@ -176,7 +195,7 @@ private:
   size_t mUpdateCounter = 0;
 
   /// @brief The tick counter cutoff for ending the run
-  size_t mCutoffTime = 15000;
+  size_t mCutoffTime = kDefaultCutoffTime;
 
   /// @brief Stores all buildings currently in the world.
   std::vector<Building> mBuildings;
@@ -337,37 +356,25 @@ private:
         "GenerateWorld called before building cell types were configured");
         }
 
-    // Cluster generation requires width and height of at least 5.
-    assert(width >= 5 && height >= 5);
-    if (width < 5 || height < 5) {
+    assert(width >= kMinWorldDim && height >= kMinWorldDim);
+    if (width < kMinWorldDim || height < kMinWorldDim) {
       throw std::invalid_argument(
-        "GenerateWorld requires width >= 5 and height >= 5");
+        "GenerateWorld requires width >= " + std::to_string(kMinWorldDim) +
+        " and height >= " + std::to_string(kMinWorldDim));
     }
 
     main_grid.Resize(width, height, mGrassId);
     std::random_device rd;
     std::mt19937 gen(rd());
 
-    std::uniform_int_distribution<int> x_dist(2, static_cast<int>(width) - 3);
-    std::uniform_int_distribution<int> y_dist(2, static_cast<int>(height) - 3);
+    const int x_max = static_cast<int>(width) - kClusterEdgeMargin - 1;
+    const int y_max = static_cast<int>(height) - kClusterEdgeMargin - 1;
+    std::uniform_int_distribution<int> x_dist(kClusterEdgeMargin, x_max);
+    std::uniform_int_distribution<int> y_dist(kClusterEdgeMargin, y_max);
 
-    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 2);
-    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 3);
-    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 4);
-    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 4);
-    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 5);
-
-    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 2);
-    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 3);
-    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 4);
-    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 4);
-    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 5);
-
-    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 2);
-    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 3);
-    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 4);
-    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 4);
-    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 5);
+    for (int size : kClusterSizes) PlaceCluster(mTreeId,  x_dist(gen), y_dist(gen), size);
+    for (int size : kClusterSizes) PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), size);
+    for (int size : kClusterSizes) PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), size);
   }
 
 

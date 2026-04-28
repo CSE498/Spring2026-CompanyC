@@ -18,6 +18,9 @@ constexpr size_t ResourceTickRate(std::string_view name) {
 // Number of ticks between each spawner agent spawn.
 constexpr size_t kSpawnerTickInterval = 60;
 
+// Max ring radius searched outward from a spawner for an open grass cell.
+constexpr int kMaxSpawnSearchRadius = 10;
+
 // Amount of wood required to build a town hall (win condition).
 constexpr size_t townHallWoodWinCondition = 500;
 // Amount of stone required to build a town hall (win condition).
@@ -180,7 +183,7 @@ void cse498::DynamicWorld::UpdateWorld() {
       int sx = static_cast<int>(pos.X());
       int sy = static_cast<int>(pos.Y());
       bool placed = false;
-      for (int radius = 1; radius <= 10 && !placed; ++radius) {
+      for (int radius = 1; radius <= kMaxSpawnSearchRadius && !placed; ++radius) {
         for (int dy = -radius; dy <= radius && !placed; ++dy) {
           for (int dx = -radius; dx <= radius && !placed; ++dx) {
             if (abs(dx) != radius && abs(dy) != radius) continue;
