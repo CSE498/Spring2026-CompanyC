@@ -130,7 +130,7 @@ void Tick() override {
     ", Farms: " + std::to_string(farms);
 
   for (const auto & agent_ptr : agent_set) {
-    if (agent_ptr->GetName() == "Player") {
+    if (agent_ptr->GetName() == kGhostAgentName) {
       agent_ptr->Notify(message);
     }
   }
@@ -175,8 +175,6 @@ private:
   /// @brief Tracks spawner positions and their last spawn tick.
   std::vector<std::pair<WorldPosition, size_t>> mSpawners;
 
-  /// @brief An agent that only has movement capabilities (For UI purposes)
-  std::unique_ptr<AgentBase> mGhostAgent;
 
   /// @brief Cell type IDs for terrain and structures.
   /**
@@ -210,6 +208,9 @@ private:
   size_t mFarmId = 0;
   size_t mSpawnerId = 0;
   size_t mTownhallId = 0;
+
+  /// @brief Name reserved for the ghost agent — bypasses traversability for UI/spectator purposes.
+  static constexpr std::string_view kGhostAgentName = "Player";
 
   /// @brief  Flag to track if the session timer has started.
   bool mSessionStarted = false;
@@ -245,7 +246,7 @@ private:
     }
 
     AddMovementFunctions(agent);
-    if(agent.GetName() != "Player"){
+    if (agent.GetName() != kGhostAgentName) {
       agent.AddAction("collect", COLLECT);
     }
   }

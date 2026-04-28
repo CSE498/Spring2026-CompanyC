@@ -501,3 +501,40 @@ TEST_CASE("DynamicWorld Tick - spawner creates a second agent at tick 120", "[Dy
   world.RunNTicks(60);
   REQUIRE(world.GetNumAgents() == agents_before + 2);
 }
+
+// -----------------------------------------------------------------------
+// Ghost agent (named "Player") movement tests
+// -----------------------------------------------------------------------
+
+TEST_CASE("DynamicWorld - Ghost agent named 'Player' can move into non-traversable cell",
+          "[DynamicWorld][movement][ghost]") {
+  TestDynamicWorld world;
+  auto & ghost = world.AddAgent<PlayerAgent>("Player");
+  ghost.SetLocation(cse498::WorldPosition(50, 50));
+  world.SetCell(50, 50, world.GetGrassId());
+
+  // Place a non-traversable quarry cell directly to the right of the ghost.
+  world.SetCell(51, 50, world.GetQuarryId());
+
+  // Ghost should be allowed to move into the quarry cell.
+  int result = world.DoAction(ghost, world.MOVE_RIGHT);
+  REQUIRE(result != 0);
+  REQUIRE(ghost.GetLocation().AsWorldPosition().X() == 51);
+  REQUIRE(ghost.GetLocation().AsWorldPosition().Y() == 50);
+}
+
+TEST_CASE("DynamicWorld - Non-ghost agent cannot move into non-traversable cell",
+          "[DynamicWorld][movement][ghost]") {
+  TestDynamicWorld world;
+  auto & normal = world.SpawnStubAt(50, 50, "not_player");
+  world.SetCell(50, 50, world.GetGrassId());
+
+  // Place a non-traversable quarry cell directly to the right.
+  world.SetCell(51, 50, world.GetQuarryId());
+
+  // Non-ghost agent should be blocked.
+  int result = world.DoAction(normal, world.MOVE_RIGHT);
+  REQUIRE(result == 0);
+  REQUIRE(normal.GetLocation().AsWorldPosition().X() == 50);
+  REQUIRE(normal.GetLocation().AsWorldPosition().Y() == 50);
+}
