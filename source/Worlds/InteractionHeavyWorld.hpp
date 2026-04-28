@@ -98,13 +98,13 @@ namespace cse498
          * @brief Get a random valid floor position away from the start and reserved cells.
          * @return Random floor position, or std::nullopt if none available.
          */
-        std::optional<WorldPosition> GetRandomValidFloorPosition() const;
+        [[nodiscard]] std::optional<WorldPosition> GetRandomValidFloorPosition() const;
 
         /**
          * @brief Collect all valid floor positions.
          * @return Vector of valid floor positions.
          */
-        std::vector<WorldPosition> CollectValidFloorPositions() const;
+        [[nodiscard]] std::vector<WorldPosition> CollectValidFloorPositions() const;
 
         /**
          * @brief Get hunter spawn positions loaded from the map.
@@ -387,7 +387,7 @@ namespace cse498
          * @param actionId Movement action ID (one of the ACTION_MOVE_* values).
          * @return Resolved target position, or std::nullopt for an unrecognised action.
          */
-        std::optional<WorldPosition> ResolveMovementTarget(const WorldPosition &curPos,
+        [[nodiscard]] std::optional<WorldPosition> ResolveMovementTarget(const WorldPosition &curPos,
                                                            size_t actionId) const;
 
         /**
@@ -410,14 +410,14 @@ namespace cse498
          * @param center The center cell of the neighborhood.
          * @return A vector of valid positions including the center and its cardinal neighbors.
          */
-        std::vector<WorldPosition> GetSelfAndNeighbors(const WorldPosition &center) const;
+        [[nodiscard]] std::vector<WorldPosition> GetSelfAndNeighbors(const WorldPosition &center) const;
 
         /**
          * @brief Return the four orthogonal neighbors of a cell only (excludes center), filtered to valid grid positions.
          * @param center The cell whose neighbors are requested.
          * @return A vector of valid positions for the cardinal neighbors of the center cell, excluding the center itself.
          */
-        std::vector<WorldPosition> GetAdjacentNeighbors(const WorldPosition &center) const;
+        [[nodiscard]] std::vector<WorldPosition> GetAdjacentNeighbors(const WorldPosition &center) const;
 
         // =========================================================================
         // Private combat helpers
@@ -467,7 +467,7 @@ namespace cse498
         /**
          * @brief Return the current player position, or the start position as a fallback.
          */
-        WorldPosition GetPlayerPosition() const;
+        [[nodiscard]] WorldPosition GetPlayerPosition() const;
 
         /**
          * @brief Move a defeated combat agent to a position outside the playable grid.
@@ -478,7 +478,7 @@ namespace cse498
         /**
          * @brief Return a position safely outside the grid bounds.
          */
-        WorldPosition GetOffGridPosition() const;
+        [[nodiscard]] WorldPosition GetOffGridPosition() const;
 
         /**
          * @brief Apply contact damage to the player for each adjacent live combat agent.
