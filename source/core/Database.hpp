@@ -105,8 +105,8 @@ struct DatabaseConfig {
 
     std::string db_path = "";            // Empty = in-memory only 
     bool wal_mode = true;                // concurrent reads
-    bool auto_flush = true;              // commit after every write. slower but faster
-    bool store_type_metadata = true;     
+    bool auto_flush = true;              // commit after every write; trades write throughput for durability
+    bool store_type_metadata = true;     // track type tags per key; required for GetType() to work
 };
 
 /**
@@ -127,6 +127,7 @@ public:
 
     ~Database() = default;
 
+    // Non-copyable and non-moveable by design; Database instances are meant to be held in place.
     // Prevent copying (storage contains unique data)
     Database(const Database&) = delete;
     Database& operator=(const Database&) = delete;
@@ -257,7 +258,7 @@ private:
 
     Serializer mSerializer;
     DatabaseConfig mConfig;
-    mutable std::shared_mutex mMutex;
+    
     std::unordered_map<std::type_index, std::string> mTypeIdMap;  // typeid(T) -> registered type_id
 
     void Log(const std::string& message) const;
