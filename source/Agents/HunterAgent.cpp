@@ -1,8 +1,10 @@
 /**
  * @file HunterAgent.cpp
- * @author Ahmed Ezaz Labib, Shashank Papani
+ * @author Ahmed Ezaz Labib, Shashank Papani, Jose Hernandez
  *
- * Hunter enemy agent for InteractionHeavyWorld.
+ * HunterAgent is a roaming enemy for InteractionHeavyWorld that detects the
+ * player, remembers the last known target position, and pursues using greedy
+ * movement until the chase expires.
  **/
 
 #include "HunterAgent.hpp"
@@ -23,8 +25,8 @@ namespace cse498
         std::optional<int> ParseInt(std::string_view text)
         {
             int value = 0;
-            const char* begin = text.data();
-            const char* end = begin + text.size();
+            const char *begin = text.data();
+            const char *end = begin + text.size();
             const auto [ptr, ec] = std::from_chars(begin, end, value);
 
             if (ec != std::errc{} || ptr != end)
@@ -73,10 +75,14 @@ namespace cse498
         }
         else if (msg_type == "action_failed")
         {
-            if (message == "up")         ++fail_up;
-            else if (message == "down")  ++fail_down;
-            else if (message == "left")  ++fail_left;
-            else if (message == "right") ++fail_right;
+            if (message == "up")
+                ++fail_up;
+            else if (message == "down")
+                ++fail_down;
+            else if (message == "left")
+                ++fail_left;
+            else if (message == "right")
+                ++fail_right;
         }
         else if (msg_type == "reset")
         {
@@ -143,7 +149,11 @@ namespace cse498
             {
                 for (const std::string &a : {"up", "down", "left", "right"})
                 {
-                    if (IsMoveValid(a, grid)) { chosen = a; break; }
+                    if (IsMoveValid(a, grid))
+                    {
+                        chosen = a;
+                        break;
+                    }
                 }
             }
             break;
@@ -180,14 +190,18 @@ namespace cse498
 
         for (const size_t agent_id : world.GetKnownAgents(*this))
         {
-            if (agent_id == GetID()) continue;
+            if (agent_id == GetID())
+                continue;
 
             const AgentBase &candidate = world.GetAgent(agent_id);
-            if (!candidate.GetLocation().IsPosition()) continue;
-            if (!candidate.IsInterface() && candidate.GetName() != "Player") continue;
+            if (!candidate.GetLocation().IsPosition())
+                continue;
+            if (!candidate.IsInterface() && candidate.GetName() != "Player")
+                continue;
 
             const WorldPosition pos = candidate.GetLocation().AsWorldPosition();
-            if (!grid.IsValid(pos)) continue;
+            if (!grid.IsValid(pos))
+                continue;
 
             const int dx = static_cast<int>(pos.CellX()) - cx;
             const int dy = static_cast<int>(pos.CellY()) - cy;
@@ -211,25 +225,33 @@ namespace cse498
         {
             for (int dx = -radius; dx <= radius; ++dx)
             {
-                if (dx == 0 && dy == 0) continue;
+                if (dx == 0 && dy == 0)
+                    continue;
 
                 const int nx = cx + dx;
                 const int ny = cy + dy;
                 const WorldPosition cand(static_cast<size_t>(std::max(0, nx)),
                                          static_cast<size_t>(std::max(0, ny)));
 
-                if (!grid.IsValid(cand)) continue;
+                if (!grid.IsValid(cand))
+                    continue;
 
                 const std::string tile = grid.GetCellTypeName(grid[cand]);
                 if (tile == "player" || tile == "agent")
                 {
                     const int dist = std::max(std::abs(dx), std::abs(dy));
-                    if (dist < best_dist) { best_dist = dist; best_x = nx; best_y = ny; }
+                    if (dist < best_dist)
+                    {
+                        best_dist = dist;
+                        best_x = nx;
+                        best_y = ny;
+                    }
                 }
             }
         }
 
-        if (best_dist == INT_MAX) return false;
+        if (best_dist == INT_MAX)
+            return false;
         out_x = best_x;
         out_y = best_y;
         return true;
@@ -249,7 +271,8 @@ namespace cse498
 
         for (const std::string &action : kDirs)
         {
-            if (!SupportsAction(action) || !IsMoveValid(action, grid)) continue;
+            if (!SupportsAction(action) || !IsMoveValid(action, grid))
+                continue;
 
             const WorldPosition npos = NextPos(action);
             const int nd = std::max(std::abs((int)npos.CellX() - tx),
@@ -270,7 +293,10 @@ namespace cse498
             for (const std::string &action : kDirs)
             {
                 if (SupportsAction(action) && IsMoveValid(action, grid))
-                { best_action = action; break; }
+                {
+                    best_action = action;
+                    break;
+                }
             }
         }
 
@@ -326,20 +352,28 @@ namespace cse498
     WorldPosition HunterAgent::NextPos(const std::string &action) const
     {
         const WorldPosition cur = GetLocation().AsWorldPosition();
-        if (action == "up")    return cur.Up();
-        if (action == "down")  return cur.Down();
-        if (action == "left")  return cur.Left();
-        if (action == "right") return cur.Right();
+        if (action == "up")
+            return cur.Up();
+        if (action == "down")
+            return cur.Down();
+        if (action == "left")
+            return cur.Left();
+        if (action == "right")
+            return cur.Right();
         return cur;
     }
 
     /** Returns the consecutive failure count for the given action direction. */
     int HunterAgent::FailCount(const std::string &action) const
     {
-        if (action == "up")    return fail_up;
-        if (action == "down")  return fail_down;
-        if (action == "left")  return fail_left;
-        if (action == "right") return fail_right;
+        if (action == "up")
+            return fail_up;
+        if (action == "down")
+            return fail_down;
+        if (action == "left")
+            return fail_left;
+        if (action == "right")
+            return fail_right;
         return 0;
     }
 

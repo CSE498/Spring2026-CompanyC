@@ -7,6 +7,11 @@
 
 namespace cse498 {
 
+/**
+ * GoblinAgent represents a stationary toll-style enemy in InteractionHeavyWorld.
+ * It blocks nearby progress until the player gets adjacent and pays the required gold.
+ */
+
 namespace {
 
 /**

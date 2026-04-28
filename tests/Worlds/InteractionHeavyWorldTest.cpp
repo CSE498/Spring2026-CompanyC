@@ -25,6 +25,12 @@ namespace cse498 {
 class TestInteractionHeavyWorld : public InteractionHeavyWorld
 {
 public:
+    using InteractionHeavyWorld::BreakBoulder;
+    using InteractionHeavyWorld::Collect;
+    using InteractionHeavyWorld::Pay;
+    using InteractionHeavyWorld::PlaceBoulders;
+    using InteractionHeavyWorld::ThrowStone;
+
     TestInteractionHeavyWorld()
     {
         static const std::vector<std::string> kTestLayout = {
@@ -63,17 +69,17 @@ TEST_CASE("Test Spawn Positions", "[InteractionHeavyWorld]")
 {
     TestInteractionHeavyWorld world;
 
-    auto hunters = world.GetHunterSpawnPositions();
+    const auto& hunters = world.GetHunterSpawnPositions();
     REQUIRE(hunters.size() == 1);
     REQUIRE(hunters[0].CellX() == 2);
     REQUIRE(hunters[0].CellY() == 3);
 
-    auto goblins = world.GetGoblinSpawnPositions();
+    const auto& goblins = world.GetGoblinSpawnPositions();
     REQUIRE(goblins.size() == 1);
     REQUIRE(goblins[0].CellX() == 6);
     REQUIRE(goblins[0].CellY() == 6);
 
-    auto pacers = world.GetPacingSpawnPositions();
+    const auto& pacers = world.GetPacingSpawnPositions();
     REQUIRE(pacers.size() == 1);
     REQUIRE(pacers[0].CellX() == 4);
     REQUIRE(pacers[0].CellY() == 8);
@@ -90,7 +96,7 @@ TEST_CASE("Test NearPosition", "[InteractionHeavyWorld]")
     REQUIRE(world.NearPosition(WorldPosition(7, 9), start) == false);
 }
 
-TEST_CASE("Test GetRandomPosition", "[InteractionHeavyWorld]")
+TEST_CASE("Test GetRandomValidFloorPosition", "[InteractionHeavyWorld]")
 {
     TestInteractionHeavyWorld world;
 
@@ -98,7 +104,7 @@ TEST_CASE("Test GetRandomPosition", "[InteractionHeavyWorld]")
 
     for (int i = 0; i < 20; ++i)
     {
-        WorldPosition pos = world.GetRandomPosition();
+        WorldPosition pos = world.GetRandomValidFloorPosition();
         REQUIRE_FALSE(pos.SameCell(start));
         REQUIRE(world.NearPosition(pos, start) == false);
     }

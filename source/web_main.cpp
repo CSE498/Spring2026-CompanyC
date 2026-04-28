@@ -99,7 +99,7 @@ int main()
     auto &world = g_app->Initialize<world_t>();
 
     // Hunters are spawned from the 'H' markers loaded from the interaction map.
-    const auto hunter_spawns = world.GetHunterSpawnPositions();
+    const auto& hunter_spawns = world.GetHunterSpawnPositions();
     for (size_t i = 0; i < hunter_spawns.size(); ++i)
     {
         world.AddAgent<cse498::HunterAgent>("Hunter " + std::to_string(i + 1))
@@ -107,14 +107,14 @@ int main()
     }
 
     // Goblins are spawned from the 'G' markers loaded from the interaction map.
-    const auto goblin_spawns = world.GetGoblinSpawnPositions();
+    const auto& goblin_spawns = world.GetGoblinSpawnPositions();
     for (size_t i = 0; i < goblin_spawns.size(); ++i)
     {
       world.AddAgent<cse498::GoblinAgent>("Goblin " + std::to_string(i + 1))
           .SetLocation(goblin_spawns[i]);
     }
 
-    const auto pacer_spawns = world.GetPacingSpawnPositions();
+    const auto& pacer_spawns = world.GetPacingSpawnPositions();
     std::mt19937 gen(std::random_device{}());
     std::uniform_int_distribution<> coin(0, 1);
     for (size_t i = 0; i < pacer_spawns.size(); ++i)
