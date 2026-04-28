@@ -291,7 +291,7 @@ namespace cse498
         static constexpr int kEnemyContactDamage = 1;
         static constexpr int kChestGoldReward = 8;
         static constexpr int kGoblinGoldCost = 10;
-        static constexpr int kAgentSpawnExclusionDistance = 6;
+        static constexpr int kAgentSpawnExclusionDistance = 4;
         static constexpr int kOffGridPadding = 10;
         
         static constexpr int kMinBoulderStone = 3;
@@ -301,8 +301,8 @@ namespace cse498
 
         static constexpr int kSmallMapMinBoulders = 3;
         static constexpr int kSmallMapMaxBoulders = 5;
-        static constexpr int kLargeMapMinBoulders = 75;
-        static constexpr int kLargeMapMaxBoulders = 110;
+        static constexpr int kLargeMapMinBoulders = 85;
+        static constexpr int kLargeMapMaxBoulders = 130;
 
         // =========================================================================
         // Nested types
