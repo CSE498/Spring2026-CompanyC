@@ -216,7 +216,7 @@ namespace cse498
     {
         const size_t dx = std::abs(static_cast<int>(pos.CellX()) - static_cast<int>(referencePos.CellX()));
         const size_t dy = std::abs(static_cast<int>(pos.CellY()) - static_cast<int>(referencePos.CellY()));
-        return (dx + dy) < static_cast<size_t>(kSpawnExclusionDistance);
+        return (dx + dy) < static_cast<size_t>(kAgentSpawnExclusionDistance);
     }
 
     bool InteractionHeavyWorld::IsReservedPosition(const WorldPosition &pos) const
@@ -229,8 +229,6 @@ namespace cse498
         return std::any_of(mHunterSpawnPositions.begin(), mHunterSpawnPositions.end(), occupies)
             || std::any_of(mGoblinSpawnPositions.begin(), mGoblinSpawnPositions.end(), occupies)
             || std::any_of(mPacingSpawnPositions.begin(), mPacingSpawnPositions.end(), occupies);
-
-        return false;
     }
 
     std::vector<WorldPosition> InteractionHeavyWorld::CollectValidFloorPositions() const
@@ -276,7 +274,8 @@ namespace cse498
 
     WorldPosition InteractionHeavyWorld::GetOffGridPosition() const
     {
-        return WorldPosition(main_grid.GetWidth() + 10, main_grid.GetHeight() + 10);
+        return WorldPosition(main_grid.GetWidth() + kOffGridPadding, 
+                            main_grid.GetHeight() + kOffGridPadding);
     }
 
     // =============================================================================

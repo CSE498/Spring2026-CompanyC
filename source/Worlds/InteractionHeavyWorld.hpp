@@ -291,7 +291,8 @@ namespace cse498
         static constexpr int kEnemyContactDamage = 1;
         static constexpr int kChestGoldReward = 4;
         static constexpr int kGoblinGoldCost = 5;
-        static constexpr int kSpawnExclusionDistance = 5;
+        static constexpr int kAgentSpawnExclusionDistance = 5;
+        static constexpr int kOffGridPadding = 10;
         static constexpr int kMaxBoulderStone = 15;
         static constexpr int kMaxBoulderGold = 4;
 
