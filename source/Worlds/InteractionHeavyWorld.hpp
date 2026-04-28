@@ -16,11 +16,11 @@
 #include "../core/WorldBase.hpp"
 #include "../tools/EndGameScreen.hpp"
 #include <map>
+#include <optional>
 #include <random>
 #include <string>
-#include <vector>
 #include <string_view>
-#include <optional>
+#include <vector>
 
 namespace cse498
 {
@@ -141,7 +141,7 @@ namespace cse498
          * @param referencePos Reference position for comparison.
          * @return True if the position is within the minimum safe distance of the reference position.
          */
-        bool NearPosition(const WorldPosition &pos, const WorldPosition &referencePos) const;
+        bool NearReferencePosition(const WorldPosition &pos, const WorldPosition &referencePos) const;
 
         /**
          * @brief Print the player's current HP and inventory to stdout.
@@ -283,20 +283,22 @@ namespace cse498
         // Constants
         // =========================================================================
 
-        static constexpr std::string_view kDungeonMapFile = "source/Worlds/interaction_world_maps/DungeonMapSmall.txt";
+        static constexpr std::string_view kDungeonMapFile = "source/Worlds/interaction_world_maps/DungeonMapLarge.txt";
         static constexpr int kPlayerStartHP = 100;
         static constexpr int kHunterDefaultHP = 10;
         static constexpr int kThrowDamage = 10;
         static constexpr int kThrowRange = 4;
         static constexpr int kEnemyContactDamage = 1;
-        static constexpr int kChestGoldReward = 4;
-        static constexpr int kGoblinGoldCost = 5;
-        static constexpr int kAgentSpawnExclusionDistance = 5;
+        static constexpr int kChestGoldReward = 8;
+        static constexpr int kGoblinGoldCost = 10;
+        static constexpr int kAgentSpawnExclusionDistance = 6;
         static constexpr int kOffGridPadding = 10;
-        static constexpr int kMaxBoulderStone = 15;
-        static constexpr int kMaxBoulderGold = 4;
+        
+        static constexpr int kMinBoulderStone = 3;
+        static constexpr int kMinGoldStone = 1;
+        static constexpr int kMaxBoulderStone = 13;
+        static constexpr int kMaxBoulderGold = 7;
 
-        // Default boulder counts loaded by GenerateWorld.
         static constexpr int kSmallMapMinBoulders = 3;
         static constexpr int kSmallMapMaxBoulders = 5;
         static constexpr int kLargeMapMinBoulders = 75;
@@ -357,6 +359,67 @@ namespace cse498
         std::map<size_t, int> mCombatAgentHP;
 
         // =========================================================================
+        // DoAction private helpers 
+        // =========================================================================
+
+        /**
+         * @brief Check whether an action is a movement action.
+         * @param actionId Action ID to check.
+         * @return True if the action is a movement action, false otherwise.
+         */
+        bool IsMovementAction(size_t actionId) const;
+
+        /**
+         * @brief Dispatch a non-movement action (throw, collect, pay, break, etc.).
+         * @param agent    Agent performing the action.
+         * @param actionId Action ID to dispatch.
+         * @param curPos   Current position of the agent.
+         * @return True if the action was a recognised non-movement action (regardless
+         *         of whether it succeeded), false if the caller should continue to
+         *         movement handling.
+         */
+        bool HandleNonMovementAction(AgentBase &agent, size_t actionId,
+                                     const WorldPosition &curPos);
+
+        /**
+         * @brief Compute the target cell for a movement action.
+         * @param curPos   Current position of the agent.
+         * @param actionId Movement action ID (one of the ACTION_MOVE_* values).
+         * @return Resolved target position, or std::nullopt for an unrecognised action.
+         */
+        std::optional<WorldPosition> ResolveMovementTarget(const WorldPosition &curPos,
+                                                           size_t actionId) const;
+
+        /**
+         * @brief Execute a validated movement: check collisions, move the agent,
+         *        apply contact damage, and test the win condition.
+         * @param agent     Agent attempting to move.
+         * @param actionId  Movement action ID (used for failure notifications).
+         * @param targetPos Pre-validated target position.
+         * @return Non-zero on success, zero if movement was blocked.
+         */
+        int HandleMovementAction(AgentBase &agent, size_t actionId,
+                                 const WorldPosition &targetPos);
+
+        // =========================================================================
+        // Private helpers — neighborhood queries
+        // =========================================================================
+
+        /**
+         * @brief Return the center cell and its four orthogonal neighbors, filtered to valid grid positions.
+         * @param center The center cell of the neighborhood.
+         * @return A vector of valid positions including the center and its cardinal neighbors.
+         */
+        std::vector<WorldPosition> GetSelfAndNeighbors(const WorldPosition &center) const;
+
+        /**
+         * @brief Return the four orthogonal neighbors of a cell only (excludes center), filtered to valid grid positions.
+         * @param center The cell whose neighbors are requested.
+         * @return A vector of valid positions for the cardinal neighbors of the center cell, excluding the center itself.
+         */
+        std::vector<WorldPosition> GetAdjacentNeighbors(const WorldPosition &center) const;
+
+        // =========================================================================
         // Private combat helpers
         // =========================================================================
 
@@ -388,7 +451,8 @@ namespace cse498
          * @param ignore Optional agent to skip during the search.
          * @return Pointer to the agent, or nullptr if none found.
          */
-        AgentBase *FindLiveCombatAgentAt(size_t x, size_t y, const AgentBase *ignore = nullptr);
+        AgentBase *FindLiveCombatAgentAt(size_t x, size_t y,
+                                         const AgentBase *ignore = nullptr);
 
         /**
          * @brief Find any agent that would block movement into a cell.
@@ -397,7 +461,8 @@ namespace cse498
          * @param ignore Optional agent to skip during the search.
          * @return Pointer to the blocking agent, or nullptr if none found.
          */
-        AgentBase *FindBlockingAgentAt(size_t x, size_t y, const AgentBase *ignore = nullptr);
+        AgentBase *FindBlockingAgentAt(size_t x, size_t y,
+                                       const AgentBase *ignore = nullptr);
 
         /**
          * @brief Return the current player position, or the start position as a fallback.

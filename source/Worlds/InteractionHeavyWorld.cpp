@@ -20,6 +20,7 @@
 #include <fstream>
 #include <random>
 #include <sstream>
+#include <array>
 
 namespace cse498
 {
@@ -102,7 +103,9 @@ namespace cse498
         while (std::getline(file, line))
         {
             if (!line.empty() && line.back() == '\r')
+            {
                 line.pop_back();
+            }
             dungeonLayout.push_back(line);
         }
 
@@ -114,9 +117,13 @@ namespace cse498
 
         // Place boulders randomly on the map, with quantity based on map size.
         if (kDungeonMapFile.find("Small") == std::string_view::npos)
+        {
             PlaceBoulders(kLargeMapMinBoulders, kLargeMapMaxBoulders);
+        }
         else
+        {
             PlaceBoulders(kSmallMapMinBoulders, kSmallMapMaxBoulders);
+        }
     }
 
     void InteractionHeavyWorld::LoadDungeon(const std::vector<std::string> &dungeonLayout)
@@ -212,7 +219,8 @@ namespace cse498
         return static_cast<double>(mGoldCount * 10 + mStoneCount + mEnemiesKilled * 25 + mPlayerHP);
     }
 
-    bool InteractionHeavyWorld::NearPosition(const WorldPosition &pos, const WorldPosition &referencePos) const
+    bool InteractionHeavyWorld::NearReferencePosition(const WorldPosition &pos,
+                                             const WorldPosition &referencePos) const
     {
         const size_t dx = std::abs(static_cast<int>(pos.CellX()) - static_cast<int>(referencePos.CellX()));
         const size_t dy = std::abs(static_cast<int>(pos.CellY()) - static_cast<int>(referencePos.CellY()));
@@ -222,7 +230,9 @@ namespace cse498
     bool InteractionHeavyWorld::IsReservedPosition(const WorldPosition &pos) const
     {
         if (pos.SameCell(mStartPosition) || pos.SameCell(mExitPosition))
+        {
             return true;
+        }
 
         auto occupies = [&pos](const WorldPosition &p) { return pos.SameCell(p); };
 
@@ -241,8 +251,8 @@ namespace cse498
                 const WorldPosition pos(x, y);
                 if (main_grid[pos] == mFloorCellID
                     && !IsReservedPosition(pos)
-                    && !NearPosition(pos, mStartPosition)
-                    && !NearPosition(pos, mExitPosition))
+                    && !NearReferencePosition(pos, mStartPosition)
+                    && !NearReferencePosition(pos, mExitPosition))
                 {
                     validPositions.push_back(pos);
                 }
@@ -255,7 +265,9 @@ namespace cse498
     {
         const auto valid = CollectValidFloorPositions();
         if (valid.empty())
+        {
             return std::nullopt;
+        }
 
         std::uniform_int_distribution<size_t> dist(0, valid.size() - 1);
         return valid[dist(mRng)];
@@ -267,15 +279,17 @@ namespace cse498
         for (const auto &ptr : agent_set)
         {
             if (ptr && !IsCombatAgent(*ptr))
+            {
                 return ptr->GetLocation().AsWorldPosition();
+            }
         }
         return mStartPosition;
     }
 
     WorldPosition InteractionHeavyWorld::GetOffGridPosition() const
     {
-        return WorldPosition(main_grid.GetWidth() + kOffGridPadding, 
-                            main_grid.GetHeight() + kOffGridPadding);
+        return WorldPosition(main_grid.GetWidth() + kOffGridPadding,
+                             main_grid.GetHeight() + kOffGridPadding);
     }
 
     // =============================================================================
@@ -286,14 +300,60 @@ namespace cse498
     {
         auto validPositions = CollectValidFloorPositions();
         if (validPositions.empty())
+        {
             return;
+        }
 
         std::uniform_int_distribution<int> countDist(minBoulders, maxBoulders);
         const int target = std::min(countDist(mRng), static_cast<int>(validPositions.size()));
 
         std::shuffle(validPositions.begin(), validPositions.end(), mRng);
         for (int i = 0; i < target; ++i)
+        {
             main_grid[validPositions[i]] = mBoulderCellID;
+        }
+    }
+
+    // =============================================================================
+    // Neighboor helpers
+    // =============================================================================
+
+    std::vector<WorldPosition> InteractionHeavyWorld::GetSelfAndNeighbors(
+        const WorldPosition &center) const
+    {
+        std::vector<WorldPosition> cells;
+        cells.reserve(5);
+
+        const std::array<WorldPosition, 5> candidates = {
+            center, center.Up(), center.Down(), center.Left(), center.Right()};
+
+        for (const auto &pos : candidates)
+        {
+            if (main_grid.IsValid(pos))
+            {
+                cells.push_back(pos);
+            }
+        }
+        return cells;
+    }
+
+    std::vector<WorldPosition> InteractionHeavyWorld::GetAdjacentNeighbors(
+        const WorldPosition &center) const
+    {
+        std::vector<WorldPosition> cells;
+        cells.reserve(4);
+
+        const std::array<WorldPosition, 4> candidates = {
+            center.Up(), center.Down(), center.Left(), center.Right()};
+
+        for (const auto &pos : candidates)
+        {
+            if (main_grid.IsValid(pos))
+            {
+                cells.push_back(pos);
+            }
+        }
+        return cells;
     }
 
     // =============================================================================
@@ -311,18 +371,11 @@ namespace cse498
 
     void InteractionHeavyWorld::BreakBoulder(size_t x, size_t y)
     {
-        std::uniform_int_distribution<int> stoneDist(0, kMaxBoulderStone);
-        std::uniform_int_distribution<int> goldDist(0, kMaxBoulderGold);
+        std::uniform_int_distribution<int> stoneDist(kMinBoulderStone, kMaxBoulderStone);
+        std::uniform_int_distribution<int> goldDist(kMinGoldStone, kMaxBoulderGold);
 
-        const WorldPosition center(x, y);
-        const std::vector<WorldPosition> neighbors = {
-            center.Up(), center.Down(), center.Left(), center.Right()};
-
-        for (const auto &pos : neighbors)
+        for (const auto &pos : GetAdjacentNeighbors(WorldPosition(x, y)))
         {
-            if (!main_grid.IsValid(pos))
-                continue;
-
             if (main_grid[pos] == mBoulderCellID)
             {
                 main_grid[pos] = mMaterialCellID;
@@ -334,22 +387,18 @@ namespace cse498
 
     void InteractionHeavyWorld::Collect(size_t x, size_t y)
     {
-        const WorldPosition center(x, y);
-        const std::vector<WorldPosition> neighbors = {
-            center, center.Up(), center.Down(), center.Left(), center.Right()};
-
-        for (const auto &pos : neighbors)
+        // Collect checks the center cell and all four cardinal neighbors.
+        for (const auto &pos : GetSelfAndNeighbors(WorldPosition(x, y)))
         {
-            if (!main_grid.IsValid(pos))
-                continue;
-
             const size_t tile = main_grid[pos];
 
             if (tile == mMaterialCellID)
             {
                 auto it = mDroppedLoot.find({pos.CellX(), pos.CellY()});
                 if (it == mDroppedLoot.end())
+                {
                     continue;
+                }
 
                 mStoneCount += it->second.stone;
                 mGoldCount += it->second.gold;
@@ -371,23 +420,26 @@ namespace cse498
 
     void InteractionHeavyWorld::Pay(size_t x, size_t y)
     {
-        const WorldPosition center(x, y);
-        const std::vector<WorldPosition> neighbors = {
-            center, center.Up(), center.Down(), center.Left(), center.Right()};
-
-        for (const auto &pos : neighbors)
+        // Pay checks the center cell and all four cardinal neighbors.
+        for (const auto &pos : GetSelfAndNeighbors(WorldPosition(x, y)))
         {
             for (auto &ptr : agent_set)
             {
                 if (!ptr)
+                {
                     continue;
+                }
 
                 auto *goblin = dynamic_cast<GoblinAgent *>(ptr.get());
                 if (!goblin)
+                {
                     continue;
+                }
 
                 if (!ptr->GetLocation().AsWorldPosition().SameCell(pos))
+                {
                     continue;
+                }
 
                 if (mGoldCount >= static_cast<size_t>(kGoblinGoldCost))
                 {
@@ -399,7 +451,8 @@ namespace cse498
                 }
                 else
                 {
-                    std::cout << "You do not have enough gold to pay the goblin. You need " << kGoblinGoldCost << " gold.\n";
+                    std::cout << "You do not have enough gold to pay the goblin. You need "
+                              << kGoblinGoldCost << " gold.\n";
                 }
                 return;
             }
@@ -424,13 +477,17 @@ namespace cse498
                                        origin.CellY() + dy * step);
 
             if (!main_grid.IsValid(target))
+            {
                 return;
+            }
 
             const size_t tile = main_grid[target];
 
             // Solid tiles absorb the projectile.
             if (tile == mWallCellID || tile == mBoulderCellID || tile == mChestCellID)
+            {
                 return;
+            }
 
             AgentBase *hit = FindLiveCombatAgentAt(target.CellX(), target.CellY());
             if (hit)
@@ -466,12 +523,16 @@ namespace cse498
     void InteractionHeavyWorld::ApplyEnemyContactDamage(const WorldPosition &playerPos)
     {
         if (mDamagedThisTurn)
+        {
             return;
+        }
 
         for (auto &ptr : agent_set)
         {
             if (!ptr || !IsCombatAgent(*ptr) || !IsCombatAgentAlive(*ptr))
+            {
                 continue;
+            }
 
             const WorldPosition enemyPos = ptr->GetLocation().AsWorldPosition();
             const int dx = std::abs(static_cast<int>(enemyPos.CellX()) - static_cast<int>(playerPos.CellX()));
@@ -485,7 +546,7 @@ namespace cse498
             }
         }
 
-        // sync once after all hits
+        // Sync once after all hits are processed.
         SyncResources();
 
         if (mPlayerHP <= 0)
@@ -493,6 +554,7 @@ namespace cse498
             EndGame(false);
         }
     }
+
     int &InteractionHeavyWorld::GetCombatAgentHP(size_t agentId)
     {
         // Emplace with default HP on first access so newly added agents are handled automatically.
@@ -501,13 +563,16 @@ namespace cse498
 
     bool InteractionHeavyWorld::IsCombatAgent(const AgentBase &agent) const
     {
-        return dynamic_cast<const HunterAgent *>(&agent) != nullptr || dynamic_cast<const PacingAgent *>(&agent) != nullptr;
+        return dynamic_cast<const HunterAgent *>(&agent) != nullptr
+            || dynamic_cast<const PacingAgent *>(&agent) != nullptr;
     }
 
     bool InteractionHeavyWorld::IsCombatAgentAlive(const AgentBase &agent) const
     {
         if (!IsCombatAgent(agent))
+        {
             return false;
+        }
 
         const auto it = mCombatAgentHP.find(agent.GetID());
         return (it == mCombatAgentHP.end()) ? true : (it->second > 0);
@@ -520,9 +585,13 @@ namespace cse498
                                         [&](const auto &ptr)
                                         {
                                             if (!ptr || (ignore && ptr.get() == ignore))
+                                            {
                                                 return false;
+                                            }
                                             if (!IsCombatAgent(*ptr) || !IsCombatAgentAlive(*ptr))
+                                            {
                                                 return false;
+                                            }
 
                                             const WorldPosition pos = ptr->GetLocation().AsWorldPosition();
                                             return pos.CellX() == x && pos.CellY() == y;
@@ -538,11 +607,15 @@ namespace cse498
                                         [&](const auto &ptr)
                                         {
                                             if (!ptr || (ignore && ptr.get() == ignore))
+                                            {
                                                 return false;
+                                            }
 
                                             // Dead combat agents do not block movement.
                                             if (IsCombatAgent(*ptr) && !IsCombatAgentAlive(*ptr))
+                                            {
                                                 return false;
+                                            }
 
                                             const WorldPosition pos = ptr->GetLocation().AsWorldPosition();
                                             return pos.CellX() == x && pos.CellY() == y;
@@ -563,10 +636,14 @@ namespace cse498
         for (const auto &ptr : agent_set)
         {
             if (!ptr || !IsCombatAgent(*ptr) || !IsCombatAgentAlive(*ptr))
+            {
                 continue;
+            }
 
             if (ptr->GetLocation().AsWorldPosition().SameCell(pos))
+            {
                 return true;
+            }
         }
         return false;
     }
@@ -584,7 +661,9 @@ namespace cse498
         for (auto &ptr : agent_set)
         {
             if (!ptr)
+            {
                 continue;
+            }
 
             NotifyInterfaceResources(*ptr);
         }
@@ -593,7 +672,9 @@ namespace cse498
     void InteractionHeavyWorld::NotifyInterfaceResources(AgentBase &agent) const
     {
         if (!agent.IsInterface())
+        {
             return;
+        }
 
         agent.Notify("HP:" + std::to_string(mPlayerHP), "resource");
         agent.Notify("Stone:" + std::to_string(mStoneCount), "resource");
@@ -636,56 +717,44 @@ namespace cse498
         for (auto &ptr : agent_set)
         {
             if (!ptr || !ptr->IsInterface())
+            {
                 continue;
+            }
 
             ptr->Notify("Game over. Endgame HTML generated.", "status");
             ptr->Notify(panel.str(), "panel_text");
         }
 
         if (won)
+        {
             std::cout << "Congratulations! You reached the exit with "
                       << mStoneCount << " stone and " << mGoldCount << " gold!\n";
+        }
         else
+        {
             std::cout << "You died.\n";
-
+        }
+        
         mGameOver = true;
     }
 
     // =============================================================================
-    // Main action dispatch
+    // DoAction helpers
     // =============================================================================
 
-    int InteractionHeavyWorld::DoAction(AgentBase &agent, size_t actionId)
+    bool InteractionHeavyWorld::IsMovementAction(size_t actionId) const
     {
-        if (mGameOver)
-        {
-            return false;
-        }
+        return actionId == ACTION_REMAIN_STILL
+            || actionId == ACTION_MOVE_UP
+            || actionId == ACTION_MOVE_DOWN
+            || actionId == ACTION_MOVE_LEFT
+            || actionId == ACTION_MOVE_RIGHT;
+    }
 
-        if (agent.GetName() == "Player")
-            mDamagedThisTurn = false;
-
-        // Start the session timer on the player's first movement.
-        if (!mTimerStarted && agent.GetName() == "Player")
-        {
-            if (actionId == ACTION_MOVE_UP || actionId == ACTION_MOVE_DOWN || actionId == ACTION_MOVE_LEFT || actionId == ACTION_MOVE_RIGHT)
-            {
-                GetTimer().Start("Game::Session");
-                mTimerStarted = true;
-            }
-        }
-
-        // Dead combat agents do not get turns.
-        if (IsCombatAgent(agent))
-        {
-            GetCombatAgentHP(agent.GetID()); // Ensure HP entry exists.
-            if (!IsCombatAgentAlive(agent))
-                return false;
-        }
-
-        const WorldPosition curPos = agent.GetLocation().AsWorldPosition();
-
-        // Non-movement actions are handled immediately and return early.
+    bool InteractionHeavyWorld::HandleNonMovementAction(AgentBase &agent,
+                                                        size_t actionId,
+                                                        const WorldPosition &curPos)
+    {
         switch (actionId)
         {
         case ACTION_BREAK_BOULDER:
@@ -721,40 +790,45 @@ namespace cse498
             return true;
 
         default:
-            break;
+            return false;
         }
+    }
 
-        // Resolve the target position for movement actions.
-        WorldPosition newPos = curPos;
+    std::optional<WorldPosition> InteractionHeavyWorld::ResolveMovementTarget(
+        const WorldPosition &curPos, size_t actionId) const
+    {
         switch (actionId)
         {
         case ACTION_REMAIN_STILL:
-            newPos = curPos;
-            break;
+            return curPos;
         case ACTION_MOVE_UP:
-            newPos = curPos.Up();
-            break;
+            return curPos.Up();
         case ACTION_MOVE_DOWN:
-            newPos = curPos.Down();
-            break;
+            return curPos.Down();
         case ACTION_MOVE_LEFT:
-            newPos = curPos.Left();
-            break;
+            return curPos.Left();
         case ACTION_MOVE_RIGHT:
-            newPos = curPos.Right();
-            break;
+            return curPos.Right();
         default:
+            return std::nullopt;
+        }
+    }
+
+    int InteractionHeavyWorld::HandleMovementAction(AgentBase &agent, size_t actionId,
+                                                    const WorldPosition &targetPos)
+    {
+        if (!main_grid.IsValid(targetPos))
+        {
             return false;
         }
-
-        if (!main_grid.IsValid(newPos))
-            return false;
 
         // Helper: notify a combat agent that its move was rejected.
         auto notifyFailedMove = [&]()
         {
             if (!IsCombatAgent(agent))
+            {
                 return;
+            }
             switch (actionId)
             {
             case ACTION_MOVE_UP:
@@ -775,35 +849,91 @@ namespace cse498
         };
 
         // Blocked by a solid tile.
-        const size_t destTile = main_grid[newPos];
-        if (destTile == mWallCellID || destTile == mBoulderCellID || destTile == mChestCellID || destTile == mChestOpenCellID)
+        const size_t targetTile = main_grid[targetPos];
+        if (targetTile == mWallCellID
+            || targetTile == mBoulderCellID
+            || targetTile == mChestCellID
+            || targetTile == mChestOpenCellID)
         {
             notifyFailedMove();
             return false;
         }
 
         // Blocked by another agent.
-        AgentBase *blocker = FindBlockingAgentAt(newPos.CellX(), newPos.CellY(), &agent);
+        AgentBase *blocker = FindBlockingAgentAt(targetPos.CellX(), targetPos.CellY(), &agent);
         if (blocker)
         {
             notifyFailedMove();
             // A combat agent blocked by the player still deals contact damage.
             if (IsCombatAgent(agent) && !IsCombatAgent(*blocker))
+            {
                 ApplyEnemyContactDamage(GetPlayerPosition());
+            }
             return false;
         }
 
         // Move the agent and check for adjacency damage afterwards.
-        agent.SetLocation(newPos);
+        agent.SetLocation(targetPos);
         ApplyEnemyContactDamage(GetPlayerPosition());
 
         // Win condition: player steps onto the exit tile.
-        if (destTile == mExitCellID && agent.GetName() == "Player")
+        if (targetTile == mExitCellID && agent.GetName() == "Player")
         {
             EndGame(true);
         }
 
         return true;
+    }
+
+    int InteractionHeavyWorld::DoAction(AgentBase &agent, size_t actionId)
+    {
+        if (mGameOver)
+        {
+            return false;
+        }
+
+        // Reset per-turn damage flag at the start of the player's turn.
+        if (agent.GetName() == "Player")
+        {
+            mDamagedThisTurn = false;
+        }
+
+        // Start the session timer on the player's first movement.
+        if (!mTimerStarted && agent.GetName() == "Player")
+        {
+            if (IsMovementAction(actionId))
+            {
+                GetTimer().Start("Game::Session");
+                mTimerStarted = true;
+            }
+        }
+
+        // Dead combat agents do not get turns.
+        if (IsCombatAgent(agent))
+        {
+            GetCombatAgentHP(agent.GetID()); // Ensure HP entry exists.
+            if (!IsCombatAgentAlive(agent))
+            {
+                return false;
+            }
+        }
+
+        const WorldPosition curPos = agent.GetLocation().AsWorldPosition();
+
+        // Dispatch non-movement actions first; they return immediately on match.
+        if (HandleNonMovementAction(agent, actionId, curPos))
+        {
+            return true;
+        }
+
+        // Resolve the target position for movement actions.
+        const auto targetPos = ResolveMovementTarget(curPos, actionId);
+        if (!targetPos.has_value())
+        {
+            return false;
+        }
+
+        return HandleMovementAction(agent, actionId, *targetPos);
     }
 
 } // namespace cse498
