@@ -66,6 +66,9 @@ class WebInterface : public InterfaceBase {
   /// Return the currently highlighted cell coordinates.
   [[nodiscard]] std::pair<int, int> GetSelectedCell() const;
 
+  /// Return custom text shown below resources in the HUD panel.
+  [[nodiscard]] const std::string& GetPanelText() const;
+
   // -- Visual configuration (set up after AddAgent, before first render) --
 
   /// Assign CSS color and glyph to a named cell type.
@@ -93,6 +96,7 @@ class WebInterface : public InterfaceBase {
   int         selected_x_     = 0;
   int         selected_y_     = 0;
   std::string status_message_;
+  std::string panel_text_;
   std::string world_name_     = "World";
   std::map<std::string, int>                  resources_;
   std::unordered_map<std::string, CellVisual> cell_visuals_;

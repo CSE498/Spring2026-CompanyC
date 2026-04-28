@@ -484,6 +484,12 @@ void WebApp::RenderWorld()
     hud_text << "- " << entry.first << ": " << entry.second << "\n";
   }
 
+  const std::string& panel_text = interface_->GetPanelText();
+  if (!panel_text.empty())
+  {
+    hud_text << "\nDetails\n" << panel_text << "\n";
+  }
+
   hud_text_->SetText(hud_text.str());
   log_text_->SetText(hud.status_message);
 

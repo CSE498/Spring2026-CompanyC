@@ -15,6 +15,7 @@
 #include "ItemBase.hpp"
 #include "WorldGrid.hpp"
 #include "../tools/ActionLog.hpp"
+#include "../tools/DataLog.hpp"
 #include "../tools/Timer.hpp"
 
 namespace cse498
@@ -52,6 +53,9 @@ namespace cse498
     /// Action log to keep track of all the actions done by agents in this world
     ActionLog mActionLog;
 
+    /// Position log to track agent movement for analytics and end-game heatmaps.
+    DataLog<WorldPosition> mPositionLog;
+
   public:
     WorldBase() = default;
     virtual ~WorldBase() = default;
@@ -73,6 +77,20 @@ namespace cse498
 
     /// Access the ActionLog
     ActionLog &GetActionLog() { return mActionLog; }
+
+    /// Return the current score for worlds that provide score-based results.
+    [[nodiscard]] virtual double GetScore() const { return 0.0; }
+
+    /// Read the standard gameplay session timer.
+    [[nodiscard]] double GetPlaytimeSeconds() const {
+      return mTimer.Elapsed("Game::Session");
+    }
+
+    /// Access the position log used by analytics/end-game heatmaps.
+    DataLog<WorldPosition> &GetPositionLog() { return mPositionLog; }
+
+    /// Access the position log used by analytics/end-game heatmaps.
+    const DataLog<WorldPosition> &GetPositionLog() const { return mPositionLog; }
 
     /// Return a reference to an Item with a given ID.
     [[nodiscard]] ItemBase &GetItem(size_t id)
@@ -189,11 +207,18 @@ namespace cse498
     {
       for (const auto &agent_ptr : agent_set)
       {
+        const WorldPosition before_location = agent_ptr->GetLocation().AsWorldPosition();
         size_t action_id = agent_ptr->SelectAction(main_grid);
         int result = DoAction(*agent_ptr, action_id);
         if (result)
         {
           mActionLog.recordAction(*agent_ptr, action_id);
+        }
+        const WorldPosition after_location = agent_ptr->GetLocation().AsWorldPosition();
+        if (before_location.X() != after_location.X() ||
+            before_location.Y() != after_location.Y())
+        {
+          mPositionLog.Add(after_location);
         }
         agent_ptr->SetActionResult(result);
       }

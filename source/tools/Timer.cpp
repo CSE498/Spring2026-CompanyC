@@ -90,6 +90,18 @@ std::size_t Timer::Count(const std::string& name) const {
   return it->second.stats.count;
 }
 
+double Timer::Elapsed(const std::string& name) const {
+  auto it = mTimers.find(name);
+  if (it == mTimers.end()) return 0.0;
+
+  const Entry& entry = it->second;
+  if (entry.running) {
+    return std::chrono::duration<double>(Clock::now() - entry.start).count();
+  }
+
+  return entry.stats.lastSeconds;
+}
+
 Timer::Stats Timer::GetStats(const std::string& name) const {
   // returns a copy
   auto it = mTimers.find(name);
