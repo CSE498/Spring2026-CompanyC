@@ -315,7 +315,7 @@ namespace cse498
     }
 
     // =============================================================================
-    // Neighboor helpers
+    // Neighbor helpers
     // =============================================================================
 
     std::vector<WorldPosition> InteractionHeavyWorld::GetSelfAndNeighbors(
