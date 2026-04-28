@@ -241,13 +241,12 @@ namespace cse498
 
     WorldPosition InteractionHeavyWorld::GetRandomValidFloorPosition() const
     {
-        static std::mt19937 rng(std::random_device{}());
         std::uniform_int_distribution<size_t> xDist(0, main_grid.GetWidth() - 1);
         std::uniform_int_distribution<size_t> yDist(0, main_grid.GetHeight() - 1);
 
         while (true)
         {
-            const WorldPosition pos(xDist(rng), yDist(rng));
+            const WorldPosition pos(xDist(mRng), yDist(mRng));
             if (main_grid[pos] == mFloorCellID && !IsReservedPosition(pos) && !NearPosition(pos, mStartPosition) && !NearPosition(pos, mExitPosition))
             {
                 return pos;
@@ -277,10 +276,9 @@ namespace cse498
 
     void InteractionHeavyWorld::PlaceBoulders(int minBoulders, int maxBoulders)
     {
-        static std::mt19937 rng(std::random_device{}());
         std::uniform_int_distribution<int> countDist(minBoulders, maxBoulders);
 
-        const int target = countDist(rng);
+        const int target = countDist(mRng);
         int placed = 0;
 
         while (placed < target)
@@ -309,7 +307,6 @@ namespace cse498
 
     void InteractionHeavyWorld::BreakBoulder(size_t x, size_t y)
     {
-        static std::mt19937 rng(std::random_device{}());
         std::uniform_int_distribution<int> stoneDist(0, kMaxBoulderStone);
         std::uniform_int_distribution<int> goldDist(0, kMaxBoulderGold);
 
@@ -325,7 +322,7 @@ namespace cse498
             if (main_grid[pos] == mBoulderCellID)
             {
                 main_grid[pos] = mMaterialCellID;
-                mDroppedLoot[{pos.CellX(), pos.CellY()}] = {stoneDist(rng), goldDist(rng)};
+                mDroppedLoot[{pos.CellX(), pos.CellY()}] = {stoneDist(mRng), goldDist(mRng)};
                 return;
             }
         }
@@ -515,37 +512,39 @@ namespace cse498
     AgentBase *InteractionHeavyWorld::FindLiveCombatAgentAt(size_t x, size_t y,
                                                             const AgentBase *ignore)
     {
-        for (auto &ptr : agent_set)
-        {
-            if (!ptr || (ignore && ptr.get() == ignore))
-                continue;
-            if (!IsCombatAgent(*ptr) || !IsCombatAgentAlive(*ptr))
-                continue;
+        const auto found = std::find_if(agent_set.begin(), agent_set.end(),
+                                        [&](const auto &ptr)
+                                        {
+                                            if (!ptr || (ignore && ptr.get() == ignore))
+                                                return false;
+                                            if (!IsCombatAgent(*ptr) || !IsCombatAgentAlive(*ptr))
+                                                return false;
 
-            const WorldPosition pos = ptr->GetLocation().AsWorldPosition();
-            if (pos.CellX() == x && pos.CellY() == y)
-                return ptr.get();
-        }
-        return nullptr;
+                                            const WorldPosition pos = ptr->GetLocation().AsWorldPosition();
+                                            return pos.CellX() == x && pos.CellY() == y;
+                                        });
+
+        return (found == agent_set.end()) ? nullptr : found->get();
     }
 
     AgentBase *InteractionHeavyWorld::FindBlockingAgentAt(size_t x, size_t y,
                                                           const AgentBase *ignore)
     {
-        for (auto &ptr : agent_set)
-        {
-            if (!ptr || (ignore && ptr.get() == ignore))
-                continue;
+        const auto found = std::find_if(agent_set.begin(), agent_set.end(),
+                                        [&](const auto &ptr)
+                                        {
+                                            if (!ptr || (ignore && ptr.get() == ignore))
+                                                return false;
 
-            // Dead combat agents do not block movement.
-            if (IsCombatAgent(*ptr) && !IsCombatAgentAlive(*ptr))
-                continue;
+                                            // Dead combat agents do not block movement.
+                                            if (IsCombatAgent(*ptr) && !IsCombatAgentAlive(*ptr))
+                                                return false;
 
-            const WorldPosition pos = ptr->GetLocation().AsWorldPosition();
-            if (pos.CellX() == x && pos.CellY() == y)
-                return ptr.get();
-        }
-        return nullptr;
+                                            const WorldPosition pos = ptr->GetLocation().AsWorldPosition();
+                                            return pos.CellX() == x && pos.CellY() == y;
+                                        });
+
+        return (found == agent_set.end()) ? nullptr : found->get();
     }
 
     void InteractionHeavyWorld::DefeatCombatAgent(AgentBase &agent)

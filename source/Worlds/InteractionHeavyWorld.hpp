@@ -16,6 +16,7 @@
 #include "../core/WorldBase.hpp"
 #include "../tools/EndGameScreen.hpp"
 #include <map>
+#include <random>
 #include <string>
 #include <vector>
 #include <string_view>
@@ -318,6 +319,7 @@ namespace cse498
         bool mDamagedThisTurn = false;
         bool mTimerStarted = false;
         bool mGameOver = false;
+        mutable std::mt19937 mRng{std::random_device{}()};
         std::string mEndGameHtml;
 
         // =========================================================================
