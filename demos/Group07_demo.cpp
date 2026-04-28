@@ -41,7 +41,7 @@ int main(){
     std::cout << "Leader position Y: ";
     std::cin >> agentPositionY;
 
-    world.AddAgent<StubAgent>("builder").SetLocation(cse498::WorldPosition{agentPositionX, agentPositionY});
+    world.AddAgent<StubAgent>(std::string(cse498::DynamicWorld::kBuilderAgentName)).SetLocation(cse498::WorldPosition{agentPositionX, agentPositionY});
 
     std::random_device rd;
     std::mt19937 gen(rd());

@@ -218,6 +218,7 @@ private:
 
   /// @brief Name reserved for the ghost agent — bypasses traversability for UI/spectator purposes.
   static constexpr std::string_view kGhostAgentName = "Player";
+  static constexpr std::string_view kBuilderAgentName = "builder";
 
   /// @brief  Flag to track if the session timer has started.
   bool mSessionStarted = false;
@@ -256,7 +257,7 @@ private:
  * @param agent The agent to configure.
  */
   void ConfigAgent(AgentBase & agent) override {
-    if (agent.GetName() == "builder") {
+    if (agent.GetName() == kBuilderAgentName) {
       agent.AddAction("build_lumberyard", BUILD_LUMBERYARD);
       agent.AddAction("build_quarry", BUILD_QUARRY);
       agent.AddAction("build_spawner", BUILD_SPAWNER);
