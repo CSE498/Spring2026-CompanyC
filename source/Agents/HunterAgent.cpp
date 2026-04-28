@@ -8,13 +8,33 @@
 #include "HunterAgent.hpp"
 #include "../core/WorldBase.hpp"
 #include <algorithm>
+#include <charconv>
 #include <climits>
 #include <cstdlib>
 #include <iostream>
+#include <optional>
+#include <string_view>
 #include <vector>
 
 namespace cse498
 {
+    namespace
+    {
+        std::optional<int> ParseInt(std::string_view text)
+        {
+            int value = 0;
+            const char* begin = text.data();
+            const char* end = begin + text.size();
+            const auto [ptr, ec] = std::from_chars(begin, end, value);
+
+            if (ec != std::errc{} || ptr != end)
+            {
+                return std::nullopt;
+            }
+
+            return value;
+        }
+    }
 
     bool HunterAgent::Initialize()
     {
@@ -39,10 +59,16 @@ namespace cse498
             const size_t comma = message.find(',');
             if (comma != std::string::npos)
             {
-                mTargetX = std::atoi(message.substr(0, comma).c_str());
-                mTargetY = std::atoi(message.substr(comma + 1).c_str());
-                mState = State::Chase;
-                mChaseMemory = mChaseMemoryTicks;
+                const auto target_x = ParseInt(std::string_view(message).substr(0, comma));
+                const auto target_y = ParseInt(std::string_view(message).substr(comma + 1));
+
+                if (target_x && target_y)
+                {
+                    mTargetX = *target_x;
+                    mTargetY = *target_y;
+                    mState = State::Chase;
+                    mChaseMemory = mChaseMemoryTicks;
+                }
             }
         }
         else if (msg_type == "action_failed")
