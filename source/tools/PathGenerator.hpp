@@ -1,13 +1,13 @@
-/** 
- * This file is part of the Spring 2026, CSE 498, section 2, course project. * 
- * @brief A base path finding interface for all agent types. * @author Matthew Vazquez 
- * AI was used in assistance of developing this class 
+/**
+ * This file is part of the Spring 2026, CSE 498, section 2, course project. *
+ * @brief A base path finding interface for all agent types. * @author Matthew Vazquez
+ * AI was used in assistance of developing this class
 **/
 
 // Compile using at least -std=c++20
 
-// Take a start position, optional goal(s), and constraints 
-// Run a pathfinding or path-constructing strategy 
+// Take a start position, optional goal(s), and constraints
+// Run a pathfinding or path-constructing strategy
 // Output a WorldPath
 
 #pragma once
@@ -19,8 +19,6 @@
 
 #include <functional>
 #include <optional>
-#include <queue>
-#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -46,6 +44,9 @@ struct StateGridPositionHash {
 class WorldView {
 public:
     WorldView(int w, int h) : width(w), height(h) {}
+
+    const int width;
+    const int height;
 
     bool IsWalkable(const StateGridPosition& p) const {
         if (p.GetX() < 0 || p.GetX() >= width ||
@@ -90,17 +91,6 @@ public:
         StateGridPosition goal
     ) const;
 
-    WorldPath GeneratePatrolPath(
-        StateGridPosition start,
-        std::optional<int> max_length
-    ) const;
-
-    WorldPath GenerateAvoidPath(
-        StateGridPosition start,
-        StateGridPosition goal,
-        const std::vector<StateGridPosition>& avoid
-    ) const;
-
     WorldPath GenerateExplorePath(
         StateGridPosition start,
         const SharedKnowledge& knowledge,
@@ -119,7 +109,7 @@ public:
     const SharedKnowledge& knowledge,
     std::optional<int> max_length = std::nullopt
     ) const;
-    
+
     WorldPath GenerateExplorePath(
     StateGridPosition start,
     const SharedKnowledge& knowledge,

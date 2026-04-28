@@ -69,24 +69,25 @@ std::optional<StateGridPosition> RunBFS(
 WorldPath ReconstructPath(
     StateGridPosition start,
     StateGridPosition goal,
-    std::unordered_map<StateGridPosition, StateGridPosition, StateGridPositionHash>& parent,
+    const std::unordered_map<StateGridPosition, StateGridPosition, StateGridPositionHash>& parent,
     std::optional<int> max_length,
     const std::function<Point(const StateGridPosition&)>& to_point
 ) {
     std::vector<Point> points;
     StateGridPosition p = goal;
 
-    while (!(p.GetX() == parent[p].GetX() && p.GetY() == parent[p].GetY())) {
+    while (!(p.GetX() == parent.at(p).GetX() && p.GetY() == parent.at(p).GetY())) {
         points.push_back(to_point(p));
-        p = parent[p];
+        p = parent.at(p);
     }
 
     points.push_back(to_point(start));
     std::reverse(points.begin(), points.end());
 
-    if (max_length.has_value() &&
-        points.size() > static_cast<size_t>(*max_length)) {
-        points.resize(*max_length);
+    size_t limit = max_length.has_value() ? static_cast<size_t>(*max_length) : 1000;
+
+    if (points.size() > limit) {
+        points.resize(limit);
     }
 
     return WorldPath(points);
@@ -116,10 +117,6 @@ WorldPath PathGenerator::GeneratePath(const PathRequest& req) const
     {
         case PathType::Shortest:
             return GenerateShortestPath(req.start, req.goal);
-        case PathType::Patrol:
-            return GeneratePatrolPath(req.start, req.max_length);
-        case PathType::Avoid:
-            return GenerateAvoidPath(req.start, req.goal, req.avoid);
         case PathType::Explore:
             return WorldPath{};
         default:
@@ -166,28 +163,6 @@ WorldPath PathGenerator::GenerateShortestPath(
         std::nullopt,
         [this](const StateGridPosition& p) { return ToDoublePoint(p); }
     );
-}
-
-WorldPath PathGenerator::GeneratePatrolPath(
-    StateGridPosition start,
-    std::optional<int> max_length
-) const
-{
-    (void)start;
-    (void)max_length;
-    return WorldPath{};
-}
-
-WorldPath PathGenerator::GenerateAvoidPath(
-    StateGridPosition start,
-    StateGridPosition goal,
-    const std::vector<StateGridPosition>& avoid
-) const
-{
-    (void)start;
-    (void)goal;
-    (void)avoid;
-    return WorldPath{};
 }
 
 // old signature kept for compatibility
@@ -338,9 +313,9 @@ WorldPath PathGenerator::GenerateExplorePath(
     points.push_back(ToDoublePoint(start));
     std::reverse(points.begin(), points.end());
 
-    if (max_length.has_value() &&
-        points.size() > static_cast<size_t>(*max_length)) {
-        points.resize(*max_length);
+    size_t limit = max_length.has_value() ? static_cast<size_t>(*max_length) : 1000;
+    if (points.size() > limit) {
+        points.resize(limit);
     }
 
     return WorldPath(points);

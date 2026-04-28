@@ -18,6 +18,14 @@
 #include "../tools/PathGenerator.hpp"
 #include "../Worlds/DynamicWorld.hpp"
 
+/**
+ * @class ClassicDynamicAgent
+ * @brief A specialized, environment-specific agent designed for dynamic world.
+ * * The ClassicDynamicAgent utilizes a highly robust, sensor-driven utility architecture
+ * to autonomously navigate, survive, and scale an economy. While it inherits from ClassicAgent
+ * that has a base Behavior Tree framework, its core decision-making and pathfinding logic are
+ * processed within the Sense() pipeline to ensure strict priority execution.
+ */
 namespace cse498 {
 
 enum class Direction {
