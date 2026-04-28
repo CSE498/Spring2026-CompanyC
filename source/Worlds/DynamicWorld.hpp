@@ -87,55 +87,61 @@ public:
 /**
  * @brief Run the agents and update the world one time
  */
-void Tick() override {
-  if (!mSessionStarted) {
-    GetTimer().Start("Game::Session");
-    mSessionStarted = true;
-  }
-  RunAgents();
-  UpdateWorld();
-
-  size_t wood = mWorldResourceCounts[ResourceIndex("wood")];
-  size_t stone = mWorldResourceCounts[ResourceIndex("stone")];
-  size_t steel = mWorldResourceCounts[ResourceIndex("steel")];
-  size_t wheat = mWorldResourceCounts[ResourceIndex("wheat")];
-
-  size_t lumberyards = 0;
-  size_t quarries = 0;
-  size_t farms = 0;
-
-  for (const auto & building : mBuildings) {
-    const auto & resources = building.GetResources();
-
-    if (resources.count("wood") && resources.size() == 1) {
-      ++lumberyards;
+  void Tick() override {
+    if (!mSessionStarted) {
+      GetTimer().Start("Game::Session");
+      mSessionStarted = true;
     }
-    else if (resources.count("wheat") && resources.size() == 1) {
-      ++farms;
-    }
-    else if (resources.count("stone") && resources.count("steel")) {
-      ++quarries;
+    RunAgents();
+    UpdateWorld();
+
+    const std::string message = BuildStatusMessage();
+    for (const auto & agent_ptr : agent_set) {
+      if (agent_ptr->GetName() == kGhostAgentName) {
+        agent_ptr->Notify(message);
+      }
     }
   }
 
-  std::string message =
-    "Tick " + std::to_string(mUpdateCounter) +
-    " | Agents: " + std::to_string(agent_set.size()) +
-    " | Buildings: " + std::to_string(mBuildings.size()) + "\n" +
-    "Resources -> Wood: " + std::to_string(wood) +
-    ", Stone: " + std::to_string(stone) +
-    ", Steel: " + std::to_string(steel) +
-    ", Wheat: " + std::to_string(wheat) + "\n" +
-    "Production -> Lumberyards: " + std::to_string(lumberyards) +
-    ", Quarries: " + std::to_string(quarries) +
-    ", Farms: " + std::to_string(farms);
+  /**
+   * @brief Builds a human-readable status string summarizing the current world
+   *        state — tick count, agents, buildings, resource totals, and per-type
+   *        production counts. Used to notify the ghost ("Player") agent.
+   */
+  std::string BuildStatusMessage() const {
+    const size_t wood  = mWorldResourceCounts[ResourceIndex("wood")];
+    const size_t stone = mWorldResourceCounts[ResourceIndex("stone")];
+    const size_t steel = mWorldResourceCounts[ResourceIndex("steel")];
+    const size_t wheat = mWorldResourceCounts[ResourceIndex("wheat")];
 
-  for (const auto & agent_ptr : agent_set) {
-    if (agent_ptr->GetName() == kGhostAgentName) {
-      agent_ptr->Notify(message);
+    size_t lumberyards = 0;
+    size_t quarries = 0;
+    size_t farms = 0;
+    for (const auto & building : mBuildings) {
+      const auto & resources = building.GetResources();
+      if (resources.count("wood") && resources.size() == 1) {
+        ++lumberyards;
+      }
+      else if (resources.count("wheat") && resources.size() == 1) {
+        ++farms;
+      }
+      else if (resources.count("stone") && resources.count("steel")) {
+        ++quarries;
+      }
     }
+
+    return
+      "Tick " + std::to_string(mUpdateCounter) +
+      " | Agents: " + std::to_string(agent_set.size()) +
+      " | Buildings: " + std::to_string(mBuildings.size()) + "\n" +
+      "Resources -> Wood: " + std::to_string(wood) +
+      ", Stone: " + std::to_string(stone) +
+      ", Steel: " + std::to_string(steel) +
+      ", Wheat: " + std::to_string(wheat) + "\n" +
+      "Production -> Lumberyards: " + std::to_string(lumberyards) +
+      ", Quarries: " + std::to_string(quarries) +
+      ", Farms: " + std::to_string(farms);
   }
-}
 
   /**
    * @brief Provides a mapping of resource name to index of that resource
