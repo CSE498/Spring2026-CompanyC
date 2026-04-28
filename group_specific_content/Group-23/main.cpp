@@ -1,9 +1,9 @@
 #include "../../source/tools/EndGameScreen.hpp"
 #include "../../source/core/WorldPosition.hpp"
 #include "../../source/tools/DataLog.hpp"
+#include "../../source/tools/OutputManager.hpp"
 #include "../../source/Worlds/MazeWorld.hpp"
 #include <fstream>
-#include <iostream>
 #include <thread>
 #include <chrono>
 #include <vector>
@@ -15,6 +15,19 @@
 // This is a file used to help show the functionality of the end game screen file
 // written with the help of claude ai
 int main() {
+    cse498::OutputManager logger;
+    logger.setLevel(cse498::LogLevel::Verbose);
+    logger.enableTimestamps(true);
+    logger.enableMetadata(true);
+    logger.enableTarget(cse498::OutputTarget::Console, true);
+    logger.enableTarget(cse498::OutputTarget::Buffer, true);
+    if (logger.openLogFile("result.log")) {
+        logger.enableTarget(cse498::OutputTarget::File, true);
+    }
+
+    cse498::LogContext ctx;
+    ctx.tag = "Group23";
+
     cse498::MazeWorld world; // ex just to access WorldBase owned timer
 
     // Start session timer (timer usage ex)
@@ -76,15 +89,21 @@ int main() {
             ? ("Score: " + std::to_string(static_cast<long long>(score)))
             : ("Playtime: " + playtimeText + " sec");
 
+    logger.logNormal("Session duration: " + playtimeText + " sec", ctx);
+    logger.logNormal(hasScore ? ("Score: " + std::to_string(static_cast<long long>(score)))
+                              : "No score (playtime used as title)", ctx);
+    logger.logVerbose("Stats count: " + std::to_string(stats.size()), ctx);
+    logger.logVerbose("Heatmap entries: " + std::to_string(heatmap.Count()), ctx);
+
     // Build the HTML for the results page
     const std::string html = cse498::BuildEndGameHtml(hasScore, score, durationSeconds, stats, heatmap, 10);
 
     std::ofstream out("result.html");
     if (!out) {
-        std::cerr << "Failed to open output file\n";
+        logger.logNormal("Failed to open output file", ctx);
         return 1;
     }
     out << html;
-    std::cout << "Written to result.html\n";
+    logger.logNormal("Written to result.html", ctx);
     return 0;
 }
