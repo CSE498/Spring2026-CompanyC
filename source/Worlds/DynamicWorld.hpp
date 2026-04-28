@@ -237,12 +237,24 @@ private:
     agent.AddAction("down_right", MOVE_DOWN_RIGHT);
   }
 
-   /** @brief Configure an agent with available actions.
-   *
-   * Any agent named "builder" gains build abilities.
-   *
-   * @param agent The agent to configure.
-   */
+  /**
+ * @brief Configure an agent with available actions based on its name.
+ *
+ * Agents are assigned actions according to their name:
+ * - An agent named "builder" gains all build actions
+ *   (lumberyard, quarry, spawner, farm, townhall) in addition to
+ *   movement and collection.
+ * - The ghost agent (named kGhostAgentName, currently "Player") receives
+ *   only movement actions — no collect, no build. It also bypasses
+ *   traversability checks elsewhere in the world (see DoAction).
+ * - Any other agent receives movement actions plus the collect action.
+ *
+ * @note This replaces the earlier "leader agent" model in which the first
+ *       agent added was implicitly assigned build abilities. Build access
+ *       is now opt-in by name ("builder") rather than by insertion order.
+ *
+ * @param agent The agent to configure.
+ */
   void ConfigAgent(AgentBase & agent) override {
     if (agent.GetName() == "builder") {
       agent.AddAction("build_lumberyard", BUILD_LUMBERYARD);
