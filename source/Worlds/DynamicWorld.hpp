@@ -1,8 +1,10 @@
 #pragma once
 
-#include <random>
-#include <iostream>
 #include <algorithm>
+#include <cassert>
+#include <iostream>
+#include <random>
+#include <stdexcept>
 
 #include "../core/WorldBase.hpp"
 #include "../core/Building.hpp"
@@ -319,14 +321,30 @@ private:
    * @param height Height of the world.
    */
   void GenerateWorld(size_t width, size_t height) {
+    // Resource cell types must be configured before world generation.
+    assert(mGrassId != 0 && mTreeId != 0 && mStoneId != 0 && mWheatId != 0);
+    if (mGrassId == 0 || mTreeId == 0 || mStoneId == 0 || mWheatId == 0) {
+      throw std::logic_error(
+        "GenerateWorld called before resource cell types were configured");
+    }
 
-    assert(mGrassId != 0 && mTreeId != 0 && mStoneId != 0 && mWheatId != 0); // Ensure cell types are configured before generating world.
-    assert(mQuarryId != 0 && mLumberyardId != 0 && mFarmId != 0 && mSpawnerId != 0 && mTownhallId != 0); // Ensure all building types are configured.
+    // Building cell types must be configured before world generation.
+    assert(mQuarryId != 0 && mLumberyardId != 0 && mFarmId != 0 &&
+           mSpawnerId != 0 && mTownhallId != 0);
+    if (mQuarryId == 0 || mLumberyardId == 0 || mFarmId == 0 ||
+        mSpawnerId == 0 || mTownhallId == 0) {
+      throw std::logic_error(
+        "GenerateWorld called before building cell types were configured");
+        }
+
+    // Cluster generation requires width and height of at least 5.
+    assert(width >= 5 && height >= 5);
+    if (width < 5 || height < 5) {
+      throw std::invalid_argument(
+        "GenerateWorld requires width >= 5 and height >= 5");
+    }
 
     main_grid.Resize(width, height, mGrassId);
-
-    assert(width >= 5 && height >= 5); // Distribution requires upper bound (width-3) >= lower bound (2), so minimum is 5.
-
     std::random_device rd;
     std::mt19937 gen(rd());
 
