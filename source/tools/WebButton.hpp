@@ -59,7 +59,7 @@ private:
   int         border_radius_ = DEFAULT_BORDER_RADIUS;          ///< Border radius for rounded corners
 
   static inline int    next_id_      = 0;                      ///< Counter for generating unique IDs
-  static inline size_t freeze_count_ = 0;                      ///< Freeze nesting depth for batched DOM updates
+  size_t               freeze_count_ = 0;                      ///< Freeze nesting depth for batched DOM updates (per-instance)
 
 #ifdef __EMSCRIPTEN__
   emscripten::val dom_element_;

@@ -65,6 +65,7 @@ WebButton::WebButton(WebButton&& other) noexcept
     , border_color_(std::move(other.border_color_))
     , border_width_(other.border_width_)
     , border_radius_(other.border_radius_)
+    , freeze_count_(other.freeze_count_)
 #ifdef __EMSCRIPTEN__
     , dom_element_(std::move(other.dom_element_))
 #endif
@@ -77,6 +78,7 @@ WebButton::WebButton(WebButton&& other) noexcept
   std::cout << "[WebButton] Moved: " << element_id_ << std::endl;
 #endif
   other.element_id_.clear();
+  other.freeze_count_ = 0;
 }
 
 // Move assignment
@@ -98,6 +100,7 @@ WebButton& WebButton::operator=(WebButton&& other) noexcept {
     border_color_      = std::move(other.border_color_);
     border_width_      = other.border_width_;
     border_radius_     = other.border_radius_;
+    freeze_count_      = other.freeze_count_;
 
 #ifdef __EMSCRIPTEN__
     dom_element_ = std::move(other.dom_element_);
@@ -107,6 +110,7 @@ WebButton& WebButton::operator=(WebButton&& other) noexcept {
     std::cout << "[WebButton] Move-assigned: " << element_id_ << std::endl;
 #endif
     other.element_id_.clear();
+    other.freeze_count_ = 0;
   }
   return *this;
 }
