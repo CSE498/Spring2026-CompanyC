@@ -64,7 +64,7 @@ void ClassicAgent::BuildTree() {
         [](Blackboard & bb) -> Status {
             auto it = bb.find("chosen_action");
             if (it == bb.end() || std::get<std::string>(it->second) == "remain_still") {
-                bb["chosen_action"].emplace<std::string>("up"); // Placeholder
+                bb["chosen_action"].emplace<std::string>("remain_still"); // Placeholder
             }
             return Status::Success;
         }
