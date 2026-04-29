@@ -411,7 +411,9 @@ EM_JS(void, CSE498_DrawImageJs,
 void WebCanvas::DrawImage(const std::string& url,
                           float x, float y, float w, float h,
                           const std::string& fallback_fill_css) {
-  if (w <= 0.0f || h <= 0.0f) return;
+  if (w <= 0.0f || h <= 0.0f) {
+    throw std::invalid_argument("WebCanvas::DrawImage: width and height must be positive");
+  }
 #ifdef __EMSCRIPTEN__
   EnsureReady_();
   if (!url.empty() && CSE498_IsImageReady(url.c_str())) {

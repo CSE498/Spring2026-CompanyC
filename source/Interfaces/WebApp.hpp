@@ -131,6 +131,8 @@ class WebApp {
     kActionUpRight   = 12,
     kActionDownLeft  = 13,
     kActionDownRight = 14,
+    kActionZoomIn    = 15,
+    kActionZoomOut   = 16,
   };
 
   static std::string ActionIdForCode(int code);

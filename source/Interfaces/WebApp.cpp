@@ -356,10 +356,16 @@
 
   void WebApp::ConnectToServer(const std::string& url) {
     auto connect_result = ws_client_.Connect(url);
-    if (!connect_result) return;
+    if (!connect_result) {
+      if (interface_) interface_->Notify("Failed to connect to server.", "status");
+      return;
+    }
 
     auto start_result = sync_.Start();
-    if (!start_result) return;
+    if (!start_result) {
+      if (interface_) interface_->Notify("Failed to start sync.", "status");
+      return;
+    }
 
     sync_.OnLoadComplete([this]() {
       if (load_callback_) load_callback_();
@@ -569,7 +575,7 @@
   return;
 }
 
-if (action_code == 15) {
+if (action_code == kActionZoomIn) {
   use_viewport_ = true;
   viewport_cell_px_ = std::min(viewport_cell_px_ + 8, 96);
   if (focus_col_ >= 0 && focus_row_ >= 0) {
@@ -581,7 +587,7 @@ if (action_code == 15) {
   return;
 }
 
-if (action_code == 16) {
+if (action_code == kActionZoomOut) {
   const int fit_cell_px = std::min(
       kCanvasWidthPx / interface_->GetGridWidth(),
       kCanvasHeightPx / interface_->GetGridHeight()
@@ -675,8 +681,8 @@ if (action_id.empty()) return;
       case kActionUpRight:   return "up_right";
       case kActionDownLeft:  return "down_left";
       case kActionDownRight: return "down_right";
-      case 15: return "zoom_in";
-      case 16: return "zoom_out";
+      case kActionZoomIn:  return "zoom_in";
+      case kActionZoomOut: return "zoom_out";
       default:               return std::string();
     }
   }
@@ -696,8 +702,8 @@ if (action_id.empty()) return;
     if (action_id == "up_right")  return kActionUpRight;
     if (action_id == "down_left") return kActionDownLeft;
     if (action_id == "down_right")return kActionDownRight;
-    if (action_id == "zoom_in") return 15;
-    if (action_id == "zoom_out") return 16;
+    if (action_id == "zoom_in")  return kActionZoomIn;
+    if (action_id == "zoom_out") return kActionZoomOut;
     return 0;
   }
 
@@ -869,34 +875,19 @@ if (world_) {
     }
   }
 
-  // Map ID → Name
-  std::string most_action_name = "None";
-
-  switch (max_action_id) {
-    case 5: most_action_name = "Up"; break;
-    case 6: most_action_name = "Down"; break;
-    case 7: most_action_name = "Left"; break;
-    case 8: most_action_name = "Right"; break;
-    case 9: most_action_name = "Collect"; break;
-    case 10: most_action_name = "Build"; break;
-  }
+  std::string most_action_name = ActionIdForCode(static_cast<int>(max_action_id));
+  if (most_action_name.empty()) most_action_name = "None";
 
   analysis_text << "\nMost Frequent Action: " << most_action_name << "\n\n";
 
   // --- Action Breakdown ---
   analysis_text << "=== Action Breakdown ===\n\n";
-  
-  std::vector<std::pair<std::string, size_t>> action_labels = {
-    {"Up", action_counts[5]},
-    {"Down", action_counts[6]},
-    {"Left", action_counts[7]},
-    {"Right", action_counts[8]},
-    {"Collect", action_counts[9]},
-    {"Build", action_counts[10]}
-  };
 
-  for (const auto& [name, count] : action_labels) {
-    analysis_text << name << ": " << count << "\n";
+  for (const auto& [id, count] : action_counts) {
+    const std::string name = ActionIdForCode(static_cast<int>(id));
+    if (!name.empty()) {
+      analysis_text << name << ": " << count << "\n";
+    }
   }
 
   
