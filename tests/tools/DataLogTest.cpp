@@ -2,7 +2,6 @@
 
 #include <initializer_list>
 #include <limits>
-#include <map>
 #include <string>
 #include <unordered_map>
 
@@ -230,23 +229,6 @@ TEST_CASE("DataLog supports named snapshots", "[core]") {
     REQUIRE(health_stats.count == 2);
     CHECK(health_stats.sum == Approx(10.0));
     CHECK(health_stats.mean == Approx(5.0));
-  }
-
-  SECTION("Test ordered map snapshot") {
-    std::map<std::string, int> values;
-    values["score"] = 7;
-    values["health"] = 3;
-
-    log.AddSnapshot(values);
-
-    const auto score_stats = log.Summary("score");
-    const auto health_stats = log.Summary("health");
-
-    REQUIRE(score_stats.count == 1);
-    CHECK(score_stats.mean == Approx(7.0));
-
-    REQUIRE(health_stats.count == 1);
-    CHECK(health_stats.mean == Approx(3.0));
   }
 }
 

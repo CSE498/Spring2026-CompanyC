@@ -10,7 +10,6 @@
 #include <cmath>
 #include <concepts>
 #include <cstddef>
-#include <map>
 #include <numeric>
 #include <string>
 #include <type_traits>
@@ -32,29 +31,6 @@ class DataLog {
     return true;
   }
 
-  template <typename MapT>
-  void AddSnapshotValues(const MapT& values)
-    requires std::is_convertible_v<typename MapT::mapped_type, T>
-  {
-    for (auto& [name, series] : mData) {
-      if (!values.contains(name)) {
-        series.push_back(T{});
-      }
-    }
-
-    for (const auto& [name, value] : values) {
-      auto& series = mData[name];
-      if (series.size() < mSnapshotCount) {
-        series.resize(mSnapshotCount, T{});
-      }
-
-      const T converted_value = static_cast<T>(value);
-      series.push_back(IsValid(converted_value) ? converted_value : T{});
-    }
-
-    ++mSnapshotCount;
-  }
-
  public:
   struct Stats {
     std::size_t count = 0;
@@ -71,18 +47,23 @@ class DataLog {
     }
   }
 
-  template <typename U>
-  void AddSnapshot(const std::unordered_map<std::string, U>& values)
-    requires std::is_convertible_v<U, T>
-  {
-    AddSnapshotValues(values);
-  }
+  void AddSnapshot(const std::unordered_map<std::string, T>& values) {
+    for (auto& [name, series] : mData) {
+      if (!values.contains(name)) {
+        series.push_back(T{});
+      }
+    }
 
-  template <typename U>
-  void AddSnapshot(const std::map<std::string, U>& values)
-    requires std::is_convertible_v<U, T>
-  {
-    AddSnapshotValues(values);
+    for (const auto& [name, value] : values) {
+      auto& series = mData[name];
+      if (series.size() < mSnapshotCount) {
+        series.resize(mSnapshotCount, T{});
+      }
+
+      series.push_back(IsValid(value) ? value : T{});
+    }
+
+    ++mSnapshotCount;
   }
 
   [[nodiscard]] const std::vector<T>& Values(const std::string& name) const noexcept {
@@ -103,8 +84,9 @@ class DataLog {
 
     stats.sum = std::accumulate(values.begin(), values.end(), 0.0);
     stats.mean = stats.sum / values.size();
-    stats.min = *std::min_element(values.begin(), values.end());
-    stats.max = *std::max_element(values.begin(), values.end());
+    const auto [min_it, max_it] = std::minmax_element(values.begin(), values.end());
+    stats.min = *min_it;
+    stats.max = *max_it;
 
     std::vector<T> sorted = values;
     std::sort(sorted.begin(), sorted.end());
@@ -119,9 +101,8 @@ class DataLog {
   [[nodiscard]] std::vector<std::string> Names() const {
     std::vector<std::string> names;
     names.reserve(mData.size());
-    for (const auto& [name, values] : mData) {
-      (void)values;
-      names.push_back(name);
+    for (const auto& entry : mData) {
+      names.push_back(entry.first);
     }
     std::sort(names.begin(), names.end());
     return names;

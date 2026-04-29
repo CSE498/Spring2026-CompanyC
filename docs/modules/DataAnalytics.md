@@ -82,8 +82,7 @@ const std::vector<ActionEntry>& getActionsByAgent(size_t id) const;
 
 // DataLog<T>
 void Add(const std::string& name, const T& value);
-template <typename U>
-void AddSnapshot(const std::unordered_map<std::string, U>& values);
+void AddSnapshot(const std::unordered_map<std::string, T>& values);
 const std::vector<T>& Values(const std::string& name) const;
 Stats Summary(const std::string& name) const;
 std::vector<std::string> Names() const;
