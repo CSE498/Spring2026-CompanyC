@@ -288,7 +288,7 @@ namespace cse498
         static constexpr int kHunterDefaultHP = 10;
         static constexpr int kThrowDamage = 10;
         static constexpr int kThrowRange = 4;
-        static constexpr int kEnemyContactDamage = 1;
+        static constexpr int kEnemyContactDamage = 10;
         static constexpr int kChestGoldReward = 8;
         static constexpr int kGoblinGoldCost = 10;
         static constexpr int kAgentSpawnExclusionDistance = 4;
