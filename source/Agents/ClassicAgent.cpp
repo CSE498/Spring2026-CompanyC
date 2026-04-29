@@ -27,8 +27,10 @@ enum class Direction {
 namespace {
 
 bool IsInBounds(const WorldGrid& grid, const WorldPosition& p) {
-    return p.CellX() < grid.GetWidth() &&
-           p.CellY() < grid.GetHeight();
+    return p.CellX() < grid.GetWidth() && 
+           p.CellY() < grid.GetHeight() && 
+           p.CellX() > 0 && 
+           p.CellY() > 0;
 }
 
 Direction StepToDirection(const Point& a, const Point& b) {
@@ -63,7 +65,10 @@ void ClassicAgent::BuildTree() {
         "DefaultWander",
         [](Blackboard & bb) -> Status {
             auto it = bb.find("chosen_action");
-            if (it == bb.end() || std::get<std::string>(it->second) == "remain_still") {
+            if (it == bb.end() || 
+                (std::get_if<std::string>(&it->second) != nullptr &&
+                 *std::get_if<std::string>(&it->second) == "remain_still")) {
+                    
                 bb["chosen_action"].emplace<std::string>("remain_still"); // Placeholder
             }
             return Status::Success;
@@ -73,7 +78,6 @@ void ClassicAgent::BuildTree() {
     default_root->addChild(wander_action);
     tree.setRoot(default_root);
 }
-
 
 void ClassicAgent::Sense( WorldGrid& grid) {
     tree.setMemory<std::any>("grid", std::cref(grid));

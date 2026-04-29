@@ -45,8 +45,8 @@ class WorldView {
 public:
     WorldView(int w, int h) : width(w), height(h) {}
 
-    const int width;
-    const int height;
+    // const int width; // These were causing compilation to fail since they're already declared
+    // const int height;
 
     bool IsWalkable(const StateGridPosition& p) const {
         if (p.GetX() < 0 || p.GetX() >= width ||
@@ -66,8 +66,8 @@ public:
         blocked_positions.erase(p);
     }
 private:
-    int width = 0;
-    int height = 0;
+    const int width = 0;
+    const int height = 0;
     std::unordered_set<StateGridPosition, StateGridPositionHash> blocked_positions;
 };
 
