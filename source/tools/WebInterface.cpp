@@ -59,8 +59,11 @@ void WebInterface::Notify(const std::string& message,
     // Expected format: "key:value"  (e.g., "wood:3")
     const auto colon = message.find(':');
     if (colon != std::string::npos) {
-      resources_[message.substr(0, colon)] =
-          std::stoi(message.substr(colon + 1));
+      try {
+        resources_[message.substr(0, colon)] =
+            std::stoi(message.substr(colon + 1));
+      } catch (...) {
+      }
     }
   } else if (msg_type == "resource_clear") {
     resources_.clear();
