@@ -126,4 +126,135 @@ TEST_CASE("GoblinAgent supports custom target name", "[GoblinAgent]") {
   REQUIRE(goblin.CanBePaid());
 }
 
+// Written by Claude
+TEST_CASE("GoblinAgent CanBePaid adjacency edge cases", "[GoblinAgent]") {
+
+    SECTION("player directly adjacent — right") {
+        MockWorld world;
+        auto &goblin = world.AddAgent<GoblinAgent>("Goblin");
+        auto &player = world.AddAgent<DummyAgent>("Player");
+
+        goblin.SetLocation(WorldPosition{4, 4});
+        player.SetLocation(WorldPosition{5, 4});
+
+        goblin.SelectAction(world.GetGrid());
+
+        REQUIRE(goblin.IsPlayerAdjacent());
+        REQUIRE(goblin.CanBePaid());
+    }
+
+    SECTION("player directly adjacent — left") {
+        MockWorld world;
+        auto &goblin = world.AddAgent<GoblinAgent>("Goblin");
+        auto &player = world.AddAgent<DummyAgent>("Player");
+
+        goblin.SetLocation(WorldPosition{4, 4});
+        player.SetLocation(WorldPosition{3, 4});
+
+        goblin.SelectAction(world.GetGrid());
+
+        REQUIRE(goblin.IsPlayerAdjacent());
+        REQUIRE(goblin.CanBePaid());
+    }
+
+    SECTION("player directly adjacent — above") {
+        MockWorld world;
+        auto &goblin = world.AddAgent<GoblinAgent>("Goblin");
+        auto &player = world.AddAgent<DummyAgent>("Player");
+
+        goblin.SetLocation(WorldPosition{4, 4});
+        player.SetLocation(WorldPosition{4, 3});
+
+        goblin.SelectAction(world.GetGrid());
+
+        REQUIRE(goblin.IsPlayerAdjacent());
+        REQUIRE(goblin.CanBePaid());
+    }
+
+    SECTION("player directly adjacent — below") {
+        MockWorld world;
+        auto &goblin = world.AddAgent<GoblinAgent>("Goblin");
+        auto &player = world.AddAgent<DummyAgent>("Player");
+
+        goblin.SetLocation(WorldPosition{4, 4});
+        player.SetLocation(WorldPosition{4, 5});
+
+        goblin.SelectAction(world.GetGrid());
+
+        REQUIRE(goblin.IsPlayerAdjacent());
+        REQUIRE(goblin.CanBePaid());
+    }
+
+    SECTION("player diagonal only — not adjacent") {
+        MockWorld world;
+        auto &goblin = world.AddAgent<GoblinAgent>("Goblin");
+        auto &player = world.AddAgent<DummyAgent>("Player");
+
+        goblin.SetLocation(WorldPosition{4, 4});
+        player.SetLocation(WorldPosition{5, 5});
+
+        goblin.SelectAction(world.GetGrid());
+
+        REQUIRE_FALSE(goblin.IsPlayerAdjacent());
+        REQUIRE_FALSE(goblin.CanBePaid());
+    }
+
+    SECTION("player on same cell — not adjacent") {
+        MockWorld world;
+        auto &goblin = world.AddAgent<GoblinAgent>("Goblin");
+        auto &player = world.AddAgent<DummyAgent>("Player");
+
+        goblin.SetLocation(WorldPosition{4, 4});
+        player.SetLocation(WorldPosition{4, 4});
+
+        goblin.SelectAction(world.GetGrid());
+
+        REQUIRE_FALSE(goblin.IsPlayerAdjacent());
+        REQUIRE_FALSE(goblin.CanBePaid());
+    }
+
+    SECTION("player more than one cell away") {
+        MockWorld world;
+        auto &goblin = world.AddAgent<GoblinAgent>("Goblin");
+        auto &player = world.AddAgent<DummyAgent>("Player");
+
+        goblin.SetLocation(WorldPosition{4, 4});
+        player.SetLocation(WorldPosition{6, 4});
+
+        goblin.SelectAction(world.GetGrid());
+
+        REQUIRE_FALSE(goblin.IsPlayerAdjacent());
+        REQUIRE_FALSE(goblin.CanBePaid());
+    }
+}
+
+// This one too ^^
+TEST_CASE("GoblinAgent updates player_adjacent state despite always returning action 0", "[GoblinAgent]") {
+    MockWorld world;
+    auto &goblin = world.AddAgent<GoblinAgent>("Goblin");
+    auto &player = world.AddAgent<DummyAgent>("Player");
+
+    goblin.SetLocation(WorldPosition{4, 4});
+    player.SetLocation(WorldPosition{5, 4});
+
+    size_t action = goblin.SelectAction(world.GetGrid());
+
+    // Action is always 0 regardless of sensing
+    REQUIRE(action == 0);
+
+    // But sensing must still have run and updated adjacency state
+    REQUIRE(goblin.IsPlayerAdjacent());
+    REQUIRE(goblin.CanBePaid());
+
+    // Move player out of adjacency and sense again
+    player.SetLocation(WorldPosition{8, 8});
+    action = goblin.SelectAction(world.GetGrid());
+
+    REQUIRE(action == 0);
+
+    // Adjacency state must reflect the updated position
+    REQUIRE_FALSE(goblin.IsPlayerAdjacent());
+    REQUIRE_FALSE(goblin.CanBePaid());
+}
+
 } // namespace cse498

@@ -6,8 +6,6 @@
 
 #pragma once
 
-#include <cassert>
-
 #include "../core/AgentBase.hpp"
 
 namespace cse498 {

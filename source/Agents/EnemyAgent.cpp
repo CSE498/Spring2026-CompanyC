@@ -239,8 +239,9 @@ EnemyAgent &EnemyAgent::SetVisionRadius(size_t r) {
  * @return Reference to this enemy agent.
  */
 EnemyAgent &EnemyAgent::SetTargetName(const std::string &name) {
-  target_name = name;
-  return *this;
+    assert(!name.empty() && "Target name must not be empty");
+    target_name = name;
+    return *this;
 }
 
 /**
@@ -266,19 +267,25 @@ void EnemyAgent::Sense(WorldGrid &grid) {
   const WorldPosition my_pos = GetLocation().AsWorldPosition();
 
   std::vector<size_t> known_agents = world.GetKnownAgents(*this);
+  std::optional<WorldPosition> closest;
+  int closest_dist = std::numeric_limits<int>::max();
+
   for (size_t agent_id : known_agents) {
-    if (agent_id == GetID()) {
-      continue;
-    }
+      if (agent_id == GetID()) continue;
 
-    const AgentBase &other = world.GetAgent(agent_id);
-    if (other.GetName().find(target_name) == std::string::npos) {
-      continue;
-    }
+      const AgentBase& other = world.GetAgent(agent_id);
+      if (other.GetName().find(target_name) == std::string::npos) continue;
 
-    sensed_player_pos = other.GetLocation().AsWorldPosition();
-    break;
+      const WorldPosition candidate = other.GetLocation().AsWorldPosition();
+      const int dist = ManhattanDistance(my_pos, candidate);
+
+      if (dist < closest_dist) {
+        closest_dist = dist;
+        closest = candidate;
+      }
   }
+
+  sensed_player_pos = closest;
 
   if (sensed_player_pos.has_value()) {
     const int dist = ManhattanDistance(my_pos, *sensed_player_pos);

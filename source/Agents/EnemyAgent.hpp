@@ -126,7 +126,10 @@ public:
    * @brief Set the maximum health points of this enemy.
    * @param value New maximum HP value; values below zero are clamped to zero.
    */
-  void SetMaxHP(int value) { max_hp = value < 0 ? 0 : value; }
+  void SetMaxHP(int value) { 
+    max_hp = value < 0 ? 0 : value; 
+    hp = hp > max_hp ? max_hp : hp;
+}
 
   /**
    * @brief Apply damage to this enemy.

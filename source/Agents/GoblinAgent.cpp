@@ -15,9 +15,11 @@ namespace {
  * @param b Second position.
  * @return The Manhattan distance.
  */
-int ManhattanDistance(const WorldPosition &a, const WorldPosition &b) {
-  return std::abs(static_cast<int>(a.CellX()) - static_cast<int>(b.CellX())) +
-         std::abs(static_cast<int>(a.CellY()) - static_cast<int>(b.CellY()));
+size_t ManhattanDistance(const WorldPosition& a, const WorldPosition& b) {
+    auto abs_diff = [](size_t x, size_t y) { return x > y ? x - y : y - x; };
+
+    return abs_diff(a.CellX(), b.CellX()) +
+           abs_diff(a.CellY(), b.CellY());
 }
 
 } // namespace
@@ -45,11 +47,12 @@ bool GoblinAgent::IsPlayerAdjacent() const { return player_adjacent; }
 bool GoblinAgent::CanBePaid() const { return blocking && player_adjacent; }
 
 GoblinAgent &GoblinAgent::SetTargetName(const std::string &name) {
+  assert(!name.empty() && "Target name must not be empty");
   target_name = name;
   return *this;
 }
 
-bool GoblinAgent::Initialize() { return true; }
+bool GoblinAgent::Initialize() { if (!target_name.empty()) {return true;} }
 
 void GoblinAgent::Sense(WorldGrid & /*grid*/) {
   player_adjacent = false;
