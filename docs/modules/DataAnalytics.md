@@ -19,7 +19,7 @@ The module is centered around five utilities located in `source/tools`.
 
 `ActionLog` records actions performed by agents. Each entry stores the action time, the action type, and the action duration. The class organizes this data by agent ID so analytics can inspect one agent's history or the full set of actions for a run.
 
-`DataLog<T>` stores sampled values and exposes summary statistics over those samples. For numeric types it can compute mean and median, and for ordered types it can return minimum and maximum values. The default use case is numeric data, but the template also supports storing other ordered values for later analysis.
+`DataLog<T>` stores named series of sampled values and exposes summary statistics for each series. For arithmetic types it can compute count, sum, mean, median, minimum, and maximum values. The template can also store non-numeric values, such as positions, when callers only need named collection and retrieval.
 
 `Timer` measures named sections of the system, such as world updates, decision making, replay, rendering, or logging. It tracks the number of completed runs and keeps the last, minimum, maximum, total, and average duration for each named timer.
 
@@ -55,7 +55,7 @@ The module records per-agent actions, timestamps, and durations so that develope
 
 ### **2.2** Statistical Summaries
 
-`DataLog` supports collecting a sequence of samples and producing lightweight summaries such as mean, median, minimum, and maximum. This makes it suitable for tracking gameplay metrics, performance samples, or other values gathered during a run.
+`DataLog` supports collecting named sample series and producing lightweight summaries such as count, sum, mean, median, minimum, and maximum. This makes it suitable for tracking gameplay metrics, performance samples, heatmap positions, or other values gathered during a run.
 
 ### **2.3** Performance Profiling
 
@@ -81,13 +81,12 @@ const std::unordered_map<size_t, std::vector<ActionEntry>>& getActions() const;
 const std::vector<ActionEntry>& getActionsByAgent(size_t id) const;
 
 // DataLog<T>
-void Add(const T& value);
-double Mean() const;
-double Median() const;
-T Min() const;
-T Max() const;
-std::size_t Count() const;
-bool IsEmpty() const;
+void Add(const std::string& name, const T& value);
+template <typename U>
+void AddSnapshot(const std::unordered_map<std::string, U>& values);
+const std::vector<T>& Values(const std::string& name) const;
+Stats Summary(const std::string& name) const;
+std::vector<std::string> Names() const;
 void Clear();
 
 // Timer
