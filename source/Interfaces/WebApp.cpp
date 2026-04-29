@@ -216,8 +216,79 @@
     stringToUTF8(val, ptr, len);
     return ptr;
   });
+  
+  EM_JS(void, WebAppEnsureEndGameOverlay, (), {
+    if (document.getElementById('cse498_endgame_overlay')) return;
+
+    var overlay = document.createElement('div');
+    overlay.id = 'cse498_endgame_overlay';
+    overlay.style.display = 'none';
+    overlay.style.position = 'fixed';
+    overlay.style.inset = '0';
+    overlay.style.background = 'rgba(0,0,0,0.6)';
+    overlay.style.zIndex = '10000';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.padding = '24px';
+
+    var frameWrap = document.createElement('div');
+    frameWrap.style.width = 'min(90vw, 900px)';
+    frameWrap.style.height = 'min(85vh, 700px)';
+    frameWrap.style.background = '#fff';
+    frameWrap.style.borderRadius = '10px';
+    frameWrap.style.overflow = 'hidden';
+    frameWrap.style.boxShadow = '0 10px 30px rgba(0,0,0,0.3)';
+    frameWrap.style.position = 'relative';
+
+    var closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Close';
+    closeBtn.style.position = 'absolute';
+    closeBtn.style.top = '10px';
+    closeBtn.style.right = '10px';
+    closeBtn.style.zIndex = '2';
+    closeBtn.style.padding = '8px 12px';
+    closeBtn.style.border = '1px solid #9ca3af';
+    closeBtn.style.borderRadius = '8px';
+    closeBtn.style.background = 'white';
+    closeBtn.style.cursor = 'pointer';
+    closeBtn.onclick = function() {
+      overlay.style.display = 'none';
+    };
+
+    var iframe = document.createElement('iframe');
+    iframe.id = 'cse498_endgame_iframe';
+    iframe.style.width = '100%';
+    iframe.style.height = '100%';
+    iframe.style.border = '0';
+
+    frameWrap.appendChild(closeBtn);
+    frameWrap.appendChild(iframe);
+    overlay.appendChild(frameWrap);
+    document.body.appendChild(overlay);
+  });
+
+  EM_JS(void, WebAppShowEndGameHtml, (const char* html_ptr), {
+    var overlay = document.getElementById('cse498_endgame_overlay');
+    var iframe = document.getElementById('cse498_endgame_iframe');
+    if (!overlay || !iframe) return;
+
+    var html = html_ptr ? UTF8ToString(html_ptr) : "";
+    var doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    overlay.style.display = 'flex';
+  });
+
+  EM_JS(void, WebAppHideEndGameHtml, (), {
+    var overlay = document.getElementById('cse498_endgame_overlay');
+    if (overlay) overlay.style.display = 'none';
+  });
 
   }  // namespace
+
+    
 
   std::string GetUrlParam(const std::string& name, const std::string& default_value) {
     char* raw = GetUrlParam_impl(name.c_str());
@@ -236,6 +307,7 @@
     layout_ = std::make_unique<cse498::WebLayout>();
     layout_->createShell();
     WebAppPopulateUiControls();
+    WebAppEnsureEndGameOverlay();
 
     canvas_ = std::make_unique<cse498::WebCanvas>("cse498_canvas",
                                                   kCanvasWidthPx, kCanvasHeightPx);
@@ -278,7 +350,9 @@
     analysis_text_->Create();
     analysis_text_->ApplyFlowLayoutStyles();
     analysis_text_->SetFontFamily(kSidebarFontStack);
-  }
+    
+}
+  
 
   void WebApp::ConnectToServer(const std::string& url) {
     auto connect_result = ws_client_.Connect(url);
@@ -300,6 +374,14 @@
         this);
     #endif
   }
+
+  void WebApp::ShowEndGameHtml(const std::string& html) {
+  WebAppShowEndGameHtml(html.c_str());
+  }
+
+  void WebApp::HideEndGameHtml() {
+    WebAppHideEndGameHtml();
+  }
   // Making sure the auto tick loop is working
 
   void WebApp::SetAutoTickMs(int ms) {
@@ -310,12 +392,28 @@
   }
 
   void WebApp::AdvanceSimulationTick() {
-    if (!interface_ || !world_) return;
-    world_->RunAgents();
-    world_->UpdateWorld();
-    if (use_viewport_) CenterViewportOnPlayer();
+  if (!interface_ || !world_) return;
+
+  world_->RunAgents();
+  world_->UpdateWorld();
+
+  if (world_->IsRunOver()) {
+    StopAutoTickLoop();
+
+    if (interface_) {
+      interface_->Notify(
+        "Game over.",
+        "status"
+      );
+    }
+
     RenderWorld();
+    return;
   }
+
+  if (use_viewport_) CenterViewportOnPlayer();
+  RenderWorld();
+}
 
   void WebApp::StartAutoTickLoop() {
     if (auto_tick_running_) return;

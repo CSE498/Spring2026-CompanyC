@@ -89,6 +89,9 @@ class WebApp {
   /// Call after Initialize() and before Render().
   void EnableViewport(int cell_px_size = 32);
 
+  void ShowEndGameHtml(const std::string& html);
+  void HideEndGameHtml();
+
   /// Access the persistence Database.
   cse498::Database& GetDatabase() { return db_; }
 
