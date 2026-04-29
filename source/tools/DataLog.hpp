@@ -2,14 +2,7 @@
  * @file DataLog.hpp
  * @author Group 23
  *
- * @brief Tracks logged samples and provides simple summary statistics.
- *
- * DataLog defaults to double for the common numeric use case:
- *   DataLog log;              // same as DataLog<double>
- *
- * The sample type can be overridden when another value type needs to be
- * stored, such as world positions for external analysis:
- *   DataLog<WorldPosition> positions;
+ * @brief Simple named data logger with summary statistics.
  */
 #pragma once
 
@@ -17,176 +10,126 @@
 #include <cmath>
 #include <concepts>
 #include <cstddef>
+#include <map>
 #include <numeric>
+#include <string>
 #include <type_traits>
+#include <unordered_map>
 #include <vector>
-
-#include "../core/Database.hpp"
-#include "../core/WorldPosition.hpp"
 
 namespace cse498 {
 
-/// Defaults to double 
 template <typename T = double>
 class DataLog {
  private:
-  /// Stores the logged values
-  std::vector<T> mDataValues;
+  std::unordered_map<std::string, std::vector<T>> mData;
+  std::size_t mSnapshotCount = 0;
 
- public:
-  constexpr DataLog() = default;
-
-  /**
-   * @brief Add a value to the log.
-   *
-   * Floating-point NaN and infinity values are ignored. Other value types are
-   * stored as-is.
-   */
-  void Add(const T& value) {
+  [[nodiscard]] static bool IsValid(const T& value) noexcept {
     if constexpr (std::is_floating_point_v<T>) {
-      if (!std::isfinite(value)) {
-        return;
+      return std::isfinite(value);
+    }
+    return true;
+  }
+
+  template <typename MapT>
+  void AddSnapshotValues(const MapT& values)
+    requires std::is_convertible_v<typename MapT::mapped_type, T>
+  {
+    for (auto& [name, series] : mData) {
+      if (!values.contains(name)) {
+        series.push_back(T{});
       }
     }
 
-    mDataValues.push_back(value);
-  }
+    for (const auto& [name, value] : values) {
+      auto& series = mData[name];
+      if (series.size() < mSnapshotCount) {
+        series.resize(mSnapshotCount, T{});
+      }
 
-  /**
-   * @brief Return the mean of logged values.
-   *
-   * Intended for numeric sample types. Non-numeric logs can still use Add(),
-   * Values(), Count(), IsEmpty(), and Clear() for external analysis.
-   *
-   * Returns 0.0 if the log is empty.
-   */
-  [[nodiscard]] double Mean() const
-    requires std::is_arithmetic_v<T>
-  {
-    if (mDataValues.empty()) {
-      return 0.0;
-    }
-    const double sum = std::accumulate(mDataValues.begin(), mDataValues.end(), 0.0);
-    return sum / mDataValues.size();
-  }
-
-  /**
-   * @brief Return the median of logged values.
-   *
-   * Intended for numeric sample types.
-   *
-   * Returns 0.0 if the log is empty.
-   */
-  [[nodiscard]] double Median() const
-    requires std::is_arithmetic_v<T>
-  {
-    if (mDataValues.empty()) {
-      return 0.0;
+      const T converted_value = static_cast<T>(value);
+      series.push_back(IsValid(converted_value) ? converted_value : T{});
     }
 
-    std::vector<T> partitioned_values = mDataValues;
-    const auto middle_it = partitioned_values.begin() + (partitioned_values.size() / 2);
-    std::nth_element(partitioned_values.begin(), middle_it, partitioned_values.end());
+    ++mSnapshotCount;
+  }
 
-    if (partitioned_values.size() % 2 == 1) {
-      return *middle_it;
+ public:
+  struct Stats {
+    std::size_t count = 0;
+    double sum = 0.0;
+    double mean = 0.0;
+    double median = 0.0;
+    T min{};
+    T max{};
+  };
+
+  void Add(const std::string& name, const T& value) {
+    if (IsValid(value)) {
+      mData[name].push_back(value);
+    }
+  }
+
+  template <typename U>
+  void AddSnapshot(const std::unordered_map<std::string, U>& values)
+    requires std::is_convertible_v<U, T>
+  {
+    AddSnapshotValues(values);
+  }
+
+  template <typename U>
+  void AddSnapshot(const std::map<std::string, U>& values)
+    requires std::is_convertible_v<U, T>
+  {
+    AddSnapshotValues(values);
+  }
+
+  [[nodiscard]] const std::vector<T>& Values(const std::string& name) const noexcept {
+    static const std::vector<T> empty;
+    const auto it = mData.find(name);
+    return it == mData.end() ? empty : it->second;
+  }
+
+  [[nodiscard]] Stats Summary(const std::string& name) const
+    requires std::is_arithmetic_v<T> && std::totally_ordered<T>
+  {
+    const auto& values = Values(name);
+    Stats stats;
+    stats.count = values.size();
+    if (values.empty()) {
+      return stats;
     }
 
-    const double upper = *middle_it;
-    const double lower = *std::max_element(partitioned_values.begin(), middle_it);
-    return std::midpoint(lower, upper);
+    stats.sum = std::accumulate(values.begin(), values.end(), 0.0);
+    stats.mean = stats.sum / values.size();
+    stats.min = *std::min_element(values.begin(), values.end());
+    stats.max = *std::max_element(values.begin(), values.end());
+
+    std::vector<T> sorted = values;
+    std::sort(sorted.begin(), sorted.end());
+    const std::size_t mid = sorted.size() / 2;
+    stats.median = sorted.size() % 2 == 1
+      ? static_cast<double>(sorted[mid])
+      : std::midpoint(static_cast<double>(sorted[mid - 1]), static_cast<double>(sorted[mid]));
+
+    return stats;
   }
 
-  /**
-   * @brief Return the minimum logged value.
-   *
-   * Available for sample types with a total ordering.
-   *
-   * Returns T{} if the log is empty.
-   */
-  [[nodiscard]] T Min() const
-    requires std::totally_ordered<T>
-  {
-    if (mDataValues.empty()) {
-      return T{};
+  [[nodiscard]] std::vector<std::string> Names() const {
+    std::vector<std::string> names;
+    names.reserve(mData.size());
+    for (const auto& [name, values] : mData) {
+      (void)values;
+      names.push_back(name);
     }
-    return *std::min_element(mDataValues.begin(), mDataValues.end());
+    std::sort(names.begin(), names.end());
+    return names;
   }
 
-  /**
-   * @brief Return the maximum logged value.
-   *
-   * Available for sample types with a total ordering.
-   *
-   * Returns T{} if the log is empty.
-   */
-  [[nodiscard]] T Max() const
-    requires std::totally_ordered<T>
-  {
-    if (mDataValues.empty()) {
-      return T{};
-    }
-    return *std::max_element(mDataValues.begin(), mDataValues.end());
-  }
-
-  /**
-   * @brief Access all logged values.
-   */
-  [[nodiscard]] constexpr const std::vector<T>& Values() const noexcept {
-    return mDataValues;
-  }
-
-  /**
-   * @brief Number of values currently in the log.
-   */
-  [[nodiscard]] constexpr std::size_t Count() const noexcept {
-    return mDataValues.size();
-  }
-
-  /**
-   * @brief Returns true if log is empty, else false.
-   */
-  [[nodiscard]] constexpr bool IsEmpty() const noexcept {
-    return mDataValues.empty();
-  }
-
-  /**
-   * @brief Removes all logged values.
-   */
-  constexpr void Clear() noexcept { mDataValues.clear(); }
-
-  /**
-   * @brief Registers DataLog<WorldPosition> with the database.
-   */
-  void RegisterWithDatabase(cse498::Database& db)
-    requires std::same_as<T, WorldPosition>
-  {
-    db.RegisterType<DataLog<T>>("DataLogWorldPosition",
-        [](const DataLog<T>& log) -> std::string {
-            cse498::Serializer s;
-            std::string data = s.Serialize(static_cast<unsigned long>(log.Values().size()));
-            for (const auto& world_pos : log.Values()) {
-              data += s.Serialize(world_pos.X());
-              data += s.Serialize(world_pos.Y());
-            }
-            return data;
-        },
-        [](const std::string& data) -> std::optional<DataLog<T>> {
-            cse498::Serializer s;
-            size_t pos = 0;
-            auto count = s.DeserializeAt<unsigned long>(data, pos);
-            if (!count) return std::nullopt;
-
-            DataLog<T> log;
-            for (unsigned long i = 0; i < *count; ++i) {
-              auto x = s.DeserializeAt<double>(data, pos);
-              auto y = s.DeserializeAt<double>(data, pos);
-              if (!x || !y) return std::nullopt;
-              log.Add(WorldPosition(*x, *y));
-            }
-            return log;
-        }
-    );
+  void Clear() noexcept {
+    mData.clear();
+    mSnapshotCount = 0;
   }
 };
 

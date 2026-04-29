@@ -57,7 +57,8 @@ namespace cse498
 	const std::vector<Stat>& stats,
 	const cse498::DataLog<cse498::WorldPosition>& dataLogHM,
 	int size,
-	int precision = 2
+	int precision = 2,
+	bool playerOnlyHeatmap = false
 	);
 
 	// builds the title + stats table
@@ -70,7 +71,8 @@ namespace cse498
 	std::vector<Stat> statsFromWorld,  //whatever the world wants to show (Valuables, Kills, etc.)
 	const cse498::DataLog<cse498::WorldPosition>& dataLogHM,
 	int size,
-	int precision = 2
+	int precision = 2,
+	bool playerOnlyHeatmap = false
 	) {
 	// format playtime decimals
 	std::ostringstream playtimeStream;
@@ -87,7 +89,7 @@ namespace cse498
 		? ("Score: " + std::to_string(static_cast<long long>(scoreValue)))
 		: ("Playtime: " + playtimeText + " sec");
 
-	return generateScoreScreen(title, statsFromWorld, dataLogHM, size, precision);
+	return generateScoreScreen(title, statsFromWorld, dataLogHM, size, precision, playerOnlyHeatmap);
 	}
 
 
@@ -107,12 +109,18 @@ namespace cse498
     const std::vector<Stat>& stats,
 	const cse498::DataLog<cse498::WorldPosition>& dataLogHM,
     const int size,
-    int precision)
+    int precision,
+	bool playerOnlyHeatmap)
 		{
 			std::vector<std::vector<int>> heatmap(size, std::vector<int>(size, 0));
-			std::vector<WorldPosition> hm = dataLogHM.Values();
-			for (const auto& cord: hm){
+			for (const auto& cord : dataLogHM.Values("player")) {
 				heatmap[cord.X()][cord.Y()] += 1;
+			}
+
+			if (!playerOnlyHeatmap) {
+				for (const auto& cord : dataLogHM.Values("nonplayer")) {
+					heatmap[cord.X()][cord.Y()] += 1;
+				}
 			}
 
 			// --- Normalize heatmap values ---

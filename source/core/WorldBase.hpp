@@ -10,6 +10,7 @@
 #include <chrono>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "AgentBase.hpp"
@@ -56,6 +57,9 @@ namespace cse498 {
     /// Position collected when an agent's world position changes.
     DataLog<WorldPosition> mPositionLog;
 
+    /// Numeric analytics collected once per world tick.
+    DataLog<> mAnalyticsLog;
+
   public:
     WorldBase() = default;
     virtual ~WorldBase() = default;
@@ -92,6 +96,11 @@ namespace cse498 {
 
     /// Access the position log 
     DataLog<WorldPosition> & GetPositionLog() { return mPositionLog; }
+    const DataLog<WorldPosition> & GetPositionLog() const { return mPositionLog; }
+
+    /// Access the analytics log
+    DataLog<> & GetAnalyticsLog() { return mAnalyticsLog; }
+    const DataLog<> & GetAnalyticsLog() const { return mAnalyticsLog; }
 
     /// Return a reference to an Item with a given ID.
     [[nodiscard]] ItemBase & GetItem(size_t id) {
@@ -119,6 +128,21 @@ namespace cse498 {
 
     [[nodiscard]] const std::unordered_map<std::string, size_t> & GetWorldGlobalCounts() const { 
       return world_global_counts;
+    }
+
+    /// Return the current numeric analytics values for this world tick.
+    /// Derived worlds can override this to add world-specific numeric metrics.
+    [[nodiscard]] virtual std::unordered_map<std::string, double> GetAnalyticsSnapshot() const {
+      std::unordered_map<std::string, double> snapshot;
+      for (const auto& [name, count] : world_global_counts) {
+        snapshot[name] = static_cast<double>(count);
+      }
+      return snapshot;
+    }
+
+    /// Record this tick's analytics snapshot in the shared analytics log.
+    void RecordAnalyticsSnapshot() {
+      mAnalyticsLog.AddSnapshot(GetAnalyticsSnapshot());
     }
 
     [[nodiscard]] virtual size_t GetWidth() const { return main_grid.GetWidth(); }
@@ -181,7 +205,8 @@ namespace cse498 {
         if (after_location.IsPosition() &&
             (!before_location.IsPosition() ||
              before_location.AsWorldPosition() != after_location.AsWorldPosition())) {
-          mPositionLog.Add(after_location.AsWorldPosition());
+          mPositionLog.Add(agent_ptr->IsInterface() ? "player" : "nonplayer",
+                           after_location.AsWorldPosition());
         }
       }
     }
@@ -197,6 +222,7 @@ namespace cse498 {
       while (!run_over) {
         RunAgents();
         UpdateWorld();
+        RecordAnalyticsSnapshot();
       }
     }
 
