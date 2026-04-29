@@ -1,5 +1,6 @@
 #include "GoblinAgent.hpp"
 
+#include <cassert>
 #include <cmath>
 #include <vector>
 
@@ -45,6 +46,7 @@ bool GoblinAgent::IsPlayerAdjacent() const { return player_adjacent; }
 bool GoblinAgent::CanBePaid() const { return blocking && player_adjacent; }
 
 GoblinAgent &GoblinAgent::SetTargetName(const std::string &name) {
+  assert(!name.empty());
   target_name = name;
   return *this;
 }
@@ -53,6 +55,10 @@ bool GoblinAgent::Initialize() { return true; }
 
 void GoblinAgent::Sense(WorldGrid & /*grid*/) {
   player_adjacent = false;
+
+  if (target_name.empty()) {
+    return;
+  }
 
   const WorldPosition my_pos = GetLocation().AsWorldPosition();
   std::vector<size_t> known_agents = world.GetKnownAgents(*this);

@@ -1,5 +1,6 @@
 #include "EnemyAgent.hpp"
 
+#include <cassert>
 #include <cmath>
 #include <optional>
 #include <string>
@@ -239,6 +240,7 @@ EnemyAgent &EnemyAgent::SetVisionRadius(size_t r) {
  * @return Reference to this enemy agent.
  */
 EnemyAgent &EnemyAgent::SetTargetName(const std::string &name) {
+  assert(!name.empty());
   target_name = name;
   return *this;
 }
@@ -262,6 +264,10 @@ void EnemyAgent::Sense(WorldGrid &grid) {
   sensed_player_pos.reset();
   chase_action.reset();
   patrol_action.reset();
+
+  if (target_name.empty()) {
+    return;
+  }
 
   const WorldPosition my_pos = GetLocation().AsWorldPosition();
 
