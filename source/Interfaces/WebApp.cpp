@@ -848,8 +848,8 @@ if (world_) {
 }
 
   // --- Summary ---
-  analysis_text << "Agents: " << world_->GetNumAgents() << "\n";
-  analysis_text << "Total Actions: " << total_actions << "\n";
+  // analysis_text << "Agents: " << world_->GetNumAgents() << "\n";
+  // analysis_text << "Total Actions: " << total_actions << "\n";
 
   int active_agents = 0;
   for (const auto& [agent_id, entries] : actions_by_agent) {
@@ -858,46 +858,41 @@ if (world_) {
     }
     analysis_text << "Active Agents: " << active_agents << "\n";
 
-    // --- Most Frequent Action ---
-  size_t max_action_id = 0;
-  int max_count = -1;
+   // --- Most Frequent Action ---
+std::string most_action_name = "None";
+int max_count = 0;
 
-  for (const auto& [id, count] : action_counts) {
-    if (count > max_count) {
-      max_count = count;
-      max_action_id = id;
-    }
+for (const auto& action : interface_->GetAvailableActions()) {
+  const int code = CodeForActionId(action.id);
+  if (code == 0) continue;
+
+  const int count = action_counts[static_cast<size_t>(code)];
+  if (count > max_count) {
+    max_count = count;
+    most_action_name = action.label.empty() ? action.id : action.label;
+  }
+}
+
+analysis_text << "\nMost Frequent Action: " << most_action_name << "\n\n";
+
+// --- Action Breakdown ---
+analysis_text << "=== Action Breakdown ===\n\n";
+
+for (const auto& action : interface_->GetAvailableActions()) {
+  // Skip non-gameplay actions
+  if (action.id == "start" || action.id == "reset" ||
+      action.id == "save"  || action.id == "load") {
+    continue;
   }
 
-  // Map ID → Name
-  std::string most_action_name = "None";
+  const int code = CodeForActionId(action.id);
+  if (code == 0) continue;
 
-  switch (max_action_id) {
-    case 5: most_action_name = "Up"; break;
-    case 6: most_action_name = "Down"; break;
-    case 7: most_action_name = "Left"; break;
-    case 8: most_action_name = "Right"; break;
-    case 9: most_action_name = "Collect"; break;
-    case 10: most_action_name = "Build"; break;
-  }
+  const std::string name = action.label.empty() ? action.id : action.label;
+  analysis_text << name << ": " << action_counts[static_cast<size_t>(code)] << "\n";
+}
 
-  analysis_text << "\nMost Frequent Action: " << most_action_name << "\n\n";
-
-  // --- Action Breakdown ---
-  analysis_text << "=== Action Breakdown ===\n\n";
-  
-  std::vector<std::pair<std::string, size_t>> action_labels = {
-    {"Up", action_counts[5]},
-    {"Down", action_counts[6]},
-    {"Left", action_counts[7]},
-    {"Right", action_counts[8]},
-    {"Collect", action_counts[9]},
-    {"Build", action_counts[10]}
-  };
-
-  for (const auto& [name, count] : action_labels) {
-    analysis_text << name << ": " << count << "\n";
-  }
+ 
 
   
 
