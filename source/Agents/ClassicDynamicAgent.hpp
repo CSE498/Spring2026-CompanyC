@@ -8,7 +8,7 @@ protected:
     void BuildTree() override;
     void Sense(WorldGrid& grid) override;
 
-    size_t GetAction() const;
+    size_t GetAction() const override;
 
 public:
     ClassicDynamicAgent(size_t id, const std::string& name, const WorldBase& world)

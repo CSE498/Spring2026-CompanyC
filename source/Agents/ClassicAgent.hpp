@@ -14,7 +14,7 @@ protected:
 
     virtual void BuildTree();
     virtual void Sense(WorldGrid & grid);
-    size_t GetAction() const;
+    virtual size_t GetAction() const;
 
 public:
     ClassicAgent(size_t id, const std::string & name, const WorldBase & world)
