@@ -3,6 +3,7 @@
   // Implementation of the WebApp application class.  Contains the UI shell,
   // Emscripten/JavaScript bridge code, canvas/HUD rendering, and the exported
   // HandleAction entry point.
+  // Used ChatGPT to assist in development, was then reviewed.
   //
   // See Interfaces/WebApp.hpp for the class interface and usage notes.
 
