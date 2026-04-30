@@ -36,63 +36,6 @@ std::unique_ptr<WebButton>          g_ok;
 void TryShowNextPopup();
 void PopupDismiss();
 
-WebPopupOptions NormalizePopupOptions(const WebPopupOptions& input) {
-  WebPopupOptions opts = input;
-  if (!opts.show_ok_button && !opts.auto_dismiss) {
-    opts.show_ok_button = true;
-  }
-  return opts;
-}
-
-std::optional<int> ResolveAutoDismissDelayMs(const WebPopupOptions& opts) {
-  if (!opts.auto_dismiss) return std::nullopt;
-  if (!opts.auto_dismiss_ms.has_value()) return 2000;
-  if (*opts.auto_dismiss_ms <= 0) return std::nullopt;
-  return *opts.auto_dismiss_ms;
-}
-
-void BuildPopupMessage(std::string message) {
-  g_text = std::make_unique<WebTextbox>();
-  g_text->SetParentId("cse498_popup_msg_host");
-  g_text->Create();
-  g_text->SetText(std::move(message));
-  g_text->ApplyFlowLayoutStyles();
-  g_text->SetFontFamily(
-      "system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, "
-      "sans-serif");
-  g_text->SetFontSize(17);
-  g_text->SetLineHeight(1.55);
-  g_text->SetFontWeight("500");
-  g_text->SetTextColor("#134e43");
-  g_text->SetTextAlignment("center");
-  g_text->SetWordWrap("break-word");
-  g_text->SetBackgroundColor("transparent");
-}
-
-void BuildPopupDismissControl(const WebPopupOptions& opts) {
-  if (opts.show_ok_button) {
-    cse498_popup_btn_host_visible(1);
-    g_ok = std::make_unique<WebButton>("OK");
-    g_ok->SetBorderWidth(0);
-    g_ok->SetBackgroundColor("#18453B");
-    g_ok->SetTextColor("#ffffff");
-    g_ok->SetBorderRadius(999);
-    g_ok->SetSize(168, 46);
-    g_ok->AppendTo("cse498_popup_btn_host");
-    g_ok->SetOnClick([]() { cse498_popup_schedule_dismiss(); });
-    cse498_popup_focus_el(g_ok->GetElementID().c_str());
-  } else {
-    cse498_popup_btn_host_visible(0);
-    cse498_popup_focus_overlay();
-  }
-}
-
-void ArmAutoDismissTimer(const WebPopupOptions& opts) {
-  const std::optional<int> delay_ms = ResolveAutoDismissDelayMs(opts);
-  if (!delay_ms.has_value()) return;
-  cse498_popup_arm_timer(*delay_ms);
-}
-
 EM_JS(void, cse498_popup_create_shell, (), {
   var old = document.getElementById('cse498_popup_overlay');
   if (old) old.remove();
@@ -216,6 +159,63 @@ EM_JS(void, cse498_popup_schedule_dismiss, (), {
     Module.ccall('cse498_popup_dismiss', null, [], []);
   }, 0);
 });
+
+WebPopupOptions NormalizePopupOptions(const WebPopupOptions& input) {
+  WebPopupOptions opts = input;
+  if (!opts.show_ok_button && !opts.auto_dismiss) {
+    opts.show_ok_button = true;
+  }
+  return opts;
+}
+
+std::optional<int> ResolveAutoDismissDelayMs(const WebPopupOptions& opts) {
+  if (!opts.auto_dismiss) return std::nullopt;
+  if (!opts.auto_dismiss_ms.has_value()) return 2000;
+  if (*opts.auto_dismiss_ms <= 0) return std::nullopt;
+  return *opts.auto_dismiss_ms;
+}
+
+void BuildPopupMessage(std::string message) {
+  g_text = std::make_unique<WebTextbox>();
+  g_text->SetParentId("cse498_popup_msg_host");
+  g_text->Create();
+  g_text->SetText(std::move(message));
+  g_text->ApplyFlowLayoutStyles();
+  g_text->SetFontFamily(
+      "system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, "
+      "sans-serif");
+  g_text->SetFontSize(17);
+  g_text->SetLineHeight(1.55);
+  g_text->SetFontWeight("500");
+  g_text->SetTextColor("#134e43");
+  g_text->SetTextAlignment("center");
+  g_text->SetWordWrap("break-word");
+  g_text->SetBackgroundColor("transparent");
+}
+
+void BuildPopupDismissControl(const WebPopupOptions& opts) {
+  if (opts.show_ok_button) {
+    cse498_popup_btn_host_visible(1);
+    g_ok = std::make_unique<WebButton>("OK");
+    g_ok->SetBorderWidth(0);
+    g_ok->SetBackgroundColor("#18453B");
+    g_ok->SetTextColor("#ffffff");
+    g_ok->SetBorderRadius(999);
+    g_ok->SetSize(168, 46);
+    g_ok->AppendTo("cse498_popup_btn_host");
+    g_ok->SetOnClick([]() { cse498_popup_schedule_dismiss(); });
+    cse498_popup_focus_el(g_ok->GetElementID().c_str());
+  } else {
+    cse498_popup_btn_host_visible(0);
+    cse498_popup_focus_overlay();
+  }
+}
+
+void ArmAutoDismissTimer(const WebPopupOptions& opts) {
+  const std::optional<int> delay_ms = ResolveAutoDismissDelayMs(opts);
+  if (!delay_ms.has_value()) return;
+  cse498_popup_arm_timer(*delay_ms);
+}
 
 void ShowOnePopup(WebPopupRequest req) {
   WebPopupOptions opts = NormalizePopupOptions(req.options);
