@@ -6,7 +6,7 @@
 #include "core/WorldBase.hpp"
 #include "core/WorldGrid.hpp"
 
-#include <algorithm>
+#include <optional>
 #include <utility>
 
 namespace {
@@ -22,7 +22,13 @@ cse498::WebPopupRequest ParseTimedPopupMessage(const std::string& message,
   if (p != std::string::npos) {
     try {
       const int ms = std::stoi(message.substr(0, p));
-      opt.auto_dismiss_ms = std::max(1, ms);
+      if (ms > 0) {
+        opt.auto_dismiss_ms = ms;
+      } else {
+        // Non-positive delay means "do not auto-dismiss".
+        opt.auto_dismiss = false;
+        opt.auto_dismiss_ms = std::nullopt;
+      }
     } catch (...) {
     }
     text = message.substr(p + 1);

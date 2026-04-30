@@ -54,7 +54,7 @@ static void TestWebPopupOptionsDefaults() {
   WebPopupOptions o;
   assert(o.show_ok_button == true);
   assert(o.auto_dismiss == false);
-  assert(o.auto_dismiss_ms == 2000);
+  assert(!o.auto_dismiss_ms.has_value());
 }
 
 static void TestWebPopupRequestAggregate() {
@@ -66,7 +66,8 @@ static void TestWebPopupRequestAggregate() {
   assert(r.message == "hello");
   assert(r.options.show_ok_button == false);
   assert(r.options.auto_dismiss == true);
-  assert(r.options.auto_dismiss_ms == 500);
+  assert(r.options.auto_dismiss_ms.has_value());
+  assert(*r.options.auto_dismiss_ms == 500);
 }
 
 // ----- EnqueueWebPopup native (no-op, must not throw) -----
@@ -107,7 +108,8 @@ static void TestInterfacePopupTimedPipeMsAndText() {
   assert(batch[0].message == "Boss wave!");
   assert(batch[0].options.show_ok_button == false);
   assert(batch[0].options.auto_dismiss == true);
-  assert(batch[0].options.auto_dismiss_ms == 3000);
+  assert(batch[0].options.auto_dismiss_ms.has_value());
+  assert(*batch[0].options.auto_dismiss_ms == 3000);
 }
 
 static void TestInterfacePopupTimedNoPipeUsesDefaultMsAndFullText() {
@@ -119,7 +121,8 @@ static void TestInterfacePopupTimedNoPipeUsesDefaultMsAndFullText() {
   assert(batch.size() == 1);
   assert(batch[0].message == "No pipe here");
   assert(batch[0].options.auto_dismiss == true);
-  assert(batch[0].options.auto_dismiss_ms == 1500);
+  assert(batch[0].options.auto_dismiss_ms.has_value());
+  assert(*batch[0].options.auto_dismiss_ms == 1500);
 }
 
 static void TestInterfacePopupTimedOkBoth() {
@@ -132,7 +135,8 @@ static void TestInterfacePopupTimedOkBoth() {
   assert(batch[0].message == "Hurry up");
   assert(batch[0].options.show_ok_button == true);
   assert(batch[0].options.auto_dismiss == true);
-  assert(batch[0].options.auto_dismiss_ms == 5000);
+  assert(batch[0].options.auto_dismiss_ms.has_value());
+  assert(*batch[0].options.auto_dismiss_ms == 5000);
 }
 
 static void TestInterfacePopupTimedInvalidMsPrefixKeepsDefaultMs() {
@@ -143,10 +147,11 @@ static void TestInterfacePopupTimedInvalidMsPrefixKeepsDefaultMs() {
   auto batch = ui.TakePendingPopups();
   assert(batch.size() == 1);
   assert(batch[0].message == "Still ok");
-  assert(batch[0].options.auto_dismiss_ms == 1500);
+  assert(batch[0].options.auto_dismiss_ms.has_value());
+  assert(*batch[0].options.auto_dismiss_ms == 1500);
 }
 
-static void TestInterfacePopupTimedMinimumOneMs() {
+static void TestInterfacePopupTimedNonPositiveDisablesAutoDismiss() {
   MinimalWorld w;
   WebInterface ui(5, "Player", w);
 
@@ -154,7 +159,8 @@ static void TestInterfacePopupTimedMinimumOneMs() {
   auto batch = ui.TakePendingPopups();
   assert(batch.size() == 1);
   assert(batch[0].message == "edge");
-  assert(batch[0].options.auto_dismiss_ms == 1);
+  assert(batch[0].options.auto_dismiss == false);
+  assert(!batch[0].options.auto_dismiss_ms.has_value());
 }
 
 static void TestInterfacePopupFifoOrder() {
@@ -199,7 +205,7 @@ int main() {
   TestInterfacePopupTimedNoPipeUsesDefaultMsAndFullText();
   TestInterfacePopupTimedOkBoth();
   TestInterfacePopupTimedInvalidMsPrefixKeepsDefaultMs();
-  TestInterfacePopupTimedMinimumOneMs();
+  TestInterfacePopupTimedNonPositiveDisablesAutoDismiss();
   TestInterfacePopupFifoOrder();
   TestInterfaceTakePendingPopupsClearsQueue();
   TestInterfaceOtherNotifyTypesDoNotTouchPopupQueue();

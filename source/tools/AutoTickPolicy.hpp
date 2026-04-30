@@ -16,14 +16,24 @@
 
 namespace cse498 {
 
-enum class AutoTickStartDecision {
-  StartNow,
-  WaitForPopupClose,
+enum class AutoTickStartBlocker {
+  None,
+  PopupVisible,
 };
 
-inline AutoTickStartDecision DecideAutoTickStart(bool popup_visible) {
-  return popup_visible ? AutoTickStartDecision::WaitForPopupClose
-                       : AutoTickStartDecision::StartNow;
+struct AutoTickStartDecision {
+  bool                 should_start;
+  AutoTickStartBlocker blocker;
+  int                  retry_delay_ms;
+};
+
+inline AutoTickStartDecision DecideAutoTickStart(bool popup_visible,
+                                                 int popup_retry_ms = 100) {
+  if (popup_visible) {
+    return AutoTickStartDecision{false, AutoTickStartBlocker::PopupVisible,
+                                 popup_retry_ms};
+  }
+  return AutoTickStartDecision{true, AutoTickStartBlocker::None, 0};
 }
 
 inline int ClampAutoTickIntervalMs(int ms, int min_ms = 50) {

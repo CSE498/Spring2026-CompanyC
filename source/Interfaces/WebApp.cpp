@@ -459,9 +459,10 @@
         [](void* ud) {
           auto* app = static_cast<WebApp*>(ud);
           app->auto_tick_start_timeout_id_ = 0;
-          if (cse498::DecideAutoTickStart(WebAppIsPopupVisible() != 0) ==
-              cse498::AutoTickStartDecision::WaitForPopupClose) {
-            app->ScheduleAutoTickStart(100);
+          const cse498::AutoTickStartDecision decision =
+              cse498::DecideAutoTickStart(WebAppIsPopupVisible() != 0);
+          if (!decision.should_start) {
+            app->ScheduleAutoTickStart(decision.retry_delay_ms);
             return;
           }
           app->StartAutoTickLoop();

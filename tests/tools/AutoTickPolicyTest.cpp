@@ -19,12 +19,20 @@
 
 int main() {
   using cse498::AutoTickStartDecision;
+  using cse498::AutoTickStartBlocker;
   using cse498::ClampAutoTickIntervalMs;
   using cse498::DecideAutoTickStart;
 
   // Start gate should delay while popup remains visible.
-  assert(DecideAutoTickStart(true) == AutoTickStartDecision::WaitForPopupClose);
-  assert(DecideAutoTickStart(false) == AutoTickStartDecision::StartNow);
+  const AutoTickStartDecision blocked = DecideAutoTickStart(true);
+  assert(blocked.should_start == false);
+  assert(blocked.blocker == AutoTickStartBlocker::PopupVisible);
+  assert(blocked.retry_delay_ms == 100);
+
+  const AutoTickStartDecision ready = DecideAutoTickStart(false);
+  assert(ready.should_start == true);
+  assert(ready.blocker == AutoTickStartBlocker::None);
+  assert(ready.retry_delay_ms == 0);
 
   // Interval clamp should enforce lower bound used by WebApp.
   assert(ClampAutoTickIntervalMs(500) == 500);

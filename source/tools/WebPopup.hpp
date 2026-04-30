@@ -13,15 +13,16 @@
  
 #pragma once
 
+#include <optional>
 #include <string>
 
 namespace cse498 {
 
 /// Controls how a popup is dismissed: OK button, automatic timer, or both.
 struct WebPopupOptions {
-  bool show_ok_button   = true;   ///< Show the primary dismiss button
-  bool auto_dismiss     = false;  ///< Close automatically after a delay
-  int  auto_dismiss_ms  = 2000;   ///< Used when auto_dismiss is true (>= 1 ms)
+  bool               show_ok_button  = true;         ///< Show the primary dismiss button
+  bool               auto_dismiss    = false;        ///< Enable timed close behavior
+  std::optional<int> auto_dismiss_ms = std::nullopt; ///< Optional delay used when auto_dismiss is true
 };
 
 /// One queued popup: message plus behavior (for WebInterface → WebApp → EnqueueWebPopup).
