@@ -21,8 +21,9 @@ For testing, in WebTextboxTest.cpp, I expanded coverage with new tests for Appen
 Overall, this commit made WebTextbox cleaner to integrate, clearer to read, and better validated through tests.
 
 ## Naod Overall Changes
+Hi on this update, I added the zoom in and out capabilities, as you can see here it zooms in on the cell, and an agent if they are within the range. You can see this is being done in RenderWorld right here, I also made sure to add the EndGameOverlay that Group23 was looking to display at the end of the game. As you can see here this is the zoom in capability, I also added this analysis summary on the right here, as you can see it focuses on the agent when zooming. I also extended weblayout to create this analysis board and the shell for the buttons.
 
-## SadWal Overall Changes
+## Sadwal Overall Changes
 
 ## Tess Overall Changes
 I added sprite rendering to the module. On the WebCanvas side, l added three new methods: PreloadImage starts loading an image into the browser cache in the background. DrawImage draws it into any rectangle, and DrawCellImage scales it to fill one grid cell. Both fall back to the existing color-fill-and-glyph path if the image isn't loaded yet, so the game never shows a blank cell during load.
