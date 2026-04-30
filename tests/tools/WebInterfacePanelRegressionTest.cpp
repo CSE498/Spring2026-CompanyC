@@ -1,4 +1,3 @@
-#include <cassert>
 #include <cstdlib>
 #include <iostream>
 #include <string>
@@ -59,9 +58,34 @@ int main() {
   ExpectEq(ui.GetPanelText(), std::string("Tile: Wheat\nHarvestable: Yes"),
            "panel text should preserve appended lines in order");
 
+  // Malformed resource input should not corrupt existing resource state.
+  ui.Notify("not_a_key_value_pair", "resource");
+  const auto malformed_hud = ui.GetHudState();
+  ExpectEq(malformed_hud.resources.at("wood"), 4,
+           "malformed resource input should not change existing wood value");
+  ExpectEq(malformed_hud.resources.at("stone"), 2,
+           "malformed resource input should not change existing stone value");
+  ExpectEq(malformed_hud.resources.size(), hud.resources.size(),
+           "malformed resource input without a delimiter should be ignored");
+
   ui.Notify("", "panel_clear");
   ExpectTrue(ui.GetPanelText().empty(),
              "panel_clear should empty the panel after it was previously populated");
+
+  // Re-clearing an already empty panel should remain safe and stable.
+  ui.Notify("", "panel_clear");
+  ExpectTrue(ui.GetPanelText().empty(),
+             "panel_clear should be safe to call repeatedly on an empty panel");
+
+  // After appending lines, panel_text should still replace the full contents.
+  ui.Notify("Wood: 4", "panel_line");
+  ui.Notify("Stone: 2", "panel_line");
+  ExpectEq(ui.GetPanelText(), std::string("Wood: 4\nStone: 2"),
+           "panel_line should rebuild panel contents after a clear");
+
+  ui.Notify("Direct replacement", "panel_text");
+  ExpectEq(ui.GetPanelText(), std::string("Direct replacement"),
+           "panel_text should replace previously appended lines");
 
   std::cout << "WebInterfacePanelRegressionTest passed.\n";
   return 0;

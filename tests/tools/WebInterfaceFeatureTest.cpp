@@ -1,21 +1,18 @@
-#include <cassert>
 #include <cstdlib>
 #include <iostream>
-#include <map>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "Agents/PacingAgent.hpp"
 #include "Worlds/StubWorld.hpp"
 #include "core/WorldPosition.hpp"
 #include "tools/WebInterface.hpp"
 
 namespace {
 
+using cse498::StubWorld;
 using cse498::WebInterface;
 using cse498::WorldPosition;
-using cse498::StubWorld;
 
 void Fail(const std::string& message) {
   std::cerr << "FAIL: " << message << std::endl;
@@ -45,6 +42,16 @@ WebInterface& AddPlayer(StubWorld& world,
   ui.SetSymbol('P');
   ui.SetLocation(pos);
   return ui;
+}
+
+int CountSelectedCells(const std::vector<cse498::RenderableCell>& cells) {
+  int selected_count = 0;
+  for (const auto& cell : cells) {
+    if (cell.selected) {
+      ++selected_count;
+    }
+  }
+  return selected_count;
 }
 
 void TestStatusModeTickAndWorldName() {
@@ -99,6 +106,22 @@ void TestResourceNotifyAndResourceClear() {
              "resource_clear should empty the stored resource map");
 }
 
+void TestInvalidResourceNotifyWithoutDelimiterIsIgnored() {
+  StubWorld world;
+  auto& ui = AddPlayer(world);
+
+  ui.Notify("wood:3", "resource");
+  const auto before = ui.GetHudState();
+
+  ui.Notify("not_a_key_value_pair", "resource");
+  const auto after = ui.GetHudState();
+
+  ExpectEq(after.resources.size(), before.resources.size(),
+           "malformed resource notification without a delimiter should be ignored");
+  ExpectEq(after.resources.at("wood"), 3,
+           "existing resource values should remain unchanged after malformed input");
+}
+
 void TestPanelClearPanelLineAndPanelText() {
   StubWorld world;
   auto& ui = AddPlayer(world);
@@ -135,11 +158,11 @@ void TestPanelTextDoesNotDestroyResources() {
   const auto hud = ui.GetHudState();
 
   ExpectEq(hud.resources.at("wood"), 5,
-            "wood resource value should survive panel_text updates");
+           "wood resource value should survive panel_text updates");
   ExpectEq(hud.resources.at("stone"), 9,
-            "stone resource value should survive panel_text updates");
+           "stone resource value should survive panel_text updates");
   ExpectTrue(hud.resources.size() >= 2,
-            "resource map should still contain at least the resources added in this test");
+             "resource map should still contain at least the resources added in this test");
   ExpectEq(ui.GetPanelText(), std::string("Wood: 5\nStone: 9"),
            "panel_text should remain available separately from resources");
 }
@@ -179,8 +202,10 @@ void TestSelectedCellRoundTripAndRenderableSelection() {
   for (const auto& cell : cells) {
     if (cell.selected) {
       ++selected_count;
-      ExpectEq(cell.x, 2, "selected renderable cell x should match selected_x_");
-      ExpectEq(cell.y, 1, "selected renderable cell y should match selected_y_");
+      ExpectEq(cell.x, 2,
+               "selected renderable cell x should match selected_x_");
+      ExpectEq(cell.y, 1,
+               "selected renderable cell y should match selected_y_");
     }
   }
 
@@ -190,6 +215,37 @@ void TestSelectedCellRoundTripAndRenderableSelection() {
   const auto hud = ui.GetHudState();
   ExpectTrue(hud.selected_cell.find("(2, 1)") != std::string::npos,
              "HUD selected cell string should include selected coordinates");
+}
+
+void TestSelectedCellEdgeCases() {
+  StubWorld world;
+  auto& ui = AddPlayer(world);
+
+  ui.SelectCell(0, 0);
+  auto cells = ui.GetRenderableCells();
+  ExpectEq(CountSelectedCells(cells), 1,
+           "selecting a valid edge cell should still mark exactly one cell");
+  const auto edge_hud = ui.GetHudState();
+  ExpectTrue(edge_hud.selected_cell.find("(0, 0)") != std::string::npos,
+             "HUD selected cell string should include valid edge coordinates");
+
+  ui.SelectCell(ui.GetGridWidth(), ui.GetGridHeight());
+  cells = ui.GetRenderableCells();
+  ExpectEq(CountSelectedCells(cells), 0,
+           "out-of-bounds selection should not mark any renderable cell as selected");
+
+  const auto out_of_bounds = ui.GetSelectedCell();
+  ExpectEq(out_of_bounds.first, ui.GetGridWidth(),
+           "selected x should still round-trip for out-of-bounds coordinates");
+  ExpectEq(out_of_bounds.second, ui.GetGridHeight(),
+           "selected y should still round-trip for out-of-bounds coordinates");
+
+  const auto out_hud = ui.GetHudState();
+  ExpectTrue(out_hud.selected_cell.find("(" + std::to_string(ui.GetGridWidth()) +
+                                        ", " +
+                                        std::to_string(ui.GetGridHeight()) + ")") !=
+                 std::string::npos,
+             "HUD selected cell string should include out-of-bounds coordinates");
 }
 
 void TestLegendUsesCustomVisualAndFallbacks() {
@@ -216,7 +272,9 @@ void TestLegendUsesCustomVisualAndFallbacks() {
 
   if (cell_types.size() > 1) {
     const std::string fallback_glyph =
-        (cell_types[1].symbol != '\0') ? std::string(1, cell_types[1].symbol) : "?";
+        (cell_types[1].symbol != '\0')
+            ? std::string(1, cell_types[1].symbol)
+            : "?";
 
     ExpectEq(legend[1].key, cell_types[1].name,
              "fallback legend key should still match cell type name");
@@ -233,7 +291,8 @@ void TestEntityVisualIsAppliedToPlayerEntity() {
   ui.SetEntityVisual('P', "assets/player.png");
 
   const auto entities = ui.GetEntities();
-  ExpectTrue(!entities.empty(), "player interface should appear in renderable entities");
+  ExpectTrue(!entities.empty(),
+             "player interface should appear in renderable entities");
 
   bool found_player = false;
   for (const auto& entity : entities) {
@@ -250,18 +309,17 @@ void TestEntityVisualIsAppliedToPlayerEntity() {
     }
   }
 
-  ExpectTrue(found_player, "player entity should be found by label in GetEntities()");
+  ExpectTrue(found_player,
+             "player entity should be found by label in GetEntities()");
 }
 
 void TestGridDimensionsMirrorWorldGrid() {
   StubWorld world;
   auto& ui = AddPlayer(world);
 
-  ExpectEq(ui.GetGridWidth(),
-           static_cast<int>(world.GetGrid().GetWidth()),
+  ExpectEq(ui.GetGridWidth(), static_cast<int>(world.GetGrid().GetWidth()),
            "GetGridWidth should mirror world.GetGrid().GetWidth()");
-  ExpectEq(ui.GetGridHeight(),
-           static_cast<int>(world.GetGrid().GetHeight()),
+  ExpectEq(ui.GetGridHeight(), static_cast<int>(world.GetGrid().GetHeight()),
            "GetGridHeight should mirror world.GetGrid().GetHeight()");
 }
 
@@ -271,9 +329,6 @@ void TestAvailableActionsMetadataIfWorldExposesActions() {
 
   auto actions = ui.GetAvailableActions();
 
-  // Some worlds may not expose actions in StubWorld. If yours does not,
-  // swap StubWorld to MazeWorld or InteractionHeavyWorld and keep the rest
-  // of this test exactly the same.
   if (actions.empty()) {
     std::cout << "[INFO] Skipping action metadata test because this world "
                  "did not expose any actions.\n";
@@ -281,7 +336,8 @@ void TestAvailableActionsMetadataIfWorldExposesActions() {
   }
 
   const std::string action_id = actions.front().id;
-  ui.RegisterActionMeta(action_id, WebInterface::ActionMeta{"Move Test", "W", true});
+  ui.RegisterActionMeta(action_id,
+                        WebInterface::ActionMeta{"Move Test", "W", true});
 
   ui.Notify("setup", "mode_change");
   actions = ui.GetAvailableActions();
@@ -321,10 +377,12 @@ void TestAvailableActionsMetadataIfWorldExposesActions() {
 int main() {
   TestStatusModeTickAndWorldName();
   TestResourceNotifyAndResourceClear();
+  TestInvalidResourceNotifyWithoutDelimiterIsIgnored();
   TestPanelClearPanelLineAndPanelText();
   TestPanelTextDoesNotDestroyResources();
   TestUnknownActionSetsStatusAndDoesNotQueueAction();
   TestSelectedCellRoundTripAndRenderableSelection();
+  TestSelectedCellEdgeCases();
   TestLegendUsesCustomVisualAndFallbacks();
   TestEntityVisualIsAppliedToPlayerEntity();
   TestGridDimensionsMirrorWorldGrid();
