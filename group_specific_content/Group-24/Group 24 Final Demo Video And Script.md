@@ -50,6 +50,11 @@ Overall, these additions make auto-tick safer and popup interactions more robust
 I also made sure the dropdown button at the home page correctly navigates to different worlds.
 
 ## Abigail - Overall Changes
+Hello, I am Abigail MacKersie, and I’m here to walk you through the details of the changes made to WebLayout over the course of the semester. WebLayout never became the singular feature that was needed to interface with the HTML through our C++ code, but that was a lofty goal and, as we discovered, an impossible one. What WebLayout does for the current iteration of our program is create the shell of our HTML DOM by creating all of the elements and organizing them from top to bottom. You can see that here, in the new function “createShell()”, which opens an HTML document, reads off its information, and creates all of the necessary elements for the user to interact with the Worlds. 
+
+WebLayout does not, however, control the actual *layout* of the web elements, which makes it somewhat of a misnomer. It doesn’t control the way the elements are arranged on the page, it just creates them, logs them, and keeps them organized by time of entry. The thing that actually controls the way things appear on the screen, the keyboard buttons they are mapped to, and the functionality triggered by user interaction with that element is the WebApp class, which is the class that brings together all of our Web classes into a functional web application, as the name suggests. You can see here that it influences the actual CSS, including the font style of the UI elements, the alignment , the grid layout, margins, borders, and backgrounds of the various HTML div classes that we constructed in the WebLayout create shell function. 
+
+WebApp also hooks up the event handlers and keyboard buttons that correspond to those elements that the WebLayout created. WebLayout exists solely as a dictionary for the elements and their hierarchy in the DOM, and allows the C++ code to populate the body of the HTML with elements.
 
 ## Tess - Web Interface Demo
 This is Group 24's web interface module - a C++ library that lets any Company C world render itself in the browser via Emscripten, with no JavaScript written by the world author. Everything you see here is generated entirely from C++.
