@@ -24,6 +24,7 @@ namespace cse498 {
 /**
  * @class ClassicDynamicAgent
  * @brief Dynamic-world version of ClassicAgent.
+ * @note works with current API version of DynamicWorld please contact Matthew Vazquez for API changes to world
  *
  * ClassicDynamicAgent uses local sensing, shared tile knowledge, resource
  * collection, path generation, and leader-only building logic to operate in
