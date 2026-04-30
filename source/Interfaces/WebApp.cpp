@@ -356,10 +356,16 @@
 
   void WebApp::ConnectToServer(const std::string& url) {
     auto connect_result = ws_client_.Connect(url);
-    if (!connect_result) return;
+    if (!connect_result) {
+      if (interface_) interface_->Notify("Failed to connect to server.", "status");
+      return;
+    }
 
     auto start_result = sync_.Start();
-    if (!start_result) return;
+    if (!start_result) {
+      if (interface_) interface_->Notify("Failed to start sync.", "status");
+      return;
+    }
 
     sync_.OnLoadComplete([this]() {
       if (load_callback_) load_callback_();
@@ -569,7 +575,7 @@
   return;
 }
 
-if (action_code == 15) {
+if (action_code == kActionZoomIn) {
   use_viewport_ = true;
   viewport_cell_px_ = std::min(viewport_cell_px_ + 8, 96);
   if (focus_col_ >= 0 && focus_row_ >= 0) {
@@ -581,7 +587,7 @@ if (action_code == 15) {
   return;
 }
 
-if (action_code == 16) {
+if (action_code == kActionZoomOut) {
   const int fit_cell_px = std::min(
       kCanvasWidthPx / interface_->GetGridWidth(),
       kCanvasHeightPx / interface_->GetGridHeight()
@@ -675,8 +681,8 @@ if (action_id.empty()) return;
       case kActionUpRight:   return "up_right";
       case kActionDownLeft:  return "down_left";
       case kActionDownRight: return "down_right";
-      case 15: return "zoom_in";
-      case 16: return "zoom_out";
+      case kActionZoomIn:  return "zoom_in";
+      case kActionZoomOut: return "zoom_out";
       default:               return std::string();
     }
   }
@@ -696,8 +702,8 @@ if (action_id.empty()) return;
     if (action_id == "up_right")  return kActionUpRight;
     if (action_id == "down_left") return kActionDownLeft;
     if (action_id == "down_right")return kActionDownRight;
-    if (action_id == "zoom_in") return 15;
-    if (action_id == "zoom_out") return 16;
+    if (action_id == "zoom_in")  return kActionZoomIn;
+    if (action_id == "zoom_out") return kActionZoomOut;
     return 0;
   }
 
@@ -863,6 +869,12 @@ std::string most_action_name = "None";
 int max_count = 0;
 
 for (const auto& action : interface_->GetAvailableActions()) {
+  if (action.id == "start" || action.id == "reset" ||
+      action.id == "save"  || action.id == "load" ||
+      action.id == "zoom_in" || action.id == "zoom_out") {
+    continue;
+  }
+
   const int code = CodeForActionId(action.id);
   if (code == 0) continue;
 
@@ -879,9 +891,9 @@ analysis_text << "\nMost Frequent Action: " << most_action_name << "\n\n";
 analysis_text << "=== Action Breakdown ===\n\n";
 
 for (const auto& action : interface_->GetAvailableActions()) {
-  // Skip non-gameplay actions
   if (action.id == "start" || action.id == "reset" ||
-      action.id == "save"  || action.id == "load") {
+      action.id == "save"  || action.id == "load" ||
+      action.id == "zoom_in" || action.id == "zoom_out") {
     continue;
   }
 
@@ -892,10 +904,6 @@ for (const auto& action : interface_->GetAvailableActions()) {
   analysis_text << name << ": " << action_counts[static_cast<size_t>(code)] << "\n";
 }
 
- 
-
-  
-
   // --- Global Counts ---
   const auto& globals = world_->GetWorldGlobalCounts();
   if (!globals.empty()) {
@@ -905,7 +913,6 @@ for (const auto& action : interface_->GetAvailableActions()) {
     }
   }
 }
-
 
 
     analysis_text_->SetText(analysis_text.str());
