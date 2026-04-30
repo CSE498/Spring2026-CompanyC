@@ -294,12 +294,12 @@ namespace cse498
         static constexpr int kHunterDefaultHP = 10;
         static constexpr int kThrowDamage = 10;
         static constexpr int kThrowRange = 4;
-        static constexpr int kEnemyContactDamage = 10;
+        static constexpr int kEnemyContactDamage = 1;
         static constexpr int kChestGoldReward = 8;
         static constexpr int kGoblinGoldCost = 10;
         static constexpr int kAgentSpawnExclusionDistance = 4;
         static constexpr int kOffGridPadding = 10;
-        
+
         static constexpr int kMinBoulderStone = 3;
         static constexpr int kMinGoldStone = 1;
         static constexpr int kMaxBoulderStone = 13;
@@ -365,7 +365,7 @@ namespace cse498
         std::map<size_t, int> mCombatAgentHP;
 
         // =========================================================================
-        // DoAction private helpers 
+        // DoAction private helpers
         // =========================================================================
 
         /**
@@ -394,7 +394,7 @@ namespace cse498
          * @return Resolved target position, or std::nullopt for an unrecognised action.
          */
         [[nodiscard]] std::optional<WorldPosition> ResolveMovementTarget(const WorldPosition &curPos,
-                                                           size_t actionId) const;
+                                                                         size_t actionId) const;
 
         /**
          * @brief Execute a validated movement: check collisions, move the agent,
