@@ -9,6 +9,7 @@
 #include <cassert>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "AgentBase.hpp"
@@ -56,6 +57,9 @@ namespace cse498
     /// Position log to track agent movement for analytics and end-game heatmaps.
     DataLog<WorldPosition> mPositionLog;
 
+    /// Numeric analytics collected once per world tick.
+    DataLog<> mAnalyticsLog;
+
   public:
     WorldBase() = default;
     virtual ~WorldBase() = default;
@@ -82,7 +86,8 @@ namespace cse498
     [[nodiscard]] virtual double GetScore() const { return 0.0; }
 
     /// Read the standard gameplay session timer.
-    [[nodiscard]] double GetPlaytimeSeconds() const {
+    [[nodiscard]] double GetPlaytimeSeconds() const
+    {
       return mTimer.Elapsed("Game::Session");
     }
 
@@ -91,6 +96,10 @@ namespace cse498
 
     /// Access the position log used by analytics/end-game heatmaps.
     const DataLog<WorldPosition> &GetPositionLog() const { return mPositionLog; }
+
+    /// Access the analytics log.
+    DataLog<> &GetAnalyticsLog() { return mAnalyticsLog; }
+    const DataLog<> &GetAnalyticsLog() const { return mAnalyticsLog; }
 
     /// Return a reference to an Item with a given ID.
     [[nodiscard]] ItemBase &GetItem(size_t id)
@@ -123,6 +132,24 @@ namespace cse498
     [[nodiscard]] const std::unordered_map<std::string, size_t> &GetWorldGlobalCounts() const
     {
       return world_global_counts;
+    }
+
+    /// Return the current numeric analytics values for this world tick.
+    /// Derived worlds can override this to add world-specific numeric metrics.
+    [[nodiscard]] virtual std::unordered_map<std::string, double> GetAnalyticsSnapshot() const
+    {
+      std::unordered_map<std::string, double> snapshot;
+      for (const auto &[name, count] : world_global_counts)
+      {
+        snapshot[name] = static_cast<double>(count);
+      }
+      return snapshot;
+    }
+
+    /// Record this tick's analytics snapshot in the shared analytics log.
+    void RecordAnalyticsSnapshot()
+    {
+      mAnalyticsLog.AddSnapshot(GetAnalyticsSnapshot());
     }
 
     [[nodiscard]] const std::vector<std::string> &GetWorldResourceNames() const
@@ -237,6 +264,7 @@ namespace cse498
       {
         RunAgents();
         UpdateWorld();
+        RecordAnalyticsSnapshot();
       }
     }
 

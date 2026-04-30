@@ -219,6 +219,17 @@ namespace cse498
         return static_cast<double>(mGoldCount * 10 + mStoneCount + mEnemiesKilled * 25 + mPlayerHP);
     }
 
+    std::unordered_map<std::string, double> InteractionHeavyWorld::GetAnalyticsSnapshot() const
+    {
+        return {
+            {"HP", static_cast<double>(mPlayerHP)},
+            {"Stone", static_cast<double>(mStoneCount)},
+            {"Gold", static_cast<double>(mGoldCount)},
+            {"EnemiesKilled", static_cast<double>(mEnemiesKilled)},
+            {"Score", GetScore()},
+            {"GameOver", mGameOver ? 1.0 : 0.0}};
+    }
+
     bool InteractionHeavyWorld::NearReferencePosition(const WorldPosition &pos,
                                              const WorldPosition &referencePos) const
     {

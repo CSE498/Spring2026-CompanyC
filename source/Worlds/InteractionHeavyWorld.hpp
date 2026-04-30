@@ -20,6 +20,7 @@
 #include <random>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace cse498
@@ -76,6 +77,11 @@ namespace cse498
          * @return Aggregate score based on valuables, kills, and remaining HP.
          */
         [[nodiscard]] double GetScore() const override;
+
+        /**
+         * @brief Return numeric values tracked by the analytics module over time.
+         */
+        [[nodiscard]] std::unordered_map<std::string, double> GetAnalyticsSnapshot() const override;
 
         // -------------------------------------------------------------------------
         // Position getters
