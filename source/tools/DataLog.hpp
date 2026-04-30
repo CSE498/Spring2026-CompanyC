@@ -11,10 +11,14 @@
 #include <concepts>
 #include <cstddef>
 #include <numeric>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
+
+#include "../core/Database.hpp"
+#include "../core/WorldPosition.hpp"
 
 namespace cse498 {
 
@@ -111,6 +115,58 @@ class DataLog {
   void Clear() noexcept {
     mData.clear();
     mSnapshotCount = 0;
+  }
+
+  /**
+   * @brief Registers this DataLog type with the database.
+   *
+   * After registration, callers can store and load this log with
+   * Database::Store and Database::Load.
+   */
+  void RegisterWithDatabase(cse498::Database& db)
+    requires (std::same_as<T, double> || std::same_as<T, WorldPosition>)
+  {
+    using StoredData = std::unordered_map<std::string, std::vector<double>>;
+
+    db.RegisterType<DataLog<T>>(
+        std::same_as<T, WorldPosition> ? "DataLogWorldPosition" : "DataLogDouble",
+        [](const DataLog<T>& log) -> std::string {
+            cse498::Serializer s;
+            StoredData data;
+            if constexpr (std::same_as<T, double>) {
+              data = log.mData;
+            } else {
+              for (const auto& [name, values] : log.mData) {
+                for (const auto& value : values) {
+                  data[name].push_back(value.X());
+                  data[name].push_back(value.Y());
+                }
+              }
+            }
+            return s.Serialize(data);
+        },
+        [](const std::string& data) -> std::optional<DataLog<T>> {
+            cse498::Serializer s;
+            size_t pos = 0;
+            auto parsed = s.DeserializeAt<StoredData>(data, pos);
+            if (!parsed) return std::nullopt;
+
+            DataLog<T> log;
+            for (const auto& [name, coords] : *parsed) {
+              if constexpr (std::same_as<T, double>) {
+                log.mData[name] = coords;
+              } else {
+                if (coords.size() % 2 != 0) return std::nullopt;
+                auto& values = log.mData[name];
+                for (std::size_t i = 0; i < coords.size(); i += 2) {
+                  values.emplace_back(coords[i], coords[i + 1]);
+                }
+              }
+              log.mSnapshotCount = std::max(log.mSnapshotCount, log.mData[name].size());
+            }
+            return log;
+        }
+    );
   }
 };
 

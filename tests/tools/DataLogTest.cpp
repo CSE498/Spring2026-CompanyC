@@ -5,6 +5,7 @@
 #include <string>
 #include <unordered_map>
 
+#include "../../source/core/Database.hpp"
 #include "../../source/core/WorldPosition.hpp"
 #include "catch2/catch.hpp"
 
@@ -279,4 +280,48 @@ TEST_CASE("DataLog can store generic position samples", "[core]") {
   CHECK(log.Names().empty());
   CHECK(log.Values("player").empty());
   CHECK(log.Values("nonplayer").empty());
+}
+
+TEST_CASE("DataLog registers supported logs with database", "[core]") {
+  cse498::Database db;
+
+  SECTION("Test analytics log") {
+    cse498::DataLog log;
+
+    log.Add("wood", 4.0);
+    log.Add("wood", 8.0);
+    log.Add("stone", 2.5);
+
+    log.RegisterWithDatabase(db);
+    REQUIRE(db.Store("analytics", log).has_value());
+
+    auto loaded = db.Load<cse498::DataLog<>>("analytics");
+    REQUIRE(loaded.has_value());
+
+    REQUIRE(loaded->Values("wood").size() == 2);
+    CHECK(loaded->Values("wood")[0] == Approx(4.0));
+    CHECK(loaded->Values("wood")[1] == Approx(8.0));
+
+    REQUIRE(loaded->Values("stone").size() == 1);
+    CHECK(loaded->Values("stone")[0] == Approx(2.5));
+  }
+
+  SECTION("Test position log") {
+    cse498::DataLog<cse498::WorldPosition> log;
+
+    log.Add("player", cse498::WorldPosition{1.0, 2.0});
+    log.Add("nonplayer", cse498::WorldPosition{3.0, 4.0});
+
+    log.RegisterWithDatabase(db);
+    REQUIRE(db.Store("positions", log).has_value());
+
+    auto loaded = db.Load<cse498::DataLog<cse498::WorldPosition>>("positions");
+    REQUIRE(loaded.has_value());
+
+    REQUIRE(loaded->Values("player").size() == 1);
+    CHECK(loaded->Values("player")[0] == cse498::WorldPosition{1.0, 2.0});
+
+    REQUIRE(loaded->Values("nonplayer").size() == 1);
+    CHECK(loaded->Values("nonplayer")[0] == cse498::WorldPosition{3.0, 4.0});
+  }
 }
