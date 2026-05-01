@@ -6,8 +6,29 @@
 #include "DynamicAgent.hpp"
 #include "../core/WorldBase.hpp"
 #include <algorithm>
-#include <climits>
+#include <array>
+#include <cmath>
 #include <iostream>
+#include <limits>
+
+namespace
+{
+    constexpr int kSearchRadius = 50;
+    constexpr int kRoamXSeed = 17;
+    constexpr int kRoamYSeed = 31;
+    constexpr int kBuildCountSeed = 7;
+    constexpr int kBuildsPerPhase = 5;
+    constexpr int kTownhallBuildCount = 1;
+
+    constexpr size_t kBasicWoodCost = 20;
+    constexpr size_t kBasicStoneCost = 20;
+    constexpr size_t kBasicWheatCost = 20;
+    constexpr size_t kBasicSteelCost = 20;
+    constexpr size_t kTownhallWoodCost = 500;
+    constexpr size_t kTownhallStoneCost = 500;
+    constexpr size_t kTownhallSteelCost = 500;
+    constexpr size_t kTownhallWheatCost = 500;
+}
 
 namespace cse498
 {
@@ -57,13 +78,13 @@ namespace cse498
                                      const WorldGrid &grid) const
     {
         const WorldPosition cur = GetLocation().AsWorldPosition();
-        const int cx = static_cast<int>(cur.CellX());
-        const int cy = static_cast<int>(cur.CellY());
+        const int cx = static_cast<int>(cur.X());
+        const int cy = static_cast<int>(cur.Y());
 
-        int best = INT_MAX, bx = cx, by = cy;
-        for (int dy = -50; dy <= 50; ++dy)
+        int best = std::numeric_limits<int>::max(), bx = cx, by = cy;
+        for (int dy = -kSearchRadius; dy <= kSearchRadius; ++dy)
         {
-            for (int dx = -50; dx <= 50; ++dx)
+            for (int dx = -kSearchRadius; dx <= kSearchRadius; ++dx)
             {
                 WorldPosition p(cx + dx, cy + dy);
                 if (!grid.IsValid(p))
@@ -74,19 +95,20 @@ namespace cse498
                 if (d < best) { best = d; bx = cx + dx; by = cy + dy; }
             }
         }
-        if (best == INT_MAX)
+        if (best == std::numeric_limits<int>::max())
             return "";
 
-        static const std::vector<std::string> kMoves = {
+        static const std::array<std::string, 8> kMoves = {
             "up", "down", "left", "right", "up_left", "up_right", "down_left", "down_right"};
         std::string bestMove;
-        int bestDist = INT_MAX;
+        double bestDist = std::numeric_limits<double>::infinity();
         for (const auto &mv : kMoves)
         {
             if (!HasAction(mv)) continue;
             WorldPosition np = NextPos(mv);
             if (!grid.IsValid(np) || !grid.IsTraversable(grid[np])) continue;
-            int d = std::max(std::abs((int)np.CellX() - bx), std::abs((int)np.CellY() - by));
+            const double d = std::max(std::abs(np.X() - static_cast<double>(bx)),
+                                      std::abs(np.Y() - static_cast<double>(by)));
             if (d < bestDist) { bestDist = d; bestMove = mv; }
         }
         return bestMove;
@@ -112,11 +134,16 @@ namespace cse498
     {
         switch (build_phase)
         {
-        case BuildPhase::Quarry:     return pool_wood >= 20  && pool_stone >= 20;
-        case BuildPhase::Farm:       return pool_wood >= 20  && pool_wheat >= 20;
-        case BuildPhase::Lumberyard: return pool_wood >= 20  && pool_steel >= 20;
-        case BuildPhase::Townhall:   return pool_wood >= 500 && pool_stone >= 500 &&
-                                            pool_steel >= 500 && pool_wheat >= 500;
+        case BuildPhase::Quarry:     return pool_wood >= kBasicWoodCost &&
+                                            pool_stone >= kBasicStoneCost;
+        case BuildPhase::Farm:       return pool_wood >= kBasicWoodCost &&
+                                            pool_wheat >= kBasicWheatCost;
+        case BuildPhase::Lumberyard: return pool_wood >= kBasicWoodCost &&
+                                            pool_steel >= kBasicSteelCost;
+        case BuildPhase::Townhall:   return pool_wood >= kTownhallWoodCost &&
+                                            pool_stone >= kTownhallStoneCost &&
+                                            pool_steel >= kTownhallSteelCost &&
+                                            pool_wheat >= kTownhallWheatCost;
         default:                     return false;
         }
     }
@@ -148,13 +175,13 @@ namespace cse498
 
         const size_t mn = std::min({pool_wood, pool_stone, pool_wheat});
 
-        if (pool_wood  == mn && pool_wood  < 500) return "tree";
-        if (pool_stone == mn && pool_stone < 500) return "stone";
-        if (pool_wheat == mn && pool_wheat < 500) return "wheat";
+        if (pool_wood  == mn && pool_wood  < kTownhallWoodCost) return "tree";
+        if (pool_stone == mn && pool_stone < kTownhallStoneCost) return "stone";
+        if (pool_wheat == mn && pool_wheat < kTownhallWheatCost) return "wheat";
 
-        if (pool_wood  < 500) return "tree";
-        if (pool_stone < 500) return "stone";
-        if (pool_wheat < 500) return "wheat";
+        if (pool_wood  < kTownhallWoodCost) return "tree";
+        if (pool_stone < kTownhallStoneCost) return "stone";
+        if (pool_wheat < kTownhallWheatCost) return "wheat";
 
         return "";
     }
@@ -167,14 +194,14 @@ namespace cse498
         /** Picks a traversable roam direction, preferring cells of preferred_cell type if specified. */
         auto ChooseRoamMove = [&](const std::string &preferred_cell = "") -> std::string
         {
-            static const std::vector<std::string> kMoves = {
+            static const std::array<std::string, 8> kMoves = {
                 "up", "up_right", "right", "down_right",
                 "down", "down_left", "left", "up_left"};
 
             const WorldPosition cur = GetLocation().AsWorldPosition();
-            const int cx = static_cast<int>(cur.CellX());
-            const int cy = static_cast<int>(cur.CellY());
-            const int start = (cx * 17 + cy * 31 + phase_built_count * 7) %
+            const int cx = static_cast<int>(cur.X());
+            const int cy = static_cast<int>(cur.Y());
+            const int start = (cx * kRoamXSeed + cy * kRoamYSeed + phase_built_count * kBuildCountSeed) %
                               static_cast<int>(kMoves.size());
 
             auto try_pass = [&](bool require_preferred) -> std::string
@@ -259,7 +286,7 @@ namespace cse498
                           << " pool(w=" << pool_wood << " s=" << pool_stone
                           << " wh=" << pool_wheat << " st=" << pool_steel << ")" << std::endl;
 
-                const int target = (build_phase == BuildPhase::Townhall) ? 1 : 5;
+                const int target = (build_phase == BuildPhase::Townhall) ? kTownhallBuildCount : kBuildsPerPhase;
                 if (phase_built_count >= target)
                 {
                     /** Advance to the next build phase and reset the structure count. */

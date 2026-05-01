@@ -27,9 +27,7 @@
 
 #pragma once
 
-#include <climits>
 #include <string>
-#include <vector>
 #include "../core/AgentBase.hpp"
 
 namespace cse498
@@ -38,16 +36,6 @@ namespace cse498
     class HunterAgent : public AgentBase
     {
     public:
-
-        /** Chebyshev radius within which the hunter detects any target. */
-        int mDetectRadius = 8;
-
-        /** Chebyshev radius within which the hunter maintains active chase; should be >= mDetectRadius. */
-        int mChaseRadius = 12;
-
-        /** Ticks the hunter continues chasing after losing sight of the target. */
-        int mChaseMemoryTicks = 10;
-
         /** Sets the detection radius. */
         HunterAgent &SetDetectRadius(int v) { mDetectRadius = v; return *this; }
 
@@ -65,7 +53,8 @@ namespace cse498
         };
 
         HunterAgent(size_t id, const std::string &name, WorldBase &world)
-            : AgentBase(id, name, world) {}
+            : AgentBase(id, name, world),
+              last_action() {}
 
         ~HunterAgent() = default;
 
@@ -73,6 +62,20 @@ namespace cse498
         size_t SelectAction(WorldGrid &grid) override;
         void Notify(const std::string &message,
                     const std::string &msg_type = "none") override;
+
+    private:
+        static constexpr int kDefaultDetectRadius = 8;
+        static constexpr int kDefaultChaseRadius = 12;
+        static constexpr int kDefaultChaseMemoryTicks = 10;
+
+        /** Chebyshev radius within which the hunter detects any target. */
+        int mDetectRadius = kDefaultDetectRadius;
+
+        /** Chebyshev radius within which the hunter maintains active chase; should be >= mDetectRadius. */
+        int mChaseRadius = kDefaultChaseRadius;
+
+        /** Ticks the hunter continues chasing after losing sight of the target. */
+        int mChaseMemoryTicks = kDefaultChaseMemoryTicks;
 
     protected:
 

@@ -7,10 +7,11 @@
 
 #include "HunterAgent.hpp"
 #include <algorithm>
-#include <climits>
+#include <array>
+#include <cmath>
 #include <cstdlib>
-#include <iostream>
-#include <vector>
+#include <limits>
+#include <string>
 
 namespace cse498
 {
@@ -114,7 +115,8 @@ namespace cse498
                 chosen = last_action;
             else
             {
-                for (const std::string &a : {"up", "down", "left", "right"})
+                static const std::array<std::string, 4> kDirs = {"up", "down", "left", "right"};
+                for (const std::string &a : kDirs)
                 {
                     if (IsMoveValid(a, grid)) { chosen = a; break; }
                 }
@@ -147,10 +149,10 @@ namespace cse498
                                     int radius) const
     {
         const WorldPosition cur = GetLocation().AsWorldPosition();
-        const int cx = static_cast<int>(cur.CellX());
-        const int cy = static_cast<int>(cur.CellY());
+        const int cx = static_cast<int>(cur.X());
+        const int cy = static_cast<int>(cur.Y());
 
-        int best_dist = INT_MAX, best_x = -1, best_y = -1;
+        int best_dist = std::numeric_limits<int>::max(), best_x = -1, best_y = -1;
 
         for (int dy = -radius; dy <= radius; ++dy)
         {
@@ -160,8 +162,9 @@ namespace cse498
 
                 const int nx = cx + dx;
                 const int ny = cy + dy;
-                const WorldPosition cand(static_cast<size_t>(std::max(0, nx)),
-                                         static_cast<size_t>(std::max(0, ny)));
+                if (nx < 0 || ny < 0) continue;
+
+                const WorldPosition cand(nx, ny);
 
                 if (!grid.IsValid(cand)) continue;
 
@@ -174,7 +177,7 @@ namespace cse498
             }
         }
 
-        if (best_dist == INT_MAX) return false;
+        if (best_dist == std::numeric_limits<int>::max()) return false;
         out_x = best_x;
         out_y = best_y;
         return true;
@@ -187,22 +190,19 @@ namespace cse498
     std::string HunterAgent::ChaseMove(const WorldGrid &grid,
                                        int tx, int ty) const
     {
-        const WorldPosition cur = GetLocation().AsWorldPosition();
-        const int cx = static_cast<int>(cur.CellX());
-        const int cy = static_cast<int>(cur.CellY());
-
-        static const std::vector<std::string> kDirs = {"up", "down", "left", "right"};
+        static const std::array<std::string, 4> kDirs = {"up", "down", "left", "right"};
 
         std::string best_action;
-        int best_dist = INT_MAX, best_fails = INT_MAX;
+        double best_dist = std::numeric_limits<double>::infinity();
+        int best_fails = std::numeric_limits<int>::max();
 
         for (const std::string &action : kDirs)
         {
             if (!SupportsAction(action) || !IsMoveValid(action, grid)) continue;
 
             const WorldPosition npos = NextPos(action);
-            const int nd = std::max(std::abs((int)npos.CellX() - tx),
-                                    std::abs((int)npos.CellY() - ty));
+            const double nd = std::max(std::abs(npos.X() - static_cast<double>(tx)),
+                                       std::abs(npos.Y() - static_cast<double>(ty)));
             const int fc = FailCount(action);
 
             if (nd < best_dist || (nd == best_dist && fc < best_fails))
@@ -232,7 +232,7 @@ namespace cse498
      */
     std::string HunterAgent::RoamMove(const WorldGrid &grid)
     {
-        static const std::vector<std::string> kDirs = {"up", "right", "down", "left"};
+        static const std::array<std::string, 4> kDirs = {"up", "right", "down", "left"};
 
         ++mRoamTicks;
         if (mRoamTicks >= mRoamChangeTick)
