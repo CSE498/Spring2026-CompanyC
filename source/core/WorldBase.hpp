@@ -7,14 +7,18 @@
 #pragma once
 
 #include <cassert>
+#include <chrono>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "AgentBase.hpp"
 #include "ItemBase.hpp"
+#include "WorldPosition.hpp"
 #include "WorldGrid.hpp"
 #include "../tools/ActionLog.hpp"
+#include "../tools/DataLog.hpp"
 #include "../tools/Timer.hpp"
 
 namespace cse498 {
@@ -50,6 +54,12 @@ namespace cse498 {
     /// Action log to keep track of all the actions done by agents in this world
     ActionLog mActionLog;
 
+    /// Position collected when an agent's world position changes.
+    DataLog<WorldPosition> mPositionLog;
+
+    /// Numeric analytics collected once per world tick.
+    DataLog<> mAnalyticsLog;
+
   public:
     WorldBase() = default;
     virtual ~WorldBase() = default;
@@ -69,8 +79,28 @@ namespace cse498 {
     /// Access the shared Timer for this world (const overload)
     const Timer & GetTimer() const { return mTimer; }
 
+    /// World specific score for end of game summary.
+    /// Default is 0; each world can override with its own scoring logic
+    /// Old plan: worlds override GetScore() New plan: worlds can pass score text into EndGameScreen.
+    /// Keeping this as a fallback in case we want a shared numeric score later.
+    [[nodiscard]] virtual double GetScore() const { return 0.0; } 
+
+    /// Total playtime (seconds) for the current session.
+    /// Reads from the shared Timer using the standard session name.
+    [[nodiscard]] double GetPlaytimeSeconds() const {             
+    return mTimer.Elapsed("Game::Session");}
+
+
     /// Access the ActionLog
     ActionLog & GetActionLog() { return mActionLog; }
+
+    /// Access the position log 
+    DataLog<WorldPosition> & GetPositionLog() { return mPositionLog; }
+    const DataLog<WorldPosition> & GetPositionLog() const { return mPositionLog; }
+
+    /// Access the analytics log
+    DataLog<> & GetAnalyticsLog() { return mAnalyticsLog; }
+    const DataLog<> & GetAnalyticsLog() const { return mAnalyticsLog; }
 
     /// Return a reference to an Item with a given ID.
     [[nodiscard]] ItemBase & GetItem(size_t id) {
@@ -98,6 +128,21 @@ namespace cse498 {
 
     [[nodiscard]] const std::unordered_map<std::string, size_t> & GetWorldGlobalCounts() const { 
       return world_global_counts;
+    }
+
+    /// Return the current numeric analytics values for this world tick.
+    /// Derived worlds can override this to add world-specific numeric metrics.
+    [[nodiscard]] virtual std::unordered_map<std::string, double> GetAnalyticsSnapshot() const {
+      std::unordered_map<std::string, double> snapshot;
+      for (const auto& [name, count] : world_global_counts) {
+        snapshot[name] = static_cast<double>(count);
+      }
+      return snapshot;
+    }
+
+    /// Record this tick's analytics snapshot in the shared analytics log.
+    void RecordAnalyticsSnapshot() {
+      mAnalyticsLog.AddSnapshot(GetAnalyticsSnapshot());
     }
 
     [[nodiscard]] virtual size_t GetWidth() const { return main_grid.GetWidth(); }
@@ -146,12 +191,23 @@ namespace cse498 {
     /// @note Override function to control which grid each agent receives.
     virtual void RunAgents() {
       for (const auto & agent_ptr : agent_set) {
+        const Location before_location = agent_ptr->GetLocation();
+
         size_t action_id = agent_ptr->SelectAction(main_grid);
         int result = DoAction(*agent_ptr, action_id);
         if (result){
-          mActionLog.recordAction(*agent_ptr, action_id);
+          mActionLog.recordAction(agent_ptr->GetID(), action_id, std::chrono::duration_cast<std::chrono::microseconds>(
+                                  std::chrono::steady_clock::now().time_since_epoch()));
         }
         agent_ptr->SetActionResult(result);
+
+        const Location& after_location = agent_ptr->GetLocation();
+        if (after_location.IsPosition() &&
+            (!before_location.IsPosition() ||
+             before_location.AsWorldPosition() != after_location.AsWorldPosition())) {
+          mPositionLog.Add(agent_ptr->IsInterface() ? "player" : "nonplayer",
+                           after_location.AsWorldPosition());
+        }
       }
     }
 
@@ -166,6 +222,7 @@ namespace cse498 {
       while (!run_over) {
         RunAgents();
         UpdateWorld();
+        RecordAnalyticsSnapshot();
       }
     }
 
