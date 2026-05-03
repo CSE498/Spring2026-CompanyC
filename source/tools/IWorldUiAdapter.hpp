@@ -36,6 +36,7 @@ struct RenderableEntity {
   std::string label;
   std::string fill_css;
   std::string glyph;
+  std::string image_url;  ///< Optional sprite path, empty means use fill_css circle
   bool visible = true;
 };
 

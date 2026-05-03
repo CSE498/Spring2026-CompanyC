@@ -7,6 +7,7 @@
 #pragma once
 
 #include <cassert>
+#include <chrono>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -14,6 +15,7 @@
 
 #include "AgentBase.hpp"
 #include "ItemBase.hpp"
+#include "WorldPosition.hpp"
 #include "WorldGrid.hpp"
 #include "../tools/ActionLog.hpp"
 #include "../tools/DataLog.hpp"
@@ -39,7 +41,6 @@ namespace cse498
     std::unordered_map<std::string, size_t> world_global_counts; /// Set of global resources / counts
     std::vector<std::string> mWorldResourceNames;                ///< List of resource names for this world (e.g., "wood", "stone", etc.)
     std::vector<int> mWorldResourceCounts;                       ///< List of resource counts for this world (e.g., 10 wood, 5 stone, etc.)
-    //<<< changed size_t to int
     bool run_over = false; ///< Are we finished executing and now shutting down?
 
     /// Helper function that is run whenever a new agent is created.
@@ -54,7 +55,7 @@ namespace cse498
     /// Action log to keep track of all the actions done by agents in this world
     ActionLog mActionLog;
 
-    /// Position log to track agent movement for analytics and end-game heatmaps.
+    /// Position collected when an agent's world position changes.
     DataLog<WorldPosition> mPositionLog;
 
     /// Numeric analytics collected once per world tick.
@@ -79,27 +80,28 @@ namespace cse498
     /// Access the shared Timer for this world (const overload)
     const Timer &GetTimer() const { return mTimer; }
 
-    /// Access the ActionLog
-    ActionLog &GetActionLog() { return mActionLog; }
-
     /// Return the current score for worlds that provide score-based results.
+    /// Old plan: worlds override GetScore(). New plan: worlds can pass score text into EndGameScreen.
+    /// Keeping this as a fallback in case we want a shared numeric score later.
     [[nodiscard]] virtual double GetScore() const { return 0.0; }
 
     /// Read the standard gameplay session timer.
-    [[nodiscard]] double GetPlaytimeSeconds() const
-    {
+    [[nodiscard]] double GetPlaytimeSeconds() const {
       return mTimer.Elapsed("Game::Session");
     }
 
-    /// Access the position log used by analytics/end-game heatmaps.
-    DataLog<WorldPosition> &GetPositionLog() { return mPositionLog; }
+    /// Access the ActionLog
+    ActionLog &GetActionLog() { return mActionLog; }
 
     /// Access the position log used by analytics/end-game heatmaps.
-    const DataLog<WorldPosition> &GetPositionLog() const { return mPositionLog; }
+    [[nodiscard]] DataLog<WorldPosition> &GetPositionLog() { return mPositionLog; }
+
+    /// Access the position log used by analytics/end-game heatmaps (const overload).
+    [[nodiscard]] const DataLog<WorldPosition> &GetPositionLog() const { return mPositionLog; }
 
     /// Access the analytics log.
-    DataLog<> &GetAnalyticsLog() { return mAnalyticsLog; }
-    const DataLog<> &GetAnalyticsLog() const { return mAnalyticsLog; }
+    [[nodiscard]] DataLog<> &GetAnalyticsLog() { return mAnalyticsLog; }
+    [[nodiscard]] const DataLog<> &GetAnalyticsLog() const { return mAnalyticsLog; }
 
     /// Return a reference to an Item with a given ID.
     [[nodiscard]] ItemBase &GetItem(size_t id)
@@ -136,11 +138,9 @@ namespace cse498
 
     /// Return the current numeric analytics values for this world tick.
     /// Derived worlds can override this to add world-specific numeric metrics.
-    [[nodiscard]] virtual std::unordered_map<std::string, double> GetAnalyticsSnapshot() const
-    {
+    [[nodiscard]] virtual std::unordered_map<std::string, double> GetAnalyticsSnapshot() const {
       std::unordered_map<std::string, double> snapshot;
-      for (const auto &[name, count] : world_global_counts)
-      {
+      for (const auto& [name, count] : world_global_counts) {
         snapshot[name] = static_cast<double>(count);
       }
       return snapshot;
@@ -156,13 +156,12 @@ namespace cse498
     {
       return mWorldResourceNames;
     }
-    //<<< changed size_t to int
     [[nodiscard]] const std::vector<int> &GetWorldResourceCounts() const
     {
       return mWorldResourceCounts;
     }
 
-    /// Added Setters so Interaction World is easier set up
+    /// Added Setters so Interaction World is easier to set up
     void SetWorldResourceNames(const std::vector<std::string> &names)
     {
       mWorldResourceNames = names;
@@ -230,24 +229,26 @@ namespace cse498
     /// @brief Step through each agent giving them a chance to take an action.
     /// @note Override function to control execution order of agents.
     /// @note Override function to control which grid each agent receives.
-    virtual void RunAgents()
-    {
-      for (const auto &agent_ptr : agent_set)
-      {
-        const WorldPosition before_location = agent_ptr->GetLocation().AsWorldPosition();
+    virtual void RunAgents() {
+      for (const auto& agent_ptr : agent_set) {
+        const Location before_location = agent_ptr->GetLocation();
+
         size_t action_id = agent_ptr->SelectAction(main_grid);
         int result = DoAction(*agent_ptr, action_id);
-        if (result)
-        {
-          mActionLog.recordAction(*agent_ptr, action_id);
-        }
-        const WorldPosition after_location = agent_ptr->GetLocation().AsWorldPosition();
-        if (before_location.X() != after_location.X() ||
-            before_location.Y() != after_location.Y())
-        {
-          mPositionLog.Add(after_location);
+        if (result) {
+          mActionLog.recordAction(agent_ptr->GetID(), action_id,
+              std::chrono::duration_cast<std::chrono::microseconds>(
+                  std::chrono::steady_clock::now().time_since_epoch()));
         }
         agent_ptr->SetActionResult(result);
+
+        const Location& after_location = agent_ptr->GetLocation();
+        if (after_location.IsPosition() &&
+            (!before_location.IsPosition() ||
+             before_location.AsWorldPosition() != after_location.AsWorldPosition())) {
+          mPositionLog.Add(agent_ptr->IsInterface() ? "player" : "nonplayer",
+                           after_location.AsWorldPosition());
+        }
       }
     }
 

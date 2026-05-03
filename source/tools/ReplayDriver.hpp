@@ -1,3 +1,9 @@
+/**
+ * @file ReplayDriver.hpp
+ * @author Group 23
+ *
+ * @brief Replays the sequence of actions tracked.
+ */
 #pragma once
 
 #include "../tools/ActionLog.hpp"
@@ -17,7 +23,7 @@ namespace cse498
     struct ReplayEvent {
         size_t agent_id; // Identifies the agent that performed the action
         size_t actionType; // Actual action type that corresponds to action ID in WorldBase
-        std::chrono::steady_clock::time_point timeStamp; // Timestamp of when the action occurred
+        std::chrono::microseconds timeStamp; // Timestamp of when the action occurred
     };
 
     class ReplayDriver {
@@ -119,7 +125,7 @@ namespace cse498
 
        // Status for if replay is done
         [[nodiscard]] bool isFinished() const {
-            return mNext >= mEvents.size();
+            return (mNext >= mEvents.size());
         }
 
        // Status for if replay is running
@@ -168,6 +174,10 @@ namespace cse498
             mNext = 0;
             mRunning = false;
             mPaused = false;
+        }
+
+        [[nodiscard]] const std::vector<ReplayEvent> getEvents() const {
+            return mEvents;
         }
     };
 }

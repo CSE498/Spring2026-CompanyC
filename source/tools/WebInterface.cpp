@@ -6,6 +6,38 @@
 #include "core/WorldBase.hpp"
 #include "core/WorldGrid.hpp"
 
+#include <optional>
+#include <utility>
+
+namespace {
+
+cse498::WebPopupRequest ParseTimedPopupMessage(const std::string& message,
+                                                bool show_ok) {
+  cse498::WebPopupOptions opt;
+  opt.show_ok_button  = show_ok;
+  opt.auto_dismiss    = true;
+  opt.auto_dismiss_ms = 1500;
+  std::string text = message;
+  const size_t p = message.find('|');
+  if (p != std::string::npos) {
+    try {
+      const int ms = std::stoi(message.substr(0, p));
+      if (ms > 0) {
+        opt.auto_dismiss_ms = ms;
+      } else {
+        // Non-positive delay means "do not auto-dismiss".
+        opt.auto_dismiss = false;
+        opt.auto_dismiss_ms = std::nullopt;
+      }
+    } catch (...) {
+    }
+    text = message.substr(p + 1);
+  }
+  return cse498::WebPopupRequest{std::move(text), opt};
+}
+
+}  // namespace
+
 namespace cse498 {
 
 WebInterface::WebInterface(size_t id, const std::string& name,
@@ -33,9 +65,14 @@ void WebInterface::Notify(const std::string& message,
     // Expected format: "key:value"  (e.g., "wood:3")
     const auto colon = message.find(':');
     if (colon != std::string::npos) {
-      resources_[message.substr(0, colon)] =
-          std::stoi(message.substr(colon + 1));
+      try {
+        resources_[message.substr(0, colon)] =
+            std::stoi(message.substr(colon + 1));
+      } catch (...) {
+      }
     }
+  } else if (msg_type == "resource_clear") {
+    resources_.clear();
   } else if (msg_type == "panel_clear") {
     panel_text_.clear();
   } else if (msg_type == "panel_line") {
@@ -47,7 +84,17 @@ void WebInterface::Notify(const std::string& message,
     panel_text_ = message;
   } else if (msg_type == "world_name") {
     world_name_ = message;
+  } else if (msg_type == "popup") {
+    popup_queue_.push_back(WebPopupRequest{message, WebPopupOptions{}});
+  } else if (msg_type == "popup_timed") {
+    popup_queue_.push_back(ParseTimedPopupMessage(message, false));
+  } else if (msg_type == "popup_timed_ok") {
+    popup_queue_.push_back(ParseTimedPopupMessage(message, true));
   }
+}
+
+std::vector<WebPopupRequest> WebInterface::TakePendingPopups() {
+  return std::exchange(popup_queue_, {});
 }
 
 void WebInterface::SubmitAction(const std::string& action_id) {
@@ -78,9 +125,17 @@ void WebInterface::SetCellVisual(const std::string& cell_type_name,
       CellVisual{std::move(fill_css), std::move(glyph)};
 }
 
+void WebInterface::SetEntityVisual(char glyph, std::string image_url) {
+  entity_visuals_[glyph] = std::move(image_url);
+}
+
 void WebInterface::RegisterActionMeta(const std::string& action_id,
                                       ActionMeta meta) {
   action_metas_[action_id] = std::move(meta);
+}
+
+void WebInterface::SetPlayerVisible(bool visible) {
+  player_visible_ = visible;
 }
 
 std::vector<LegendEntry> WebInterface::GetLegend() const {
@@ -145,16 +200,21 @@ std::vector<RenderableEntity> WebInterface::GetEntities() const {
   for (const size_t id : agent_ids) {
     const AgentBase& agent = world.GetAgent(id);
     if (!agent.GetLocation().IsPosition()) continue;
+    if (agent.IsInterface() && !player_visible_) continue;
 
     const WorldPosition& pos = agent.GetLocation().AsWorldPosition();
     RenderableEntity ent;
-    ent.id       = static_cast<int>(id);
-    ent.x        = static_cast<int>(pos.CellX());
-    ent.y        = static_cast<int>(pos.CellY());
-    ent.label    = agent.GetName();
-    ent.fill_css = agent.IsInterface() ? "#2563eb" : "#dc2626";
-    ent.glyph    = std::string(1, agent.GetSymbol());
-    ent.visible  = true;
+    const char sym = agent.GetSymbol();
+    const auto vis_it = entity_visuals_.find(sym);
+
+    ent.id        = static_cast<int>(id);
+    ent.x         = static_cast<int>(pos.CellX());
+    ent.y         = static_cast<int>(pos.CellY());
+    ent.label     = agent.GetName();
+    ent.fill_css  = agent.IsInterface() ? "#2563eb" : "#dc2626";
+    ent.glyph     = std::string(1, sym);
+    ent.image_url = (vis_it != entity_visuals_.end()) ? vis_it->second : "";
+    ent.visible   = true;
     entities.push_back(std::move(ent));
   }
   return entities;

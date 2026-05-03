@@ -99,16 +99,15 @@ double Timer::Elapsed(const std::string& name) const {
     return std::chrono::duration<double>(Clock::now() - entry.start).count();
   }
 
+  // If not running, return the last completed duration (or 0.0 if none).
   return entry.stats.lastSeconds;
 }
 
 Timer::Stats Timer::GetStats(const std::string& name) const {
-  // returns a copy
   auto it = mTimers.find(name);
   if (it == mTimers.end()) return Stats{};
   return it->second.stats;
 }
-
 std::vector<std::pair<std::string, Timer::Stats>> Timer::GetAllStats() const {
   // export all stats as value types so other modules can render/print/store them
   std::vector<std::pair<std::string, Timer::Stats>> out;

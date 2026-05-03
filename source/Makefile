@@ -85,28 +85,30 @@ GROUP09_SRCS = \
 	tools/Datum.cpp
 
 # ── Web / Emscripten build ────────────────────────────────────────────────────
-WEB_SOURCES = web_main.cpp            \
-              Interfaces/WebApp.cpp   \
-               tools/WebLayout.cpp    \
-               tools/WebCanvas.cpp    \
-               tools/WebTextbox.cpp   \
-               tools/WebInterface.cpp \
-               tools/WebSocketConnection.cpp \
-               tools/SQLiteConnection.cpp \
-               tools/Serializer.cpp   \
-               tools/StringCompressor.cpp \
-               tools/StringDiff.cpp   \
-               tools/DataGrid.cpp     \
-               tools/Datum.cpp        \
-               core/Database.cpp      \
-               core/SyncManager.cpp   \
-               core/WorldHelpers.cpp  \
-               Worlds/StubWorld.cpp   \
+WEB_SOURCES = web_main.cpp                  \
+              Interfaces/WebApp.cpp         \
+              tools/WebLayout.cpp           \
+              tools/WebCanvas.cpp           \
+              tools/WebTextbox.cpp          \
+              tools/WebButton.cpp           \
+              tools/WebPopup.cpp            \
+              tools/WebInterface.cpp        \
+              tools/WebSocketConnection.cpp \
+              tools/SQLiteConnection.cpp    \
+              tools/Serializer.cpp          \
+              tools/StringCompressor.cpp    \
+              tools/StringDiff.cpp          \
+              tools/DataGrid.cpp            \
+              tools/Datum.cpp               \
+              core/Database.cpp             \
+              core/SyncManager.cpp          \
+              core/WorldHelpers.cpp         \
+              Worlds/StubWorld.cpp          \
               $(BASE_SOURCES)
 
 FLAGS_web_base = -std=c++23 -I. \
                  -sWASM=1 \
-                 -sEXPORTED_FUNCTIONS=_main,_HandleAction \
+                 -sEXPORTED_FUNCTIONS=_main,_HandleAction,_cse498_popup_dismiss \
                  -sEXPORTED_RUNTIME_METHODS=ccall,cwrap \
                  -lembind \
 				 --preload-file ../source/Worlds/interaction_world_maps \
@@ -120,10 +122,12 @@ WEB_OUT_DIR = ../web
 web web-opt: $(WEB_SOURCES) $(SQLITE_OBJ_WEB)
 	@mkdir -p $(WEB_OUT_DIR)
 	$(EMCC) $(WEB_SOURCES) $(SQLITE_OBJ_WEB) $(FLAGS_web_opt) -o $(WEB_OUT_DIR)/demo.html
+	@rm -rf $(WEB_OUT_DIR)/assets && cp -r ../assets $(WEB_OUT_DIR)/assets
 
 web-debug: $(WEB_SOURCES) $(SQLITE_OBJ_WEB)
 	@mkdir -p $(WEB_OUT_DIR)
 	$(EMCC) $(WEB_SOURCES) $(SQLITE_OBJ_WEB) $(FLAGS_web_debug) -o $(WEB_OUT_DIR)/demo.html
+	@rm -rf $(WEB_OUT_DIR)/assets && cp -r ../assets $(WEB_OUT_DIR)/assets
 # ─────────────────────────────────────────────────────────────────────────────
 
 server:

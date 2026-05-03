@@ -42,7 +42,6 @@ public:
 
   double Elapsed(const std::string& name) const; // current elapsed if running, else last (0.0 if missing)
 
-  // optional helper API to make Timer easier to integrate later on... may change based on company discussion/preference.
   Stats GetStats(const std::string& name) const;
   std::vector<std::pair<std::string, Stats>> GetAllStats() const;
 
