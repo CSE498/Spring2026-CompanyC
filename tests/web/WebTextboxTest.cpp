@@ -11,7 +11,10 @@
  *
  * Manual compile-and-run (same flags as the script; must print
  * "All WebTextbox tests passed." and exit 0):
- * g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -O0 -g -I./source ./tests/tools/WebTextboxTest.cpp ./source/tools/WebTextbox.cpp -o webtextbox_tests && ./webtextbox_tests
+ * g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -O0 -g \
+ * -I./source \
+ * ./tests/web/WebTextboxTest.cpp ./source/tools/WebTextbox.cpp \
+ * -o webtextbox_tests && ./webtextbox_tests
  *
  * Citation - LLM (OpenAI) was used to help generate parts of this file,
  * and maintain consistency with the project. The code was then reviewed

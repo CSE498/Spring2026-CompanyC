@@ -24,77 +24,73 @@
 
 using namespace cse498;
 
-// Minimal agent that always returns a fixed action ID for controlled testing.
+// Minimal agent that picks a random action each tick.
 class StubAgent : public cse498::AgentBase {
 public:
+  StubAgent(size_t id, const std::string& name, const cse498::WorldBase& world)
+    : AgentBase(id, name, world) {}
 
-  StubAgent(size_t id, const std::string & name, const cse498::WorldBase & world)
-    : AgentBase(id, name, world) { }
-
-  size_t SelectAction(cse498::WorldGrid &) override { 
+  size_t SelectAction(cse498::WorldGrid&) override {
     std::random_device rd;
     std::mt19937 gen(rd());
-
-    std::uniform_int_distribution<int> choice(0, this->action_map.size()-1);
-
-    return choice(gen); 
+    std::uniform_int_distribution<int> choice(0, this->action_map.size() - 1);
+    return choice(gen);
   }
 };
 
 int main() {
   g_app = std::make_unique<WebApp>();
 
+  int tick_ms = 500;
+  const std::string tick_ms_param = GetUrlParam("tick_ms");
+  if (!tick_ms_param.empty()) {
+    try { tick_ms = std::stoi(tick_ms_param); } catch (...) { tick_ms = 500; }
+  }
+  g_app->SetAutoTickMs(tick_ms);
+
   std::string run_mode = GetUrlParam("world");
 
   if (run_mode == "classic_agent") {
-    using world_t = cse498::MazeWorld;
-    auto & world = g_app->Initialize<world_t>();
-    world.AddAgent<ClassicAgent>("Classic 1").SetLocation(WorldPosition{3,1});
-  }
-  else if (run_mode == "smart_agent") {
-    using world_t = cse498::MazeWorld;
-    auto & world = g_app->Initialize<world_t>();
-    world.AddAgent<SmartAgent>("SmartAgent").SetLocation(WorldPosition{3,1});
-  }
-  else if (run_mode == "tendency_agent") {
-    using world_t = cse498::MazeWorld;
-    auto & world = g_app->Initialize<world_t>();
-    world.AddAgent<TendencyAgent>("Tendency").SetLocation(WorldPosition{3,1});
-  }
-  else if (run_mode == "dynamic") {
-    constexpr int basicAgentCount= 15; 
-
-    using world_t = cse498::DynamicWorld;
-    auto & world = g_app->Initialize<world_t>();
+    auto& world = g_app->Initialize<cse498::MazeWorld>();
+    world.AddAgent<ClassicAgent>("Classic 1").SetLocation(WorldPosition{3, 1});
+  } else if (run_mode == "smart_agent") {
+    auto& world = g_app->Initialize<cse498::MazeWorld>();
+    world.AddAgent<SmartAgent>("SmartAgent").SetLocation(WorldPosition{3, 1});
+  } else if (run_mode == "tendency_agent") {
+    auto& world = g_app->Initialize<cse498::MazeWorld>();
+    world.AddAgent<TendencyAgent>("Tendency").SetLocation(WorldPosition{3, 1});
+  } else if (run_mode == "dynamic") {
+    constexpr int basicAgentCount = 15;
+    auto& world = g_app->Initialize<cse498::DynamicWorld>();
     world.AddAgent<StubAgent>("Leader").SetLocation(Location{{0, 0}});
 
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<int> x_pos(0, world.GetWidth() - 1);
     std::uniform_int_distribution<int> y_pos(0, world.GetHeight() - 1);
- 
     for (int i = 0; i < basicAgentCount; i++) {
-        std::string name = "Basic Agent " + std::to_string(i+1);
-        world.AddAgent<StubAgent>(name).SetLocation(cse498::WorldPosition{x_pos(gen), y_pos(gen)});
+      std::string name = "Basic Agent " + std::to_string(i + 1);
+      world.AddAgent<StubAgent>(name).SetLocation(cse498::WorldPosition{x_pos(gen), y_pos(gen)});
     }
+    g_app->SetPlayerVisible(false);
+    g_app->EnableViewport(32);
   } else if (run_mode == "interaction") {
-    using world_t = cse498::InteractionHeavyWorld;
     using agent_t = cse498::PacingAgent;
-    auto & world = g_app->Initialize<world_t>();
-    world.AddAgent<agent_t>("Pacer 1").SetLocation(WorldPosition{3,1});
-    world.AddAgent<agent_t>("Pacer 2").SetLocation(WorldPosition{6,1});
-    world.AddAgent<agent_t>("Guard 1").SetHorizontal().SetLocation(WorldPosition{7,7});
-    world.AddAgent<agent_t>("Guard 2").SetHorizontal().ToggleDirection().SetLocation(WorldPosition{8,8});
+    auto& world = g_app->Initialize<cse498::InteractionHeavyWorld>();
+    world.AddAgent<agent_t>("Pacer 1").SetLocation(WorldPosition{3, 1});
+    world.AddAgent<agent_t>("Pacer 2").SetLocation(WorldPosition{6, 1});
+    world.AddAgent<agent_t>("Guard 1").SetHorizontal().SetLocation(WorldPosition{7, 7});
+    world.AddAgent<agent_t>("Guard 2").SetHorizontal().ToggleDirection().SetLocation(WorldPosition{8, 8});
   } else if (run_mode == "maze") {
     using agent_t = cse498::PacingAgent;
-    auto & world = g_app->Initialize<cse498::MazeWorld>();
-    world.AddAgent<agent_t>("Pacer 1").SetLocation(WorldPosition{3,1});
-    world.AddAgent<agent_t>("Pacer 2").SetLocation(WorldPosition{6,1});
-    world.AddAgent<agent_t>("Guard 1").SetHorizontal().SetLocation(WorldPosition{7,7});
-    world.AddAgent<agent_t>("Guard 2").SetHorizontal().ToggleDirection().SetLocation(WorldPosition{8,8});
+    auto& world = g_app->Initialize<cse498::MazeWorld>();
+    world.AddAgent<agent_t>("Pacer 1").SetLocation(WorldPosition{3, 1});
+    world.AddAgent<agent_t>("Pacer 2").SetLocation(WorldPosition{6, 1});
+    world.AddAgent<agent_t>("Guard 1").SetHorizontal().SetLocation(WorldPosition{7, 7});
+    world.AddAgent<agent_t>("Guard 2").SetHorizontal().ToggleDirection().SetLocation(WorldPosition{8, 8});
   } else if (run_mode == "sokoban") {
     g_app->Initialize<cse498::SokobanWorld>();
-  } else { // run_mode == "stub"
+  } else {  // run_mode == "stub"
     auto& stub = g_app->Initialize<cse498::StubWorld>();
     stub.SetDatabase(&g_app->GetDatabase());
     g_app->SetSaveCallback([&stub]() { stub.SaveState("stub_world"); });
@@ -114,6 +110,24 @@ int main() {
   g_app->SetCellVisual("tree",         "#3f8f3f", "T");
   g_app->SetCellVisual("wheat",        "#f4d35e", "W");
   g_app->SetCellVisual("pressed",      "#0f30ee", "X");
+
+  // Background tiles drawn beneath resource/object cell sprites.
+  g_app->RegisterCellBackground("built",        "assets/grass.png");
+  g_app->RegisterCellBackground("tree",         "assets/grass.png");
+  g_app->RegisterCellBackground("wheat",        "assets/grass.png");
+  g_app->RegisterCellBackground("stone",        "assets/grass.png");
+  g_app->RegisterCellBackground("wood",         "assets/grass.png");
+  g_app->RegisterCellBackground("boulder",      "assets/floor.png");
+  g_app->RegisterCellBackground("gold_ore",     "assets/floor.png");
+  g_app->RegisterCellBackground("iron_ore",     "assets/floor.png");
+  g_app->RegisterCellBackground("diamond_ore",  "assets/floor.png");
+  g_app->RegisterCellBackground("exit",         "assets/floor.png");
+
+  // Entity sprites keyed by agent glyph symbol.
+  g_app->RegisterEntityVisual('P', "assets/player.png");
+  g_app->RegisterEntityVisual('*', "assets/agent.png");
+  g_app->RegisterEntityVisual('E', "assets/enemy.png");
+  g_app->RegisterEntityVisual('G', "assets/goblin.png");
 
   using Meta = cse498::WebInterface::ActionMeta;
   g_app->RegisterActionMeta("start",   Meta{"Start",   "Enter", false});
