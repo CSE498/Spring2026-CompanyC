@@ -77,7 +77,8 @@
         var map = { 'w': 5, 'arrowup': 5, 's': 6, 'arrowdown': 6,
                     'a': 7, 'arrowleft': 7, 'd': 8, 'arrowright': 8,
                     'e': 9, 'b': 10, 'r': 2, 'enter': 1,
-                    'q': 11, 'z': 13, 'x': 12, 'c': 14 };
+                    'q': 11, 'z': 13, 'x': 12, 'c': 14,
+                    'o': 17, 'f': 18, 'i': 19, 'k': 20, 'j': 21, 'l': 22, 'p': 23 };
         if (!(key in map)) return;
         ev.preventDefault();
         Module.ccall('HandleAction', null, ['number'], [map[key]]);
@@ -167,14 +168,33 @@
     // Fill action buttons only if missing.
     // Codes must match the ActionCode enum in WebApp.hpp.
     if (!document.getElementById('cse498btn-5')) {
-      var actionButtons = [
-        [5, 'Up'],
-        [6, 'Down'],
-        [7, 'Left'],
-        [8, 'Right'],
-        [9, 'Collect'],
-        [10, 'Build']
-      ];
+      var worldParam = new URLSearchParams(window.location.search).get('world') || 'stub';
+      var actionButtons;
+      if (worldParam === 'interaction') {
+        actionButtons = [
+          [5,  'Up'],
+          [6,  'Down'],
+          [7,  'Left'],
+          [8,  'Right'],
+          [9,  'Collect'],
+          [17, 'Pay'],
+          [18, 'Break Boulder'],
+          [19, 'Throw Up'],
+          [20, 'Throw Down'],
+          [21, 'Throw Left'],
+          [22, 'Throw Right'],
+          [23, 'Inventory']
+        ];
+      } else {
+        actionButtons = [
+          [5,  'Up'],
+          [6,  'Down'],
+          [7,  'Left'],
+          [8,  'Right'],
+          [9,  'Collect'],
+          [10, 'Build']
+        ];
+      }
 
       actionButtons.forEach(function(entry) {
         var code = entry[0];
@@ -408,13 +428,16 @@
     StopAutoTickLoop();
 
     if (interface_) {
-      interface_->Notify(
-        "Game over.",
-        "status"
-      );
+      interface_->Notify("Game over.", "status");
     }
 
     RenderWorld();
+
+    if (game_over_callback_) {
+      game_over_callback_();
+      game_over_callback_ = nullptr;  // fire once
+    }
+
     return;
   }
 
@@ -683,9 +706,16 @@ if (action_id.empty()) return;
       case kActionUpRight:   return "up_right";
       case kActionDownLeft:  return "down_left";
       case kActionDownRight: return "down_right";
-      case kActionZoomIn:  return "zoom_in";
-      case kActionZoomOut: return "zoom_out";
-      default:               return std::string();
+      case kActionZoomIn:         return "zoom_in";
+      case kActionZoomOut:        return "zoom_out";
+      case kActionPay:            return "pay";
+      case kActionBreakBoulder:   return "break_boulder";
+      case kActionThrowUp:        return "throw_up";
+      case kActionThrowDown:      return "throw_down";
+      case kActionThrowLeft:      return "throw_left";
+      case kActionThrowRight:     return "throw_right";
+      case kActionInventory:      return "print_inventory";
+      default:                    return std::string();
     }
   }
 
@@ -704,8 +734,15 @@ if (action_id.empty()) return;
     if (action_id == "up_right")  return kActionUpRight;
     if (action_id == "down_left") return kActionDownLeft;
     if (action_id == "down_right")return kActionDownRight;
-    if (action_id == "zoom_in")  return kActionZoomIn;
-    if (action_id == "zoom_out") return kActionZoomOut;
+    if (action_id == "zoom_in")       return kActionZoomIn;
+    if (action_id == "zoom_out")      return kActionZoomOut;
+    if (action_id == "pay")           return kActionPay;
+    if (action_id == "break_boulder") return kActionBreakBoulder;
+    if (action_id == "throw_up")      return kActionThrowUp;
+    if (action_id == "throw_down")    return kActionThrowDown;
+    if (action_id == "throw_left")    return kActionThrowLeft;
+    if (action_id == "throw_right")   return kActionThrowRight;
+    if (action_id == "print_inventory") return kActionInventory;
     return 0;
   }
 

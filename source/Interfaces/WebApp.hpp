@@ -34,11 +34,12 @@
 /// Read a URL query parameter by name.  Returns the parameter value, or
 /// default_value if the parameter is absent.  Available to any main driver
 /// that includes WebApp.hpp.
-std::string GetUrlParam(const std::string& name,
-                        const std::string& default_value = "");
+std::string GetUrlParam(const std::string &name,
+                        const std::string &default_value = "");
 
-class WebApp {
- public:
+class WebApp
+{
+public:
   /// Build the UI shell (canvas, layout, textboxes).
   /// Must be followed by Initialize<WorldT>() before Render().
   WebApp();
@@ -47,20 +48,21 @@ class WebApp {
   /// Returns a typed reference to the world so additional agents can be added.
   /// @tparam WorldT  Any WorldBase-derived type (must be complete at call site).
   template <typename WorldT>
-  WorldT& Initialize(cse498::WorldPosition start_pos = {1.0, 1.0}) {
-    world_     = std::make_unique<WorldT>();
+  WorldT &Initialize(cse498::WorldPosition start_pos = {1.0, 1.0})
+  {
+    world_ = std::make_unique<WorldT>();
     interface_ = &world_->AddAgent<cse498::WebInterface>("Player");
     interface_->SetLocation(start_pos);
     interface_->SetSymbol('P');
-    return static_cast<WorldT&>(*world_);
+    return static_cast<WorldT &>(*world_);
   }
 
   /// Configure the CSS fill color and glyph for a named cell type.
-  void SetCellVisual(const std::string& cell_type_name,
+  void SetCellVisual(const std::string &cell_type_name,
                      std::string fill_css, std::string glyph);
 
   /// Register display label, hotkey, and live-mode requirement for an action.
-  void RegisterActionMeta(const std::string& action_id,
+  void RegisterActionMeta(const std::string &action_id,
                           cse498::WebInterface::ActionMeta meta);
 
   /// Assign a sprite image URL to agents whose glyph character matches.
@@ -107,6 +109,10 @@ class WebApp {
   /// The callback should read world state from the Database.
   void SetLoadCallback(std::function<void()> cb) { load_callback_ = std::move(cb); }
 
+  /// Set the callback invoked once when the world reports IsRunOver().
+  /// The callback should call ShowEndGameHtml() with the appropriate HTML.
+  void SetGameOverCallback(std::function<void()> cb) { game_over_callback_ = std::move(cb); }
+
   /// Configure automatic simulation tick interval in milliseconds.
   /// Values are clamped to a small positive minimum for safety.
   void SetAutoTickMs(int ms);
@@ -133,10 +139,18 @@ class WebApp {
     kActionDownRight = 14,
     kActionZoomIn    = 15,
     kActionZoomOut   = 16,
+    // Group 8 (InteractionHeavyWorld) actions
+    kActionPay           = 17,
+    kActionBreakBoulder  = 18,
+    kActionThrowUp       = 19,
+    kActionThrowDown     = 20,
+    kActionThrowLeft     = 21,
+    kActionThrowRight    = 22,
+    kActionInventory     = 23,
   };
 
   static std::string ActionIdForCode(int code);
-  static int CodeForActionId(const std::string& action_id);
+  static int CodeForActionId(const std::string &action_id);
 
   bool IsMovementAction(int action_code) const;
   bool TryGetPlayerCell(std::pair<int, int>& out_cell) const;
@@ -156,8 +170,8 @@ class WebApp {
   // Two-layer simulation/rendering architecture:
   //   world_     — owns the grid, game rules, and all agents (including interface_)
   //   interface_ — the human-player agent inside world_; provides rendering data
-  std::unique_ptr<cse498::WorldBase>   world_;
-  cse498::WebInterface*                interface_ = nullptr;  // non-owning; owned by world_
+  std::unique_ptr<cse498::WorldBase> world_;
+  cse498::WebInterface *interface_ = nullptr; // non-owning; owned by world_
 
   std::unique_ptr<cse498::WebLayout>   layout_;
   std::unique_ptr<cse498::WebCanvas>   canvas_;
@@ -186,6 +200,7 @@ class WebApp {
 
   std::function<void()> save_callback_;
   std::function<void()> load_callback_;
+  std::function<void()> game_over_callback_;
 
   long poll_timer_id_ = 0;
   long auto_tick_timer_id_ = 0;

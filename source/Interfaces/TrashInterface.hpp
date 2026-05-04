@@ -12,66 +12,75 @@
 #include "../core/InterfaceBase.hpp"
 #include "../core/WorldBase.hpp"
 
-namespace cse498 {
+namespace cse498
+{
 
-  class TrashInterface : public InterfaceBase {
+  class TrashInterface : public InterfaceBase
+  {
   protected:
-    bool wait_for_input = true;  ///< Should we pause and wait for the user to hit a key?
+    bool wait_for_input = true; ///< Should we pause and wait for the user to hit a key?
 
     // -- Helper Functions --
-    void DrawGrid(const WorldGrid & grid,
-                  const std::vector<size_t> & item_ids,
-                  const std::vector<size_t> & agent_ids)
+    void DrawGrid(const WorldGrid &grid,
+                  const std::vector<size_t> &item_ids,
+                  const std::vector<size_t> &agent_ids)
     {
       std::vector<std::string> symbol_grid(grid.GetHeight());
 
       // Load the world into the symbol_grid;
-      for (size_t y=0; y < grid.GetHeight(); ++y) {
+      for (size_t y = 0; y < grid.GetHeight(); ++y)
+      {
         symbol_grid[y].resize(grid.GetWidth());
-        for (size_t x=0; x < grid.GetWidth(); ++x) {
-          symbol_grid[y][x] = grid.GetSymbol(WorldPosition{x,y});
+        for (size_t x = 0; x < grid.GetWidth(); ++x)
+        {
+          symbol_grid[y][x] = grid.GetSymbol(WorldPosition{x, y});
         }
       }
 
       // Substitute in items.
-      for (size_t id : item_ids) {
-        const ItemBase & item = world.GetItem(id);
+      for (size_t id : item_ids)
+      {
+        const ItemBase &item = world.GetItem(id);
         WorldPosition pos = item.GetLocation().AsWorldPosition();
         symbol_grid[pos.CellY()][pos.CellX()] = '+';
       }
 
       // Substitute in agents.
-      for (const auto & agent_id : agent_ids) {
-        const AgentBase & agent = world.GetAgent(agent_id);
+      for (const auto &agent_id : agent_ids)
+      {
+        const AgentBase &agent = world.GetAgent(agent_id);
         WorldPosition pos = agent.GetLocation().AsWorldPosition();
         symbol_grid[pos.CellY()][pos.CellX()] = agent.GetSymbol();
       }
 
       // Print out the symbol_grid with a box around it.
-      std::cout << '+' << std::string(grid.GetWidth(),'-') << "+\n";
-      for (const auto & row : symbol_grid) {
+      std::cout << '+' << std::string(grid.GetWidth(), '-') << "+\n";
+      for (const auto &row : symbol_grid)
+      {
         std::cout << "|";
-        for (char cell : row) std::cout << cell;
+        for (char cell : row)
+          std::cout << cell;
         std::cout << "|\n";
       }
-      std::cout << '+' << std::string(grid.GetWidth(),'-') << "+\n";
-      std::cout << "\nUse W, A, S, D to move or Q to quit.";
+      std::cout << '+' << std::string(grid.GetWidth(), '-') << "+\n";
+      std::cout << "\nUse W, A, S, D to move, B to break, E to collect, M to pay, I/J/K/L to throw, P to print inventory, or Q to quit.";
       std::cout << "\nYour move? ";
       std::cout.flush();
     }
 
   public:
-    TrashInterface(size_t id, const std::string & name, const WorldBase & world)
-      : InterfaceBase(id, name, world) { }
+    TrashInterface(size_t id, const std::string &name, const WorldBase &world)
+        : InterfaceBase(id, name, world) {}
     ~TrashInterface() = default; // Already virtual from Entity
 
     // -- AgentBase overrides --
 
-    bool Initialize() override {
+    bool Initialize() override
+    {
       return true;
     }
 
-    size_t SelectAction( WorldGrid & grid) override
+    size_t SelectAction(WorldGrid &grid) override
     {
       auto item_ids = world.GetKnownItems(*this);
       auto agent_ids = world.GetKnownAgents(*this);
@@ -81,22 +90,74 @@ namespace cse498 {
 
       // See if there are any keys waiting in standard input (wait if needed)
       char input;
-      do {
+      do
+      {
         std::cin >> input;
       } while (!std::cin && wait_for_input);
 
       // Respond to the user input...
       size_t action_id = 0;
-      switch (input) {
-        case 'w': case 'W': action_id = GetActionID("up");    break;
-        case 'a': case 'A': action_id = GetActionID("left");  break;
-        case 's': case 'S': action_id = GetActionID("down");  break;
-        case 'd': case 'D': action_id = GetActionID("right"); break;
-        case 'q': case 'Q': exit(0); // Quit!
+      switch (input)
+      {
+      case 'w':
+      case 'W':
+        action_id = GetActionID("up");
+        break;
+      case 'a':
+      case 'A':
+        action_id = GetActionID("left");
+        break;
+      case 's':
+      case 'S':
+        action_id = GetActionID("down");
+        break;
+      case 'd':
+      case 'D':
+        action_id = GetActionID("right");
+        break;
+      case 'b':
+      case 'B':
+        action_id = GetActionID("break_boulder");
+        break;
+      case 'q':
+      case 'Q':
+        exit(0);
+      case 'e':
+      case 'E':
+        action_id = GetActionID("collect");
+        break;
+      case 'i':
+      case 'I':
+        action_id = GetActionID("throw_up");
+        break;
+
+      case 'k':
+      case 'K':
+        action_id = GetActionID("throw_down");
+        break;
+
+      case 'j':
+      case 'J':
+        action_id = GetActionID("throw_left");
+        break;
+
+      case 'l':
+      case 'L':
+        action_id = GetActionID("throw_right");
+        break;
+      case 'm':
+      case 'M':
+        action_id = GetActionID("pay"); // door
+        break;
+      case 'p':
+      case 'P':
+        action_id = GetActionID("print_inventory");
+        break;
       }
 
       // If we waited for input, but don't understand it, notify the user.
-      if (wait_for_input && action_id == 0) {
+      if (wait_for_input && action_id == 0)
+      {
         std::cout << "Unknown key '" << input << "'." << std::endl;
       }
 

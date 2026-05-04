@@ -52,6 +52,7 @@ public:
     while (!run_over) {
       RunAgents();
       UpdateWorld();
+      RecordAnalyticsSnapshot();
 
       if (mUpdateCounter % 500 == 0) {
         std::for_each(std::begin(world_global_counts), std::end(world_global_counts), 

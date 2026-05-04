@@ -48,13 +48,17 @@ grumpy: grumpy-agent
 
 # Sources shared by all build targets (native and web)
 BASE_SOURCES = Agents/ClassicAgent.cpp   \
+               Agents/GoblinAgent.cpp    \
                Agents/TendencyAgent.cpp  \
+			   Agents/HunterAgent.cpp  \
                tools/BehaviorTree.cpp    \
                tools/CompositeNodes.cpp  \
                tools/LeafNodes.cpp       \
                tools/PathGenerator.cpp   \
+               tools/Timer.cpp           \
                tools/WorldPath.cpp       \
-               Worlds/DynamicWorld.cpp
+               Worlds/DynamicWorld.cpp	 \
+			   Worlds/InteractionHeavyWorld.cpp
 
 # SaveServer needs extra .cpp sources for Database + WebSocket stack
 SAVESERVER_SRCS = \
@@ -107,6 +111,7 @@ FLAGS_web_base = -std=c++23 -I. \
                  -sEXPORTED_FUNCTIONS=_main,_HandleAction,_cse498_popup_dismiss \
                  -sEXPORTED_RUNTIME_METHODS=ccall,cwrap \
                  -lembind \
+				 --preload-file ../source/Worlds/interaction_world_maps \
                  -lwebsocket
 
 FLAGS_web_opt   = $(FLAGS_web_base) -O3 -DNDEBUG
