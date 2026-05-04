@@ -43,7 +43,6 @@
 
 #pragma once
 
-#include <limits>
 #include <string>
 #include "../core/AgentBase.hpp"
 
@@ -184,7 +183,9 @@ public:
 
   /** Constructor */
   TendencyAgent(size_t id, const std::string& name, WorldBase& world)
-    : AgentBase(id, name, world) {}
+    : AgentBase(id, name, world),
+      tendencies(),
+      mem() {}
 
   /** Destructor */
   ~TendencyAgent() = default;

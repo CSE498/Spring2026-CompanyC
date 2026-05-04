@@ -11,9 +11,11 @@
 
 #include "../core/AgentBase.hpp"
 
-namespace cse498 {
+namespace cse498
+{
 
-  class SmartAgent : public AgentBase {
+  class SmartAgent : public AgentBase
+  {
   protected:
     // SmartAgent may discard a stale request during ClearPlan() / ReceiveNpcLine()
     using NpcRequestCallback = std::future<std::string> (*)(const SmartAgent &, const std::string &);
@@ -24,7 +26,7 @@ namespace cse498 {
     std::array<size_t, max_buffered_actions> buffered_actions{}; // Ready moves already chosen.
     size_t buffered_action_count = 0;
 
-    std::array<std::string_view, max_requested_moves> requested_moves{}; // Legal moves in the current prompt.
+    std::array<std::string_view, max_requested_moves> requested_moves{};       // Legal moves in the current prompt.
     std::array<WorldPosition, max_requested_moves> requested_move_positions{}; // Resulting cells for those legal moves.
     size_t requested_move_count = 0;
 
@@ -39,16 +41,17 @@ namespace cse498 {
     std::string last_notification_type = "none";
     std::string last_npc_line;
 
-    [[nodiscard]] bool IsWalkableCell(const WorldGrid & grid, WorldPosition pos) const noexcept
+    [[nodiscard]] bool IsWalkableCell(const WorldGrid &grid, WorldPosition pos) const noexcept
     {
       return grid.IsValid(pos) && grid.GetCellTypeSymbol(grid[pos]) != '#';
     }
 
-    void AddRequestedMove(const WorldGrid & grid,
+    void AddRequestedMove(const WorldGrid &grid,
                           std::string_view move_name,
                           WorldPosition pos) noexcept
     {
-      if (IsWalkableCell(grid, pos)) {
+      if (IsWalkableCell(grid, pos))
+      {
         requested_moves[requested_move_count] = move_name;
         requested_move_positions[requested_move_count] = pos;
         ++requested_move_count;
@@ -57,10 +60,13 @@ namespace cse498 {
 
     [[nodiscard]] bool IsKnownAction(size_t action_id) const noexcept
     {
-      if (action_id == 0) return true;
+      if (action_id == 0)
+        return true;
 
-      for (const auto & action_entry : action_map) {
-        if (action_entry.second == action_id) return true;
+      for (const auto &action_entry : action_map)
+      {
+        if (action_entry.second == action_id)
+          return true;
       }
 
       return false;
@@ -68,37 +74,48 @@ namespace cse498 {
 
     [[nodiscard]] static std::string_view CanonicalMoveToken(std::string_view token) noexcept
     {
-      if (token == "up") return "up";
-      if (token == "down") return "down";
-      if (token == "left") return "left";
-      if (token == "right") return "right";
+      if (token == "up")
+        return "up";
+      if (token == "down")
+        return "down";
+      if (token == "left")
+        return "left";
+      if (token == "right")
+        return "right";
       return {};
     }
 
     [[nodiscard]] static std::string NormalizeReply(std::string text)
     {
-      for (char & ch : text) {
+      for (char &ch : text)
+      {
         ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
       }
 
       // If the model gives us a clean "MOVE:" line, trust that first.
       // If it rambles, we can still salvage the last direction token it mentioned.
-      auto ExtractMoveFromSlice = [&](size_t start, size_t end) -> std::string {
+      auto ExtractMoveFromSlice = [&](size_t start, size_t end) -> std::string
+      {
         size_t pos = start;
-        while (pos < end) {
-          while (pos < end && !std::isalpha(static_cast<unsigned char>(text[pos]))) {
+        while (pos < end)
+        {
+          while (pos < end && !std::isalpha(static_cast<unsigned char>(text[pos])))
+          {
             ++pos;
           }
 
           size_t token_end = pos;
-          while (token_end < end && std::isalpha(static_cast<unsigned char>(text[token_end]))) {
+          while (token_end < end && std::isalpha(static_cast<unsigned char>(text[token_end])))
+          {
             ++token_end;
           }
 
-          if (token_end > pos) {
+          if (token_end > pos)
+          {
             const std::string_view token{text.data() + pos, token_end - pos};
             const std::string_view move = CanonicalMoveToken(token);
-            if (!move.empty()) return std::string(move);
+            if (!move.empty())
+              return std::string(move);
           }
 
           pos = token_end;
@@ -109,41 +126,53 @@ namespace cse498 {
 
       size_t line_start = 0;
       std::string labeled_move;
-      while (line_start < text.size()) {
+      while (line_start < text.size())
+      {
         size_t line_end = text.find('\n', line_start);
-        if (line_end == std::string::npos) line_end = text.size();
+        if (line_end == std::string::npos)
+          line_end = text.size();
 
         const size_t colon_pos = text.find(':', line_start);
-        if (colon_pos != std::string::npos && colon_pos < line_end) {
+        if (colon_pos != std::string::npos && colon_pos < line_end)
+        {
           const std::string_view label{text.data() + line_start, colon_pos - line_start};
-          if (label == "move" || label == "choice" || label == "final") {
+          if (label == "move" || label == "choice" || label == "final")
+          {
             const std::string move = ExtractMoveFromSlice(colon_pos + 1, line_end);
-            if (!move.empty()) labeled_move = move;
+            if (!move.empty())
+              labeled_move = move;
           }
         }
 
-        if (line_end == text.size()) break;
+        if (line_end == text.size())
+          break;
         line_start = line_end + 1;
       }
 
-      if (!labeled_move.empty()) return labeled_move;
+      if (!labeled_move.empty())
+        return labeled_move;
 
       std::string last_move;
       size_t pos = 0;
-      while (pos < text.size()) {
-        while (pos < text.size() && !std::isalpha(static_cast<unsigned char>(text[pos]))) {
+      while (pos < text.size())
+      {
+        while (pos < text.size() && !std::isalpha(static_cast<unsigned char>(text[pos])))
+        {
           ++pos;
         }
 
         size_t end = pos;
-        while (end < text.size() && std::isalpha(static_cast<unsigned char>(text[end]))) {
+        while (end < text.size() && std::isalpha(static_cast<unsigned char>(text[end])))
+        {
           ++end;
         }
 
-        if (end > pos) {
+        if (end > pos)
+        {
           const std::string_view token{text.data() + pos, end - pos};
           const std::string_view move = CanonicalMoveToken(token);
-          if (!move.empty()) last_move = std::string(move);
+          if (!move.empty())
+            last_move = std::string(move);
         }
 
         pos = end;
@@ -154,59 +183,77 @@ namespace cse498 {
 
     [[nodiscard]] std::string_view GetMoveName(size_t action_id) const noexcept
     {
-      if (action_id == GetActionID("up")) return "up";
-      if (action_id == GetActionID("down")) return "down";
-      if (action_id == GetActionID("left")) return "left";
-      if (action_id == GetActionID("right")) return "right";
+      if (action_id == GetActionID("up"))
+        return "up";
+      if (action_id == GetActionID("down"))
+        return "down";
+      if (action_id == GetActionID("left"))
+        return "left";
+      if (action_id == GetActionID("right"))
+        return "right";
       return {};
     }
 
     [[nodiscard]] size_t GetMoveActionID(std::string_view move) const noexcept
     {
-      if (move == "up") return GetActionID("up");
-      if (move == "down") return GetActionID("down");
-      if (move == "left") return GetActionID("left");
-      if (move == "right") return GetActionID("right");
+      if (move == "up")
+        return GetActionID("up");
+      if (move == "down")
+        return GetActionID("down");
+      if (move == "left")
+        return GetActionID("left");
+      if (move == "right")
+        return GetActionID("right");
       return 0;
     }
 
     [[nodiscard]] static WorldPosition GetMovedPosition(WorldPosition pos,
                                                         std::string_view move) noexcept
     {
-      if (move == "up") return pos.Up();
-      if (move == "down") return pos.Down();
-      if (move == "left") return pos.Left();
-      if (move == "right") return pos.Right();
+      if (move == "up")
+        return pos.Up();
+      if (move == "down")
+        return pos.Down();
+      if (move == "left")
+        return pos.Left();
+      if (move == "right")
+        return pos.Right();
       return pos;
     }
 
-    [[nodiscard]] bool TryApplyMove(const WorldGrid & grid,
-                                    WorldPosition & pos,
+    [[nodiscard]] bool TryApplyMove(const WorldGrid &grid,
+                                    WorldPosition &pos,
                                     std::string_view move) const noexcept
     {
       const WorldPosition next_pos = GetMovedPosition(pos, move);
-      if (!IsWalkableCell(grid, next_pos)) return false;
+      if (!IsWalkableCell(grid, next_pos))
+        return false;
       pos = next_pos;
       return true;
     }
 
     [[nodiscard]] bool QueueBufferedAction(size_t action_id) noexcept
     {
-      if (action_id == 0 || !IsKnownAction(action_id)) return false;
-      if (buffered_action_count >= buffered_actions.size()) return false;
+      if (action_id == 0 || !IsKnownAction(action_id))
+        return false;
+      if (buffered_action_count >= buffered_actions.size())
+        return false;
 
       buffered_actions[buffered_action_count++] = action_id;
       return true;
     }
 
-    [[nodiscard]] WorldPosition GetPlanningStartPosition(const WorldGrid & grid) const noexcept
+    [[nodiscard]] WorldPosition GetPlanningStartPosition(const WorldGrid &grid) const noexcept
     {
       WorldPosition pos = GetLocation().AsWorldPosition();
 
-      for (size_t i = 0; i < buffered_action_count; ++i) {
+      for (size_t i = 0; i < buffered_action_count; ++i)
+      {
         const std::string_view move = GetMoveName(buffered_actions[i]);
-        if (move.empty()) break;
-        if (!TryApplyMove(grid, pos, move)) break;
+        if (move.empty())
+          break;
+        if (!TryApplyMove(grid, pos, move))
+          break;
       }
 
       return pos;
@@ -216,7 +263,8 @@ namespace cse498 {
     {
       std::ostringstream out;
 
-      for (size_t i = 0; i < requested_move_count; ++i) {
+      for (size_t i = 0; i < requested_move_count; ++i)
+      {
         out << "- " << requested_moves[i]
             << " -> ("
             << requested_move_positions[i].CellX()
@@ -228,18 +276,21 @@ namespace cse498 {
       return out.str();
     }
 
-    [[nodiscard]] std::string BuildGridPrompt(const WorldGrid & grid,
+    [[nodiscard]] std::string BuildGridPrompt(const WorldGrid &grid,
                                               WorldPosition highlighted_pos) const
     {
       std::ostringstream out;
 
       out << '+' << std::string(grid.GetWidth(), '-') << "+\n";
-      for (size_t y = 0; y < grid.GetHeight(); ++y) {
+      for (size_t y = 0; y < grid.GetHeight(); ++y)
+      {
         out << '|';
-        for (size_t x = 0; x < grid.GetWidth(); ++x) {
+        for (size_t x = 0; x < grid.GetWidth(); ++x)
+        {
           WorldPosition pos{x, y};
           char symbol = grid.GetSymbol(pos);
-          if (pos == highlighted_pos) symbol = GetSymbol();
+          if (pos == highlighted_pos)
+            symbol = GetSymbol();
           out << symbol;
         }
         out << "|\n";
@@ -249,14 +300,16 @@ namespace cse498 {
       return out.str();
     }
 
-    [[nodiscard]] std::string BuildUserPrompt(const WorldGrid & grid,
+    [[nodiscard]] std::string BuildUserPrompt(const WorldGrid &grid,
                                               WorldPosition planning_start_position) const
     {
       std::ostringstream out;
 
       out << "PRIMARY GOAL:\n";
-      if (!last_notification_message.empty()) out << last_notification_message;
-      else out << "No explicit goal was provided. Make legal progress.";
+      if (!last_notification_message.empty())
+        out << last_notification_message;
+      else
+        out << "No explicit goal was provided. Make legal progress.";
       out << "\n\n";
 
       out << "LEGAL MOVES:\n";
@@ -274,10 +327,12 @@ namespace cse498 {
       return out.str();
     }
 
-    void MaybeStartNpcRequest(const WorldGrid & grid)
+    void MaybeStartNpcRequest(const WorldGrid &grid)
     {
-      if (npc_request_in_flight) return;
-      if (buffered_action_count >= buffered_actions.size()) return;
+      if (npc_request_in_flight)
+        return;
+      if (buffered_action_count >= buffered_actions.size())
+        return;
 
       requested_move_count = 0;
       const WorldPosition planning_start_position = GetPlanningStartPosition(grid);
@@ -289,12 +344,15 @@ namespace cse498 {
       AddRequestedMove(grid, "left", planning_start_position.Left());
       AddRequestedMove(grid, "right", planning_start_position.Right());
 
-      if (requested_move_count == 0) {
-        if (!HasPlan()) last_npc_line = "No valid moves.";
+      if (requested_move_count == 0)
+      {
+        if (!HasPlan())
+          last_npc_line = "No valid moves.";
         return;
       }
 
-      if (npc_request_callback == nullptr) {
+      if (npc_request_callback == nullptr)
+      {
         last_npc_line = "No NPC requester installed.";
         return;
       }
@@ -304,18 +362,20 @@ namespace cse498 {
                                                  BuildUserPrompt(grid,
                                                                  planning_start_position));
       has_npc_response_future = npc_response_future.valid();
-      if (!has_npc_response_future) {
+      if (!has_npc_response_future)
+      {
         npc_request_in_flight = false;
         last_npc_line = "NPC requester did not return a response future.";
       }
     }
 
-    void HandleNpcReply(const std::string & text)
+    void HandleNpcReply(const std::string &text)
     {
       last_npc_line = text;
       npc_request_in_flight = false;
 
-      if (requested_move_count == 0) {
+      if (requested_move_count == 0)
+      {
         std::cout << "[SmartAgent] parsed reply move: <ignored with no pending request>\n";
         return;
       }
@@ -326,12 +386,12 @@ namespace cse498 {
                 << '\n';
 
       WorldPosition sim_pos = pending_request_start_position;
-      if (!reply.empty()
-          && TryApplyMove(pending_request_grid, sim_pos, reply)
-          && QueueBufferedAction(GetMoveActionID(reply))) {
+      if (!reply.empty() && TryApplyMove(pending_request_grid, sim_pos, reply) && QueueBufferedAction(GetMoveActionID(reply)))
+      {
         std::cout << "[SmartAgent] accepted buffered move: " << reply << '\n';
       }
-      else {
+      else
+      {
         std::cout << "[SmartAgent] accepted buffered move: <none>\n";
       }
 
@@ -347,10 +407,12 @@ namespace cse498 {
 
     [[nodiscard]] bool TryConsumeReadyNpcReply()
     {
-      if (!npc_request_in_flight || !has_npc_response_future) return false;
+      if (!npc_request_in_flight || !has_npc_response_future)
+        return false;
 
       using namespace std::chrono_literals;
-      if (npc_response_future.wait_for(0ms) != std::future_status::ready) return false;
+      if (npc_response_future.wait_for(0ms) != std::future_status::ready)
+        return false;
 
       const std::string reply = npc_response_future.get();
       has_npc_response_future = false;
@@ -373,7 +435,8 @@ namespace cse498 {
     {
       const size_t next_action = buffered_actions[0];
 
-      for (size_t i = 1; i < buffered_action_count; ++i) {
+      for (size_t i = 1; i < buffered_action_count; ++i)
+      {
         buffered_actions[i - 1] = buffered_actions[i];
       }
 
@@ -382,17 +445,16 @@ namespace cse498 {
     }
 
   public:
-    SmartAgent(size_t id, const std::string & name, const WorldBase & world)
-      : AgentBase(id, name, world) { }
+    SmartAgent(size_t id, const std::string &name, const WorldBase &world)
+        : AgentBase(id, name, world) {}
     ~SmartAgent() = default;
 
     [[nodiscard]] static std::string_view GetSystemPrompt() noexcept
     {
-      return
-        "The PRIMARY GOAL matters most. "
-        "Use the LEGAL MOVES and the GRID to choose the best next legal move. "
-        "Think briefly, then reply with exactly two lines: "
-        "PLAN: <very short reasoning> and MOVE: <one legal move word>.";
+      return "The PRIMARY GOAL matters most. "
+             "Use the LEGAL MOVES and the GRID to choose the best next legal move. "
+             "Think briefly, then reply with exactly two lines: "
+             "PLAN: <very short reasoning> and MOVE: <one legal move word>.";
     }
 
     [[nodiscard]] bool Initialize() override
@@ -408,17 +470,17 @@ namespace cse498 {
       return buffered_action_count + static_cast<size_t>(npc_request_in_flight);
     }
 
-    [[nodiscard]] const std::string & GetLastNotificationMessage() const noexcept
+    [[nodiscard]] const std::string &GetLastNotificationMessage() const noexcept
     {
       return last_notification_message;
     }
 
-    [[nodiscard]] const std::string & GetLastNotificationType() const noexcept
+    [[nodiscard]] const std::string &GetLastNotificationType() const noexcept
     {
       return last_notification_type;
     }
 
-    [[nodiscard]] const std::string & GetLastNpcLine() const noexcept
+    [[nodiscard]] const std::string &GetLastNpcLine() const noexcept
     {
       return last_npc_line;
     }
@@ -438,7 +500,7 @@ namespace cse498 {
 
     // Injects a completed NPC reply. Use the callback path for agent-managed async
     // requests; if one is in flight, its stored future is discarded as stale.
-    void ReceiveNpcLine(const std::string & text)
+    void ReceiveNpcLine(const std::string &text)
     {
       DiscardNpcResponseFuture();
       HandleNpcReply(text);
@@ -450,9 +512,10 @@ namespace cse498 {
       npc_request_callback = callback;
     }
 
-    [[nodiscard]] size_t SelectAction(WorldGrid & grid) override
+    [[nodiscard]] size_t SelectAction(WorldGrid &grid) override
     {
-      if (action_result == 0) ClearPlan();
+      if (action_result == 0)
+        ClearPlan();
 
       // Use any finished reply first, then try to
       // queue up the next one while there's still buffer space.
@@ -460,7 +523,8 @@ namespace cse498 {
       MaybeStartNpcRequest(grid);
       PollNpcReply();
 
-      if (HasPlan()) {
+      if (HasPlan())
+      {
         // If we already have a move ready, prefetch the following move asynchronously.
         MaybeStartNpcRequest(grid);
         return PopNextAction();
@@ -470,7 +534,7 @@ namespace cse498 {
     }
 
     // Replaces the current goal and clears any buffered or in-flight plan state.
-    void Notify(const std::string & message, const std::string & msg_type="none") override
+    void Notify(const std::string &message, const std::string &msg_type = "none") override
     {
       last_notification_message = message;
       last_notification_type = msg_type;
