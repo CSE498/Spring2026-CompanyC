@@ -6,13 +6,13 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cassert>
 #include <fstream>
 #include <iostream>
+#include <string>
 #include <unordered_map>
 #include <vector>
-#include <string>
-#include <algorithm>
 
 #include "Location.hpp"
 #include "../tools/io_utils.hpp"
@@ -175,6 +175,11 @@ namespace cse498
       return cells[ToIndex(pos)];
     }
 
+
+    [[nodiscard]] size_t CountCells(size_t type_id) const {
+      return std::count(cells.begin(), cells.end(), type_id);
+    }
+    
     // ===========================
     //   Cell type management...
     // ===========================
@@ -306,7 +311,7 @@ namespace cse498
           if (x < str_grid[y].size())
           {
             // CHANGED: safer lookup; unknown symbols map to 0
-            auto it = symbol_map.find(str_grid[y][x]);
+            const auto it = symbol_map.find(str_grid[y][x]);
             cells[cell_id++] = (it == symbol_map.end()) ? 0 : it->second;
           }
           else

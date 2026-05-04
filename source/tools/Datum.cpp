@@ -21,6 +21,7 @@
  */
 
 #include "Datum.hpp"
+#include <format>
 #include <ostream>
 
 namespace cse498 {
@@ -62,15 +63,9 @@ namespace cse498 {
     //Read as string, always works regardless of original data type
     //If requesting on a bool type, uses all lowercase "true" and "false".
     std::string Datum::AsString() const {
-        if (IsString()){
-            return std::get<std::string>(mValue);}
-
-        if (IsDouble()){
-            return std::to_string(std::get<double>(mValue));}
-
-        if (IsBool()){
-            return std::get<bool>(mValue) ? "true" : "false";}
-
+        if (IsString()) return std::get<std::string>(mValue);
+        if (IsDouble()) return std::format("{}", std::get<double>(mValue));
+        if (IsBool()) return std::get<bool>(mValue) ? "true" : "false";
         return "";
     }
     //Read datum as a double, for bool returns 1.0 for true and 0.0 for false.

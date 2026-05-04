@@ -1,3 +1,9 @@
+/**
+ * @file ReplayDriver.hpp
+ * @author Group 23
+ *
+ * @brief Replays the sequence of actions tracked.
+ */
 #pragma once
 
 #include "../tools/ActionLog.hpp"
@@ -15,9 +21,9 @@ namespace cse498
 { 
 
     struct ReplayEvent {
-    size_t agent_id;
-    std::string actionType;
-    std::chrono::high_resolution_clock::time_point time;
+        size_t agent_id; // Identifies the agent that performed the action
+        size_t actionType; // Actual action type that corresponds to action ID in WorldBase
+        std::chrono::microseconds timeStamp; // Timestamp of when the action occurred
     };
 
     class ReplayDriver {
@@ -27,10 +33,37 @@ namespace cse498
         std::size_t mNext{}; // index of next event played
         bool mRunning{}; // status for if replay is running
         bool mPaused{}; // status for if replay is paused
+
+        /**
+        * @brief Executes a single ReplayEvent by sending the action to the agent.
+        *
+        * Retrieves the agent from the world using agent_id,
+        * converts the action string to an action ID,
+        * and executes it via WorldBase::DoAction().
+        *
+        * @param event The replay event to execute
+        */
+        void sendAction(const ReplayEvent& event) {
+
+            assert(event.agent_id < mWorld.GetNumAgents());
+
+            AgentBase& agent = mWorld.GetAgent(event.agent_id);
+
+            const int result = mWorld.DoAction(agent, event.actionType); // Send action to agent 
+            agent.SetActionResult(result); // Set result for Agent, 1 = success, 0 = fail
+        }
     
     public:
 
-        ReplayDriver(WorldBase& world) : mWorld(world) {}
+        /**
+        * @brief Constructs a ReplayDriver with a reference to the world.
+        *
+        * @param world Reference to a valid WorldBase instance.
+        * @pre The provided world reference must remain valid for the lifetime of ReplayDriver.
+        */
+        explicit ReplayDriver(WorldBase& world) : mWorld(world) {}
+
+        ReplayDriver(const ReplayDriver &) = delete;
 
         /**
         * @brief Loads events from an ActionLog and prepares replay.
@@ -54,7 +87,7 @@ namespace cse498
                     ReplayEvent event;
                     event.agent_id = agent_id;
                     event.actionType = actionEntry.actionType;
-                    event.time = actionEntry.timeOfAction;
+                    event.timeStamp = actionEntry.timeOfAction;
                     mEvents.push_back(event); 
                 }
             }
@@ -63,30 +96,12 @@ namespace cse498
 
             // Sort chronologically so events are played in correct order
             std::sort(mEvents.begin(), mEvents.end(), [](const ReplayEvent& a, const ReplayEvent& b) {
-                return a.time < b.time;
+                return a.timeStamp < b.timeStamp;
             });
 
             mRunning = true;
             mPaused = false;
             mNext = 0;
-        }
-
-        /**
-        * @brief Executes a single ReplayEvent by sending the action to the agent.
-        *
-        * Retrieves the agent from the world using agent_id,
-        * converts the action string to an action ID,
-        * and executes it via WorldBase::DoAction().
-        *
-        * @param event The replay event to execute
-        */
-        void sendAction(const ReplayEvent& event) {
-
-            AgentBase& agent = mWorld.GetAgent(event.agent_id);
-
-            const size_t action_id = agent.GetActionID(event.actionType); // Convert action type to action id
-            const int result = mWorld.DoAction(agent, action_id); // Send action to agent 
-            agent.SetActionResult(result); // Set result for Agent, 1 = success, 0 = fail
         }
 
         /**
@@ -109,20 +124,17 @@ namespace cse498
         }
 
        // Status for if replay is done
-        bool isFinished() const {
-            if(mNext < mEvents.size()) {
-                return false;
-            }   
-            return true;
+        [[nodiscard]] bool isFinished() const {
+            return (mNext >= mEvents.size());
         }
 
        // Status for if replay is running
-        bool isRunning() const {
+        [[nodiscard]] bool isRunning() const {
             return mRunning;
         }
 
        // Status for if replay is paused
-        bool isPaused() const {
+        [[nodiscard]] bool isPaused() const {
             return mPaused;
         }
 
@@ -162,6 +174,10 @@ namespace cse498
             mNext = 0;
             mRunning = false;
             mPaused = false;
+        }
+
+        [[nodiscard]] const std::vector<ReplayEvent> getEvents() const {
+            return mEvents;
         }
     };
 }

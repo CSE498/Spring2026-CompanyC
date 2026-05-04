@@ -1,6 +1,6 @@
 /**
  * @file WebCanvas.cpp
- * @author Sadwal Patel, Naod Ghebredngl 
+ * @author Sadwal Patel, Naod Ghebredngl, Tess Gonda
  * @brief Declaration of the WebCanvas wrapper used to manage an HTML canvas
  *        element for Group 24's browser-based interface.
  *
@@ -355,6 +355,99 @@ void WebCanvas::DrawEntity(float center_x, float center_y, float radius,
   Unused(glyph_css);
   Unused(glyph);
 #endif
+}
+
+//
+// Image drawing helpers
+//
+
+#ifdef __EMSCRIPTEN__
+
+EM_JS(void, CSE498_PreloadImageJs, (const char* url), {
+  if (!window.__cse498Images) window.__cse498Images = {};
+  var src = UTF8ToString(url);
+  if (window.__cse498Images[src]) return;
+  var img = new Image();
+  img.onload = function() {
+    // Trigger a redraw (action code 0 = no-op redraw) once the image is ready.
+    if (Module && Module.ccall) {
+      Module.ccall('HandleAction', null, ['number'], [0]);
+    }
+  };
+  img.src = src;
+  window.__cse498Images[src] = img;
+});
+
+EM_JS(int, CSE498_IsImageReady, (const char* url), {
+  var src = UTF8ToString(url);
+  var img = window.__cse498Images && window.__cse498Images[src];
+  return (img && img.complete && img.naturalWidth > 0) ? 1 : 0;
+});
+
+EM_JS(void, CSE498_DrawImageJs,
+      (const char* canvas_id,
+       const char* url, float x, float y, float w, float h), {
+  var canvas = document.getElementById(UTF8ToString(canvas_id));
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var src = UTF8ToString(url);
+  var img = window.__cse498Images && window.__cse498Images[src];
+  if (img && img.complete && img.naturalWidth > 0) {
+    ctx.drawImage(img, x, y, w, h);
+  }
+});
+
+#endif  // __EMSCRIPTEN__
+
+/*static*/ void WebCanvas::PreloadImage(const std::string& url) {
+  if (url.empty()) return;
+#ifdef __EMSCRIPTEN__
+  CSE498_PreloadImageJs(url.c_str());
+#else
+  Unused(url);
+#endif
+}
+
+void WebCanvas::DrawImage(const std::string& url,
+                          float x, float y, float w, float h,
+                          const std::string& fallback_fill_css) {
+  if (w <= 0.0f || h <= 0.0f) {
+    throw std::invalid_argument("WebCanvas::DrawImage: width and height must be positive");
+  }
+#ifdef __EMSCRIPTEN__
+  EnsureReady_();
+  if (!url.empty() && CSE498_IsImageReady(url.c_str())) {
+    CSE498_DrawImageJs(id_.c_str(), url.c_str(), x, y, w, h);
+  } else {
+    SetFillColor(fallback_fill_css);
+    FillRect(x, y, w, h);
+  }
+#else
+  Unused(url, x, y, w, h, fallback_fill_css);
+#endif
+}
+
+void WebCanvas::DrawCellImage(int col, int row,
+                              int cell_width, int cell_height,
+                              const std::string& url,
+                              const std::string& fallback_fill_css,
+                              const std::string& fallback_glyph) {
+  if (col < 0 || row < 0 || cell_width <= 0 || cell_height <= 0) return;
+#ifdef __EMSCRIPTEN__
+  if (!url.empty() && CSE498_IsImageReady(url.c_str())) {
+    const float x = static_cast<float>(col * cell_width);
+    const float y = static_cast<float>(row * cell_height);
+    const float w = static_cast<float>(cell_width);
+    const float h = static_cast<float>(cell_height);
+    CSE498_DrawImageJs(id_.c_str(), url.c_str(), x, y, w, h);
+    return;
+  }
+#else
+  Unused(url);
+#endif
+  // Fallback: color fill + glyph (same as DrawCell).
+  DrawCell(col, row, cell_width, cell_height,
+           fallback_fill_css, fallback_glyph, "#000000");
 }
 
 void WebCanvas::Present() {

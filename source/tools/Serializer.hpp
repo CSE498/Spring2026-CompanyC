@@ -25,7 +25,6 @@
 #include <functional>
 #include <unordered_map>
 #include <any>
-#include <cassert>
 #include <charconv>
 #include <limits>
 
@@ -145,7 +144,6 @@ public:
     template <typename T>
     std::string Serialize(const std::string& type_id, const T& value) const {
         auto it = registry_.find(type_id);
-        assert(it != registry_.end());
         if (it == registry_.end()) return "";
         std::string inner = it->second.serialize_fn(static_cast<const void*>(&value));
         return "custom:" + type_id + ":" + std::to_string(inner.size()) + ":" + inner + ";";

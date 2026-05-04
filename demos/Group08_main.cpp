@@ -13,31 +13,17 @@
 #include "../source/Agents/PacingAgent.hpp"
 #include "../source/Interfaces/TrashInterface.hpp"
 #include "../source/Worlds/InteractionHeavyWorld.hpp"
+#include <random>
 
 using namespace cse498;
 
 int main()
 {
-  InteractionHeavyWorld world;
+    InteractionHeavyWorld world;
 
-  world.AddAgent<PacingAgent>("Pacer 1")
-        .SetLocation(WorldPosition{3,1});
-
-  world.AddAgent<PacingAgent>("Pacer 2")
-        .SetLocation(WorldPosition{6,1});
-
-  world.AddAgent<PacingAgent>("Guard 1")
-        .SetHorizontal()
-        .SetLocation(WorldPosition{10,10});
-
-  world.AddAgent<PacingAgent>("Guard 2")
-        .SetHorizontal()
-        .ToggleDirection()
-        .SetLocation(WorldPosition{15,15});
-
-  world.AddAgent<TrashInterface>("Interface")
+    world.AddAgent<TrashInterface>("Player")
         .SetSymbol('@')
-        .SetLocation(WorldPosition{1,1});
+        .SetLocation(world.GetStartPosition());
 
-  world.Run();
+    world.Run();
 }

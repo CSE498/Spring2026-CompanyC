@@ -18,6 +18,7 @@ namespace cse498 {
 
     size_t floor_id; ///< Easy access to floor CellType ID.
     size_t wall_id;  ///< Easy access to wall CellType ID.
+    size_t exit_id;  ///< Exit cell — stepping on it ends the game.
 
     /// Provide the agent with movement actions.
     void ConfigAgent(AgentBase & agent) override {
@@ -31,6 +32,7 @@ namespace cse498 {
     MazeWorld() {
       floor_id = main_grid.AddCellType("floor", "Floor that agents can walk on.", ' ');
       wall_id  = main_grid.AddCellType("wall",  "Impenetrable wall.",             '#');
+      exit_id  = main_grid.AddCellType("exit",  "Exit — reach it to win.",        'E');
 
       main_grid.Load(std::vector<std::string>{"#######################",
                                               "# #            ##     #",
@@ -41,7 +43,7 @@ namespace cse498 {
                                               "##################  # #",
                                               "#                    ##",
                                               "#                    ##",
-                                              "#  ####################",
+                                              "#E ####################",
                                               "#######################"} );
     }
     ~MazeWorld() = default;
@@ -63,8 +65,14 @@ namespace cse498 {
       if (!main_grid.IsValid(new_position)) { return false; }
       if (main_grid[new_position] == wall_id) { return false; }
 
-      // Set the agent to its new postion.
+      // Set the agent to its new position.
       agent.SetLocation(new_position);
+
+      // Win condition: the interface (player) steps onto the exit cell.
+      if (agent.IsInterface() && main_grid[new_position] == exit_id) {
+        agent.Notify("You reached the exit!", "status");
+        run_over = true;
+      }
 
       return true;
     }
