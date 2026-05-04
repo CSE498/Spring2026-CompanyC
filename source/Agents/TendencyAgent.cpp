@@ -1,5 +1,34 @@
 #include "TendencyAgent.hpp"
-#include <climits>
+#include <array>
+#include <cmath>
+#include <cstddef>
+#include <limits>
+
+namespace {
+  constexpr double kInvalidMoveScore = -1000.0;
+  constexpr double kCollectReward = 500.0;
+  constexpr double kCollectPenalty = -500.0;
+  constexpr double kBuildReward = 1000.0;
+  constexpr double kBuildPenalty = -500.0;
+  constexpr double kCollectStepScale = 5.0;
+  constexpr double kPersistenceBonus = 2.0;
+  constexpr double kFailurePenaltyScale = -0.75;
+
+  constexpr int kResourceScanRadius = 20;
+
+  constexpr size_t kLumberyardWoodCost = 20;
+  constexpr size_t kLumberyardSteelCost = 20;
+  constexpr size_t kQuarryStoneCost = 20;
+  constexpr size_t kQuarryWoodCost = 20;
+  constexpr size_t kFarmWheatCost = 20;
+  constexpr size_t kFarmWoodCost = 20;
+  constexpr size_t kSpawnerStoneCost = 30;
+  constexpr size_t kSpawnerWheatCost = 30;
+  constexpr size_t kTownhallWoodCost = 500;
+  constexpr size_t kTownhallStoneCost = 500;
+  constexpr size_t kTownhallSteelCost = 500;
+  constexpr size_t kTownhallWheatCost = 500;
+}
 
 /**
  * TendencyAgent pipeline overview:
@@ -94,7 +123,7 @@ size_t TendencyAgent::SelectAction(WorldGrid& grid) {
   double      best_score     = -std::numeric_limits<double>::infinity();
 
   // Candidate action list — build actions only considered if available.
-  static const std::vector<std::string> kAllActions = {
+  static const std::array<std::string, 14> kAllActions = {
     "up","down","left","right",
     "up_left","up_right","down_left","down_right",
     "collect",
@@ -316,11 +345,11 @@ double TendencyAgent::ScoreAction(const std::string& action,
   const bool is_build   = !is_move && !is_collect;
 
   // --- Hard rejections ---
-  if (is_move && !IsMoveValid(action, grid)) return -1000.0;
+  if (is_move && !IsMoveValid(action, grid)) return kInvalidMoveScore;
 
   // Collect is only valid when standing on the target resource.
   if (is_collect) {
-    return OnGoalResource(grid) ? 500.0 : -500.0;
+    return OnGoalResource(grid) ? kCollectReward : kCollectPenalty;
   }
 
   // Build actions are handled entirely by ScoreBuild.
@@ -355,18 +384,18 @@ double TendencyAgent::ScoreCollect(const std::string& action,
   if (!IsMoveAction(action)) return 0.0;
 
   const WorldPosition cur = GetLocation().AsWorldPosition();
-  int best_dist = INT_MAX;
-  int best_x = -1, best_y = -1;
-  const int scan_radius = 20;
+  double best_dist = std::numeric_limits<double>::infinity();
+  double best_x = 0.0;
+  double best_y = 0.0;
 
-  for (int dy = -scan_radius; dy <= scan_radius; ++dy) {
-    for (int dx = -scan_radius; dx <= scan_radius; ++dx) {
-      int nx = static_cast<int>(cur.X()) + dx;
-      int ny = static_cast<int>(cur.Y()) + dy;
+  for (int dy = -kResourceScanRadius; dy <= kResourceScanRadius; ++dy) {
+    for (int dx = -kResourceScanRadius; dx <= kResourceScanRadius; ++dx) {
+      const double nx = cur.X() + static_cast<double>(dx);
+      const double ny = cur.Y() + static_cast<double>(dy);
       WorldPosition candidate(nx, ny);
       if (!grid.IsValid(candidate)) continue;
       if (!IsGoalCell(grid[candidate], grid)) continue;
-      int dist = std::abs(dx) + std::abs(dy);
+      const double dist = std::abs(static_cast<double>(dx)) + std::abs(static_cast<double>(dy));
       if (dist < best_dist) {
         best_dist = dist;
         best_x = nx;
@@ -375,15 +404,15 @@ double TendencyAgent::ScoreCollect(const std::string& action,
     }
   }
 
-  if (best_dist == INT_MAX) return 0.0;
+  if (best_dist == std::numeric_limits<double>::infinity()) return 0.0;
 
   WorldPosition next = NextPos(action);
-  int cur_dist  = std::abs(static_cast<int>(cur.X())  - best_x)
-                + std::abs(static_cast<int>(cur.Y())  - best_y);
-  int next_dist = std::abs(static_cast<int>(next.X()) - best_x)
-                + std::abs(static_cast<int>(next.Y()) - best_y);
+  const double cur_dist  = std::abs(cur.X()  - best_x)
+                         + std::abs(cur.Y()  - best_y);
+  const double next_dist = std::abs(next.X() - best_x)
+                         + std::abs(next.Y() - best_y);
 
-  return static_cast<double>(cur_dist - next_dist) * 5.0;
+  return (cur_dist - next_dist) * kCollectStepScale;
 } 
 
 // Strongly rewards the exact build action matching the current goal when all conditions
@@ -397,30 +426,30 @@ double TendencyAgent::ScoreBuild(const std::string& action,
     current_goal == Goal::BuildSpawner    ||
     current_goal == Goal::BuildTownhall;
 
-  if (!is_build_goal)                     return -500.0;
-  if (action != GoalBuildAction())        return -500.0;
-  if (!OnGrass(grid))                     return -500.0;
-  if (!CanAfford(current_goal))           return -500.0;
+  if (!is_build_goal)                     return kBuildPenalty;
+  if (action != GoalBuildAction())        return kBuildPenalty;
+  if (!OnGrass(grid))                     return kBuildPenalty;
+  if (!CanAfford(current_goal))           return kBuildPenalty;
 
-  return 1000.0;
+  return kBuildReward;
 }
 
 // Slightly rewards repeating the last successful action, providing short-term stability
 // and preventing jittery behavior when a direction or action is working.
 double TendencyAgent::ScorePersistence(const std::string& action) const {
-  return (action == mem.last_action && mem.last_succeeded) ? 2.0 : 0.0;
+  return (action == mem.last_action && mem.last_succeeded) ? kPersistenceBonus : 0.0;
 }
 
 // Penalizes directions that have failed in the past, pushing the agent away from repeatedly
 // making bad moves and encouraging exploration of alternative directions.
 double TendencyAgent::ScoreAvoidance(const std::string& action) const {
-  return -0.75 * static_cast<double>(FailCount(action));
+  return kFailurePenaltyScale * static_cast<double>(FailCount(action));
 }
 
 // Rewards actions that move toward or stay near other agents, enabling group behavior
 // or clustering when social tendency is high.
 double TendencyAgent::ScoreSocial(const std::string& action,
-                                  const WorldGrid&   grid) const {
+                                  const WorldGrid&   /*grid*/) const {
   if (!IsMoveAction(action)) return 0.0;
   // Example placeholder: replace with actual neighbor/agent proximity logic
   return 0.0;
@@ -429,7 +458,7 @@ double TendencyAgent::ScoreSocial(const std::string& action,
 // Rewards actions that move toward or engage enemies, encouraging aggressive or
 // confrontational behavior when combat tendency is high.
 double TendencyAgent::ScoreCombat(const std::string& action,
-                                  const WorldGrid&   grid) const {
+                                  const WorldGrid&   /*grid*/) const {
   if (!IsMoveAction(action)) return 0.0;
   // Example placeholder: replace with enemy detection / targeting logic
   return 0.0;
@@ -438,7 +467,7 @@ double TendencyAgent::ScoreCombat(const std::string& action,
 // Rewards safer actions and penalizes risky positions, helping the agent avoid danger
 // and prefer survival when the survival tendency is high.
 double TendencyAgent::ScoreSurvival(const std::string& action,
-                                    const WorldGrid&   grid) const {
+                                    const WorldGrid&   /*grid*/) const {
   if (!IsMoveAction(action)) return 0.0;
   // Example placeholder: replace with danger/health/risk evaluation
   return 0.0;
@@ -455,12 +484,18 @@ double TendencyAgent::ScoreSurvival(const std::string& action,
  */
 bool TendencyAgent::CanAfford(Goal g) const {
   switch (g) {
-    case Goal::BuildLumberyard: return mem.wood  >= 20 && mem.steel >= 20;
-    case Goal::BuildQuarry:     return mem.stone >= 20 && mem.wood  >= 20;
-    case Goal::BuildFarm:       return mem.wheat >= 20 && mem.wood  >= 20;
-    case Goal::BuildSpawner:    return mem.stone >= 30 && mem.wheat >= 30;
-    case Goal::BuildTownhall:   return mem.wood  >= 500 && mem.stone >= 500
-                                    && mem.steel >= 500 && mem.wheat >= 500;
+    case Goal::BuildLumberyard: return mem.wood  >= kLumberyardWoodCost
+                                    && mem.steel >= kLumberyardSteelCost;
+    case Goal::BuildQuarry:     return mem.stone >= kQuarryStoneCost
+                                    && mem.wood  >= kQuarryWoodCost;
+    case Goal::BuildFarm:       return mem.wheat >= kFarmWheatCost
+                                    && mem.wood  >= kFarmWoodCost;
+    case Goal::BuildSpawner:    return mem.stone >= kSpawnerStoneCost
+                                    && mem.wheat >= kSpawnerWheatCost;
+    case Goal::BuildTownhall:   return mem.wood  >= kTownhallWoodCost
+                                    && mem.stone >= kTownhallStoneCost
+                                    && mem.steel >= kTownhallSteelCost
+                                    && mem.wheat >= kTownhallWheatCost;
     default: return false;
   }
 }

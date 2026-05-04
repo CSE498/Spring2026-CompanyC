@@ -2,9 +2,9 @@
  * @file GoblinAgent.hpp
  * @author Joshua Thomas
  *  @brief Stationary doorway agent that blocks passage until the world resolves
- *payment and clears it.
- * AI was used for the code generation of this class but it has been heavily
- *reviewed/tested
+ *         payment and clears it.
+ *         AI was used for the code generation of this class but it has been heavily
+ *         reviewed/tested
  **/
 #pragma once
 

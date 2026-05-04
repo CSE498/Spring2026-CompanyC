@@ -311,7 +311,7 @@ namespace cse498
           if (x < str_grid[y].size())
           {
             // CHANGED: safer lookup; unknown symbols map to 0
-            auto it = symbol_map.find(str_grid[y][x]);
+            const auto it = symbol_map.find(str_grid[y][x]);
             cells[cell_id++] = (it == symbol_map.end()) ? 0 : it->second;
           }
           else

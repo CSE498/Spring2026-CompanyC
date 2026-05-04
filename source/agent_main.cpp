@@ -7,7 +7,10 @@
 // Include the modules that we will be using.
 #include "Agents/ClassicAgent.hpp"
 #include "Agents/ClassicDynamicAgent.hpp"
+#include "Agents/PacingAgent.hpp"
+#include "Interfaces/TrashInterface.hpp"
 #include "Worlds/DynamicWorld.hpp"
+#include "Worlds/MazeWorld.hpp"
 
 using namespace cse498;
 

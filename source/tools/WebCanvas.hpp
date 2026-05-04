@@ -74,6 +74,23 @@ class WebCanvas {
                   const std::string& glyph = std::string(),
                   const std::string& glyph_css = "#ffffff");
 
+  /// Preload an image by URL into the browser image cache.
+  /// Safe to call multiple times for the same URL.
+  static void PreloadImage(const std::string& url);
+
+  /// Draw a preloaded image into an arbitrary canvas rectangle.
+  /// Falls back to a solid fallback_fill_css rectangle if not yet loaded.
+  void DrawImage(const std::string& url,
+                 float x, float y, float w, float h,
+                 const std::string& fallback_fill_css = "#cccccc");
+
+  /// Draw a sprite image scaled to fill one grid cell.
+  /// Falls back to DrawCell (color + glyph) if the image is not loaded.
+  void DrawCellImage(int col, int row, int cell_width, int cell_height,
+                     const std::string& url,
+                     const std::string& fallback_fill_css,
+                     const std::string& fallback_glyph = std::string());
+
   void Present();
 
   void SetClickHandler(const std::function<void(int, int)>& handler);

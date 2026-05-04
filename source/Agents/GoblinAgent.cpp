@@ -8,6 +8,11 @@
 
 namespace cse498 {
 
+/**
+ * GoblinAgent represents a stationary toll-style enemy in InteractionHeavyWorld.
+ * It blocks nearby progress until the player gets adjacent and pays the required gold.
+ */
+
 namespace {
 
 /**
@@ -53,7 +58,7 @@ GoblinAgent &GoblinAgent::SetTargetName(const std::string &name) {
   return *this;
 }
 
-bool GoblinAgent::Initialize() { if (!target_name.empty()) {return true;} }
+bool GoblinAgent::Initialize() { return !target_name.empty(); }
 
 void GoblinAgent::Sense(WorldGrid & /*grid*/) {
   player_adjacent = false;
