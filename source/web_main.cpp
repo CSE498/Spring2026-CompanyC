@@ -10,16 +10,20 @@
 #include <emscripten.h>
 #include <random>
 
-#include "Interfaces/WebApp.hpp"
 #include "tools/EndGameScreen.hpp"
 
 #include "Agents/ClassicAgent.hpp"
+#include "Agents/EnemyAgent.hpp"
 #include "Agents/GoblinAgent.hpp"
 #include "Agents/HunterAgent.hpp"
 #include "Agents/PacingAgent.hpp"
+#include "Agents/PlayerAgent.hpp"
 #include "Agents/SmartAgent.hpp"
 #include "Agents/TendencyAgent.hpp"
+#include "Agents/ClassicDynamicAgent.hpp"
 #include "Agents/HunterAgent.hpp"
+
+#include "Interfaces/WebApp.hpp"
 
 #include "Worlds/DynamicWorld.hpp"
 #include "Worlds/InteractionHeavyWorld.hpp"
@@ -44,7 +48,8 @@ public:
   }
 };
 
-int main() {
+int main()
+{
   g_app = std::make_unique<WebApp>();
 
   int tick_ms = 500;
@@ -56,26 +61,31 @@ int main() {
 
   std::string run_mode = GetUrlParam("world");
 
-  if (run_mode == "classic_agent") {
+  if (run_mode == "classic_agent")
+  {
     using world_t = cse498::MazeWorld;
-    auto & world = g_app->Initialize<world_t>();
-    world.AddAgent<ClassicAgent>("Classic 1").SetLocation(WorldPosition{3,1});
+    auto &world = g_app->Initialize<world_t>();
+    world.AddAgent<ClassicAgent>("Classic 1").SetLocation(WorldPosition{3, 1});
   }
-  else if (run_mode == "smart_agent") {
+  else if (run_mode == "smart_agent")
+  {
     using world_t = cse498::MazeWorld;
-    auto & world = g_app->Initialize<world_t>();
-    world.AddAgent<SmartAgent>("SmartAgent").SetLocation(WorldPosition{3,1});
+    auto &world = g_app->Initialize<world_t>();
+    world.AddAgent<SmartAgent>("SmartAgent").SetLocation(WorldPosition{3, 1});
   }
-  else if (run_mode == "tendency_agent") {
+  else if (run_mode == "tendency_agent")
+  {
     using world_t = cse498::MazeWorld;
-    auto & world = g_app->Initialize<world_t>();
-    world.AddAgent<TendencyAgent>("Tendency").SetLocation(WorldPosition{3,1});
+    auto &world = g_app->Initialize<world_t>();
+    world.AddAgent<TendencyAgent>("Tendency").SetLocation(WorldPosition{3, 1});
   }
-  else if (run_mode == "dynamic") {
-    constexpr int basicAgentCount= 15; 
+  else if (run_mode == "dynamic")
+  {
+    constexpr int basicAgentCount = 15;
 
     using world_t = cse498::DynamicWorld;
-    auto & world = g_app->Initialize<world_t>();
+    auto &world = g_app->Initialize<world_t>();
+    // world.AddAgent<ClassicDynamicAgent>("Leader").SetLocation(Location{{0, 0}});
     world.AddAgent<TendencyAgent>("Leader").SetLocation(Location{{0, 0}});
 
     std::random_device rd;
@@ -124,23 +134,25 @@ int main() {
   } else {  // run_mode == "stub"
     auto& stub = g_app->Initialize<cse498::StubWorld>();
     stub.SetDatabase(&g_app->GetDatabase());
-    g_app->SetSaveCallback([&stub]() { stub.SaveState("stub_world"); });
-    g_app->SetLoadCallback([&stub]() { stub.LoadState("stub_world"); });
+    g_app->SetSaveCallback([&stub]()
+                           { stub.SaveState("stub_world"); });
+    g_app->SetLoadCallback([&stub]()
+                           { stub.LoadState("stub_world"); });
   }
 
-  g_app->SetCellVisual("grass",        "#8fd17f", ".");
-  g_app->SetCellVisual("wall",         "#0c1523", "#");
-  g_app->SetCellVisual("button",       "#629cfa", "o");
-  g_app->SetCellVisual("built",        "#8b5cf6", "B");
-  g_app->SetCellVisual("diamond_ore",  "#eae2fb", "D");
-  g_app->SetCellVisual("exit",         "#a12989", "E");
-  g_app->SetCellVisual("gold_ore",     "#e1e827", "G");
-  g_app->SetCellVisual("iron_ore",     "#525252", "I");
-  g_app->SetCellVisual("boulder",      "#6e4f08", "O");
-  g_app->SetCellVisual("stone",        "#9ca3af", "S");
-  g_app->SetCellVisual("tree",         "#3f8f3f", "T");
-  g_app->SetCellVisual("wheat",        "#f4d35e", "W");
-  g_app->SetCellVisual("pressed",      "#0f30ee", "X");
+  g_app->SetCellVisual("grass", "#8fd17f", ".");
+  g_app->SetCellVisual("wall", "#0c1523", "#");
+  g_app->SetCellVisual("button", "#629cfa", "o");
+  g_app->SetCellVisual("built", "#8b5cf6", "B");
+  g_app->SetCellVisual("diamond_ore", "#eae2fb", "D");
+  g_app->SetCellVisual("exit", "#a12989", "E");
+  g_app->SetCellVisual("gold_ore", "#e1e827", "G");
+  g_app->SetCellVisual("iron_ore", "#525252", "I");
+  g_app->SetCellVisual("boulder", "#6e4f08", "O");
+  g_app->SetCellVisual("stone", "#9ca3af", "S");
+  g_app->SetCellVisual("tree", "#3f8f3f", "T");
+  g_app->SetCellVisual("wheat", "#f4d35e", "W");
+  g_app->SetCellVisual("pressed", "#0f30ee", "X");
 
   // Background tiles drawn beneath resource/object cell sprites.
   g_app->RegisterCellBackground("built",        "assets/grass.png");
@@ -161,14 +173,14 @@ int main() {
   g_app->RegisterEntityVisual('G', "assets/goblin.png");
 
   using Meta = cse498::WebInterface::ActionMeta;
-  g_app->RegisterActionMeta("start",   Meta{"Start",   "Enter", false});
-  g_app->RegisterActionMeta("reset",   Meta{"Reset",   "R",     false});
-  g_app->RegisterActionMeta("save",    Meta{"Save",    "",      false});
-  g_app->RegisterActionMeta("load",    Meta{"Load",    "",      false});
-  g_app->RegisterActionMeta("up",      Meta{"Up",      "W",     true});
-  g_app->RegisterActionMeta("down",    Meta{"Down",    "S",     true});
-  g_app->RegisterActionMeta("left",    Meta{"Left",    "A",     true});
-  g_app->RegisterActionMeta("right",   Meta{"Right",   "D",     true});
+  g_app->RegisterActionMeta("start",           Meta{"Start",        "Enter", false});
+  g_app->RegisterActionMeta("reset",           Meta{"Reset",        "R", false});
+  g_app->RegisterActionMeta("save",            Meta{"Save",         "",  false});
+  g_app->RegisterActionMeta("load",            Meta{"Load",         "",  false});
+  g_app->RegisterActionMeta("up",              Meta{"Up",           "W", true});
+  g_app->RegisterActionMeta("down",            Meta{"Down",         "S", true});
+  g_app->RegisterActionMeta("left",            Meta{"Left",         "A", true});
+  g_app->RegisterActionMeta("right",           Meta{"Right",        "D", true});
   g_app->RegisterActionMeta("collect",         Meta{"Collect",      "E", true});
   g_app->RegisterActionMeta("build",           Meta{"Build",        "B", true});
   g_app->RegisterActionMeta("pay",             Meta{"Pay",          "O", true});

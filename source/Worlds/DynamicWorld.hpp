@@ -9,6 +9,8 @@
 
 #include "../core/WorldBase.hpp"
 #include "../core/Building.hpp"
+#include "../Agents/ClassicDynamicAgent.hpp"
+#include "../Agents/PacingAgent.hpp"
 #include "../Agents/TendencyAgent.hpp"
 
 namespace cse498 {
@@ -104,6 +106,17 @@ public:
     }
   }
 
+  int GetGlobalCount(const std::string& resource) const {
+    auto it = world_global_counts.find(resource);
+    if (it == world_global_counts.end()) return 0;
+    return it->second;
+  }
+
+  size_t GetUpdateCounter() const {
+    return mUpdateCounter;
+  }
+
+protected:
 /**
  * @brief Run the agents and update the world one time
  */

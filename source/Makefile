@@ -4,10 +4,10 @@ FLAGS_version = -std=c++23
 FLAGS_warn    = -Wall -Wextra -Wcast-align -Wnon-virtual-dtor -Woverloaded-virtual -pedantic
 FLAGS_all     = $(FLAGS_version) $(FLAGS_warn)
 
-FLAGS_debug   = $(FLAGS_all) -g                     # Setup for running a debugger
-FLAGS_opt     = $(FLAGS_all) -O3 -DNDEBUG           # Fastest possible executable
-FLAGS_quick   = $(FLAGS_all) -DNDEBUG               # Fastest possible compilation
-FLAGS_grumpy  = $(FLAGS_all) -Wconversion -Weffc++  # Some extra picky warnings
+FLAGS_debug   = $(FLAGS_all) -g
+FLAGS_opt     = $(FLAGS_all) -O3 -DNDEBUG
+FLAGS_quick   = $(FLAGS_all) -DNDEBUG
+FLAGS_grumpy  = $(FLAGS_all) -Wconversion -Weffc++
 
 CXX  = c++
 EMCC = em++
@@ -27,7 +27,7 @@ $(SQLITE_OBJ_WEB): $(SQLITE_DIR)/sqlite3.c
 	emcc -O2 -DSQLITE_THREADSAFE=0 -c $< -o $@
 
 # --- IXWebSocket (Group 9 - WebSocket) ---
-IXWS_DIR = ../third-party/ixwebsocket
+IXWS_DIR  = ../third-party/ixwebsocket
 IXWS_SRCS = $(wildcard $(IXWS_DIR)/*.cpp)
 IXWS_OBJS = $(patsubst $(IXWS_DIR)/%.cpp, build/ixws/%.o, $(IXWS_SRCS))
 
@@ -46,18 +46,22 @@ debug: debug-agent
 opt: opt-agent
 grumpy: grumpy-agent
 
+# Shared sources for native builds
 # Sources shared by all build targets (native and web)
-BASE_SOURCES = Agents/ClassicAgent.cpp   \
-               Agents/GoblinAgent.cpp    \
-               Agents/TendencyAgent.cpp  \
-               Agents/HunterAgent.cpp    \
-               tools/BehaviorTree.cpp    \
-               tools/CompositeNodes.cpp  \
-               tools/LeafNodes.cpp       \
-               tools/PathGenerator.cpp   \
-               tools/Timer.cpp           \
-               tools/WorldPath.cpp       \
-               Worlds/DynamicWorld.cpp	 \
+BASE_SOURCES = Agents/ClassicAgent.cpp        \
+	     	       Agents/ClassicDynamicAgent.cpp \
+               Agents/EnemyAgent.cpp          \
+               Agents/GoblinAgent.cpp         \
+               Agents/TendencyAgent.cpp       \
+               Agents/HunterAgent.cpp         \
+               tools/BehaviorTree.cpp         \
+               tools/CompositeNodes.cpp       \
+               tools/LeafNodes.cpp            \
+               tools/DynamicTreeBuilder.cpp   \
+               tools/PathGenerator.cpp        \
+               tools/Timer.cpp                \
+               tools/WorldPath.cpp            \
+               Worlds/DynamicWorld.cpp	      \
 			         Worlds/InteractionHeavyWorld.cpp
 
 # SaveServer needs extra .cpp sources for Database + WebSocket stack
@@ -73,7 +77,7 @@ SAVESERVER_SRCS = \
 	tools/DataGrid.cpp \
 	tools/Datum.cpp
 
-# Group09 demo stuff - in progress i dont think ready to run yet
+# Group09 demo executable
 GROUP09_SRCS = \
 	core/Database.cpp \
 	core/WorldHelpers.cpp \
@@ -133,7 +137,10 @@ web-debug: $(WEB_SOURCES) $(SQLITE_OBJ_WEB)
 server:
 	cd $(WEB_OUT_DIR) && python3 -m http.server 8080
 
-.PHONY: default clean web web-opt web-debug server debug-% opt-% quick-% $(EXECUTABLES) SaveServer Group09
+# ─────────────────────────────────────────────────────────────────────────────
+
+.PHONY: default clean web web-opt web-debug server debug-% opt-% quick-% \
+	grumpy-% $(EXECUTABLES) SaveServer Group09
 
 # SaveServer specific targets
 SaveServer: SaveServer_main.cpp $(SAVESERVER_SRCS) $(HEADERS) $(SQLITE_OBJ) $(IXWS_OBJS)

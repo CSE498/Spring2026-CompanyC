@@ -1,4 +1,5 @@
 #include <algorithm>
+
 #include "./DynamicWorld.hpp"
 
 constexpr std::array<std::pair<std::string_view, size_t>, 4> kResourceTick = {{
@@ -50,7 +51,6 @@ constexpr size_t farmWoodBuildCondition = 20;
 int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
   const WorldPosition cur = agent.GetLocation().AsWorldPosition();
   WorldPosition next = cur;
-
   switch (action_id) {
   case REMAIN_STILL:
     next = cur;
@@ -192,6 +192,7 @@ void cse498::DynamicWorld::UpdateWorld() {
             if (!main_grid.IsValid(nx, ny)) continue;
             WorldPosition spawn_pos(nx, ny);
             if (main_grid[spawn_pos] == mGrassId) {
+              // auto & agent = AddAgent<ClassicDynamicAgent>("spawned_agent");
               auto & agent = AddAgent<TendencyAgent>("spawned_agent");
               agent.SetLocation(spawn_pos);
               placed = true;

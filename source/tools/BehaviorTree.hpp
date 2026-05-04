@@ -14,6 +14,7 @@
 #include <unordered_map>
 #include <memory>
 #include <vector>
+#include <any>
 
 namespace cse498 {
 /** @brief Return statuses for tree execution. */
@@ -23,7 +24,7 @@ enum class Status {
     Running = -1
 };
 
-using BBValue = std::variant<int, double, std::string, bool>;
+using BBValue = std::variant<int, double, std::string, bool, std::any>;
 using Blackboard = std::unordered_map<std::string, BBValue>;
 
 template<typename T>
@@ -75,7 +76,7 @@ public:
     template<typename T>
     void setMemory(const std::string& key, T value){
         blackboard[key] = BBValue(std::in_place_type<T>, value);
-    };
+    }
 
     const Blackboard& getBlackboard() const { return blackboard ;}
 };
