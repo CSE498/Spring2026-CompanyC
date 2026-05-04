@@ -138,32 +138,32 @@
     }
 
     if (!document.getElementById('cse498_zoom_controls')) {
-  var zoomWrap = document.createElement('div');
-  zoomWrap.id = 'cse498_zoom_controls';
-  zoomWrap.style.display = 'grid';
-  zoomWrap.style.gridTemplateColumns = 'repeat(2, minmax(0, 1fr))';
-  zoomWrap.style.gap = '8px';
-  zoomWrap.style.marginBottom = '12px';
+      var zoomWrap = document.createElement('div');
+      zoomWrap.id = 'cse498_zoom_controls';
+      zoomWrap.style.display = 'grid';
+      zoomWrap.style.gridTemplateColumns = 'repeat(2, minmax(0, 1fr))';
+      zoomWrap.style.gap = '8px';
+      zoomWrap.style.marginBottom = '12px';
 
-  var zoomInBtn = document.createElement('button');
-  zoomInBtn.id = 'cse498btn-15';
-  zoomInBtn.textContent = 'Zoom In';
-  zoomInBtn.addEventListener('click', function() {
-    Module.ccall('HandleAction', null, ['number'], [15]);
-  });
+      var zoomInBtn = document.createElement('button');
+      zoomInBtn.id = 'cse498btn-15';
+      zoomInBtn.textContent = 'Zoom In';
+      zoomInBtn.addEventListener('click', function() {
+        Module.ccall('HandleAction', null, ['number'], [15]);
+      });
 
-  var zoomOutBtn = document.createElement('button');
-  zoomOutBtn.id = 'cse498btn-16';
-  zoomOutBtn.textContent = 'Zoom Out';
-  zoomOutBtn.addEventListener('click', function() {
-    Module.ccall('HandleAction', null, ['number'], [16]);
-  });
+      var zoomOutBtn = document.createElement('button');
+      zoomOutBtn.id = 'cse498btn-16';
+      zoomOutBtn.textContent = 'Zoom Out';
+      zoomOutBtn.addEventListener('click', function() {
+        Module.ccall('HandleAction', null, ['number'], [16]);
+      });
 
-  zoomWrap.appendChild(zoomInBtn);
-  zoomWrap.appendChild(zoomOutBtn);
+      zoomWrap.appendChild(zoomInBtn);
+      zoomWrap.appendChild(zoomOutBtn);
 
-  sidebar.insertBefore(zoomWrap, document.getElementById('cse498_hud_host'));
-}
+      sidebar.insertBefore(zoomWrap, document.getElementById('cse498_hud_host'));
+    }
 
     // Fill action buttons only if missing.
     // Codes must match the ActionCode enum in WebApp.hpp.
@@ -307,7 +307,55 @@
     if (overlay) overlay.style.display = 'none';
   });
 
-  }  // namespace
+  } // namespace
+
+  // Read a localStorage entry. Returns a malloc'd C string or null if absent.
+  EM_JS(char*, WebAppLocalStorageGet, (const char* key), {
+    var val = localStorage.getItem(UTF8ToString(key));
+    if (val === null) return 0;
+    var len = lengthBytesUTF8(val) + 1;
+    var ptr = _malloc(len);
+    stringToUTF8(val, ptr, len);
+    return ptr;
+  });
+
+  // Write a localStorage entry.
+  EM_JS(void, WebAppLocalStorageSet, (const char* key, const char* value), {
+    localStorage.setItem(UTF8ToString(key), UTF8ToString(value));
+  });
+
+  // Remove a localStorage entry.
+  EM_JS(void, WebAppLocalStorageRemove, (const char* key), {
+    localStorage.removeItem(UTF8ToString(key));
+  });
+
+  // ---------------------------------------------------------------------------
+  // localStorage persistence helpers
+  // ---------------------------------------------------------------------------
+
+  static std::string BytesToHex(const std::vector<uint8_t>& bytes) {
+    static constexpr char kDigits[] = "0123456789abcdef";
+    std::string hex;
+    hex.reserve(bytes.size() * 2);
+    for (uint8_t b : bytes) {
+      hex += kDigits[(b >> 4) & 0xf];
+      hex += kDigits[b & 0xf];
+    }
+    return hex;
+  }
+
+  static std::vector<uint8_t> HexToBytes(const std::string& hex) {
+    auto nibble = [](char c) -> uint8_t {
+      if (c >= '0' && c <= '9') return static_cast<uint8_t>(c - '0');
+      if (c >= 'a' && c <= 'f') return static_cast<uint8_t>(c - 'a' + 10);
+      return 0;
+    };
+    std::vector<uint8_t> bytes;
+    bytes.reserve(hex.size() / 2);
+    for (size_t i = 0; i + 1 < hex.size(); i += 2)
+      bytes.push_back(static_cast<uint8_t>((nibble(hex[i]) << 4) | nibble(hex[i + 1])));
+    return bytes;
+  }
 
     
 
@@ -499,20 +547,67 @@
     #endif
   }
 
-  void WebApp::PerformSave() {
-    if (!sync_.IsRunning() || !ws_client_.IsConnected()) {
-      if (interface_) interface_->Notify("Not connected to server.", "status");
-      RenderWorld();
-      return;
+  void WebApp::SaveDatabaseToLocalStorage() {
+    static constexpr const char* kStorageKey = "cse498_save";
+    auto entries = db_.ExportAll();
+
+    // Format: hex-encoded key_len|key|value_len|value|tag_len|tag per entry,
+    // prefixed with entry count, all separated by newlines for easy parsing.
+    std::ostringstream oss;
+    oss << entries.size() << "\n";
+    for (const auto& [key, value, tag] : entries) {
+      oss << key.size() << " " << key << " "
+          << value.size() << " " << BytesToHex(value) << " "
+          << tag.size() << " " << tag << "\n";
+    }
+    WebAppLocalStorageSet(kStorageKey, oss.str().c_str());
+  }
+
+  void WebApp::LoadDatabaseFromLocalStorage() {
+    static constexpr const char* kStorageKey = "cse498_save";
+    char* raw = WebAppLocalStorageGet(kStorageKey);
+    if (!raw) return;
+    std::string data(raw);
+    std::free(raw);
+
+    std::istringstream iss(data);
+    size_t count = 0;
+    iss >> count;
+    iss.ignore(1, '\n');
+
+    std::vector<std::tuple<std::string, std::vector<uint8_t>, std::string>> entries;
+    entries.reserve(count);
+
+    for (size_t i = 0; i < count; ++i) {
+      size_t key_len = 0, val_len = 0, tag_len = 0;
+      std::string key, hex, tag;
+
+      iss >> key_len; iss.get(); key.resize(key_len); iss.read(key.data(), static_cast<std::streamsize>(key_len));
+      iss >> val_len; iss.get(); hex.resize(val_len * 2); iss.read(hex.data(), static_cast<std::streamsize>(val_len * 2));
+      iss >> tag_len; iss.get(); tag.resize(tag_len);   iss.read(tag.data(), static_cast<std::streamsize>(tag_len));
+      iss.ignore(1, '\n');
+
+      entries.emplace_back(std::move(key), HexToBytes(hex), std::move(tag));
     }
 
+    db_.Clear();
+    (void)db_.ImportAll(entries);
+  }
+
+  void WebApp::PerformSave() {
     if (save_callback_) save_callback_();
 
-    auto result = sync_.SaveGame("test_save");
-    if (result) {
-      if (interface_) interface_->Notify("Game saved!", "status");
+    std::string msg;
+    if (sync_.IsRunning() && ws_client_.IsConnected()) {
+      auto result = sync_.SaveGame("test_save");
+      msg = result ? "Game saved!" : "Save failed.";
     } else {
-      if (interface_) interface_->Notify("Save failed.", "status");
+      SaveDatabaseToLocalStorage();
+      msg = "Game saved!";
+    }
+    if (interface_) {
+      interface_->Notify(msg, "status");
+      interface_->Notify("1500|" + msg, "popup_timed");
     }
     RenderWorld();
   }
@@ -528,17 +623,13 @@
 }
 
   void WebApp::PerformLoad() {
-    if (!sync_.IsRunning() || !ws_client_.IsConnected()) {
-      if (interface_) interface_->Notify("Not connected to server.", "status");
-      RenderWorld();
-      return;
-    }
-
-    auto result = sync_.LoadGame("test_save");
-    if (result) {
-      if (interface_) interface_->Notify("Loading...", "status");
+    if (sync_.IsRunning() && ws_client_.IsConnected()) {
+      auto result = sync_.LoadGame("test_save");
+      if (interface_) interface_->Notify(result ? "Loading..." : "Load failed.", "status");
     } else {
-      if (interface_) interface_->Notify("Load failed.", "status");
+      LoadDatabaseFromLocalStorage();
+      if (load_callback_) load_callback_();
+      if (interface_) interface_->Notify("Game loaded (local).", "status");
     }
     RenderWorld();
   }
