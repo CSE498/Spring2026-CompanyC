@@ -36,7 +36,8 @@ public:
   size_t SelectAction(cse498::WorldGrid&) override {
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<int> choice(0, this->action_map.size() - 1);
+
+    std::uniform_int_distribution<int> choice(0, this->action_map.size()-1);
     return choice(gen);
   }
 };
@@ -54,18 +55,26 @@ int main() {
   std::string run_mode = GetUrlParam("world");
 
   if (run_mode == "classic_agent") {
-    auto& world = g_app->Initialize<cse498::MazeWorld>();
-    world.AddAgent<ClassicAgent>("Classic 1").SetLocation(WorldPosition{3, 1});
-  } else if (run_mode == "smart_agent") {
-    auto& world = g_app->Initialize<cse498::MazeWorld>();
-    world.AddAgent<SmartAgent>("SmartAgent").SetLocation(WorldPosition{3, 1});
-  } else if (run_mode == "tendency_agent") {
-    auto& world = g_app->Initialize<cse498::MazeWorld>();
-    world.AddAgent<TendencyAgent>("Tendency").SetLocation(WorldPosition{3, 1});
-  } else if (run_mode == "dynamic") {
-    constexpr int basicAgentCount = 15;
-    auto& world = g_app->Initialize<cse498::DynamicWorld>();
-    world.AddAgent<StubAgent>("Leader").SetLocation(Location{{0, 0}});
+    using world_t = cse498::MazeWorld;
+    auto & world = g_app->Initialize<world_t>();
+    world.AddAgent<ClassicAgent>("Classic 1").SetLocation(WorldPosition{3,1});
+  }
+  else if (run_mode == "smart_agent") {
+    using world_t = cse498::MazeWorld;
+    auto & world = g_app->Initialize<world_t>();
+    world.AddAgent<SmartAgent>("SmartAgent").SetLocation(WorldPosition{3,1});
+  }
+  else if (run_mode == "tendency_agent") {
+    using world_t = cse498::MazeWorld;
+    auto & world = g_app->Initialize<world_t>();
+    world.AddAgent<TendencyAgent>("Tendency").SetLocation(WorldPosition{3,1});
+  }
+  else if (run_mode == "dynamic") {
+    constexpr int basicAgentCount= 15; 
+
+    using world_t = cse498::DynamicWorld;
+    auto & world = g_app->Initialize<world_t>();
+    world.AddAgent<StubAgent>(std::string("builder")).SetLocation(Location{{0, 0}});
 
     std::random_device rd;
     std::mt19937 gen(rd());

@@ -78,7 +78,7 @@ namespace cse498
     Timer &GetTimer() { return mTimer; }
 
     /// Access the shared Timer for this world (const overload)
-    const Timer &GetTimer() const { return mTimer; }
+    [[nodiscard]] const Timer &GetTimer() const { return mTimer; }
 
     /// Return the current score for worlds that provide score-based results.
     /// Old plan: worlds override GetScore(). New plan: worlds can pass score text into EndGameScreen.
@@ -91,7 +91,7 @@ namespace cse498
     }
 
     /// Access the ActionLog
-    ActionLog &GetActionLog() { return mActionLog; }
+    [[nodiscard]] ActionLog &GetActionLog() { return mActionLog; }
 
     /// Access the position log used by analytics/end-game heatmaps.
     [[nodiscard]] DataLog<WorldPosition> &GetPositionLog() { return mPositionLog; }
@@ -197,6 +197,9 @@ namespace cse498
     /// Determine if the run has ended.
     [[nodiscard]] virtual bool IsRunOver() const { return run_over; }
 
+    /// Get the tick count
+    [[nodiscard]] virtual size_t GetTickCount() const { return 0; };
+
     // -- Agent Management --
 
     /// @brief Build a new agent of the specified type
@@ -261,13 +264,17 @@ namespace cse498
     virtual void Run()
     {
       run_over = false;
-      while (!run_over)
-      {
-        RunAgents();
-        UpdateWorld();
-        RecordAnalyticsSnapshot();
+      while (!run_over) {
+        Tick();
       }
     }
+
+    virtual void Tick() {
+      RunAgents();
+      UpdateWorld();
+      RecordAnalyticsSnapshot();
+    }
+
 
     //////////////////////////////////////////////////////////////////////////
     //
@@ -288,8 +295,7 @@ namespace cse498
 
     // Provide a vector of IDs for items that the input agent is aware of.
     // (If not overridden, return ALL items.)
-    std::vector<size_t> GetKnownItems([[maybe_unused]] const AgentBase &agent) const
-    {
+    [[nodiscard]] std::vector<size_t> GetKnownItems([[maybe_unused]] const AgentBase & agent) const {
       std::vector<size_t> out_ids;
       for (const item_ptr_t &ptr : item_set)
         out_ids.push_back(ptr->GetID());
