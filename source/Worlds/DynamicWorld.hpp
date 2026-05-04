@@ -114,6 +114,7 @@ public:
     }
     RunAgents();
     UpdateWorld();
+    RecordAnalyticsSnapshot();
 
     const std::string message = BuildStatusMessage();
     for (const auto & agent_ptr : agent_set) {

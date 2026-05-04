@@ -33,29 +33,35 @@ TEST_CASE("Test adding agents into the ActionLog", "[core]") {
     // Move pacer1 up
     cse498::WorldPosition cur_position = pacer1.GetLocation().AsWorldPosition();
     pacer1.SetLocation(cur_position.Up());
-    actionLog.recordAction(pacer1, up);
+    actionLog.recordAction(pacer1.GetID(), up, std::chrono::duration_cast<std::chrono::microseconds>(
+                            std::chrono::steady_clock::now().time_since_epoch()));
     std::this_thread::sleep_for(std::chrono::microseconds(10)); // 10 µs delay
-    actionLog.actionEnd(pacer1);
+    actionLog.actionEnd(pacer1.GetID(), std::chrono::duration_cast<std::chrono::microseconds>(
+                                  std::chrono::steady_clock::now().time_since_epoch()));
 
     // Call actionEnd on an agent not in the map
-    actionLog.actionEnd(pacer2);
+    actionLog.actionEnd(pacer2.GetID(), std::chrono::duration_cast<std::chrono::microseconds>(
+                                  std::chrono::steady_clock::now().time_since_epoch()));
 
     // Call actionEnd on an agent without any actions
-    actionLog.actionEnd(guard1);
+    actionLog.actionEnd(guard1.GetID(), std::chrono::duration_cast<std::chrono::microseconds>(
+                                  std::chrono::steady_clock::now().time_since_epoch()));
 
     // Move guard1 left
     cur_position = guard1.GetLocation().AsWorldPosition();
     guard1.SetLocation(cur_position.Left());
-    actionLog.recordAction(guard1, left);
+    actionLog.recordAction(guard1.GetID(), left, std::chrono::duration_cast<std::chrono::microseconds>(
+                                  std::chrono::steady_clock::now().time_since_epoch()));
 
     // Move pacer1 up again
     cur_position = pacer1.GetLocation().AsWorldPosition();
     pacer1.SetLocation(cur_position.Up());
-    actionLog.recordAction(pacer1, up);
+    actionLog.recordAction(pacer1.GetID(), up, std::chrono::duration_cast<std::chrono::microseconds>(
+                                  std::chrono::steady_clock::now().time_since_epoch()));
 
     // Get actions for each agent
-    auto pacerActions = actionLog.getActionsByAgent(pacer1);
-    auto guardActions = actionLog.getActionsByAgent(guard1);
+    auto pacerActions = actionLog.getActionsByAgent(pacer1.GetID());
+    auto guardActions = actionLog.getActionsByAgent(guard1.GetID());
 
     // Verify counts
     REQUIRE(pacerActions.size() == 2);
@@ -73,16 +79,19 @@ TEST_CASE("Test adding agents into the ActionLog", "[core]") {
 
   SECTION("Test clearing the log") {
     // Add some actions
-    actionLog.recordAction(pacer1, down);
-    actionLog.recordAction(guard1, right);
-    actionLog.recordAction(pacer1, up);
+    actionLog.recordAction(pacer1.GetID(), down, std::chrono::duration_cast<std::chrono::microseconds>(
+                                  std::chrono::steady_clock::now().time_since_epoch()));
+    actionLog.recordAction(guard1.GetID(), right, std::chrono::duration_cast<std::chrono::microseconds>(
+                                  std::chrono::steady_clock::now().time_since_epoch()));
+    actionLog.recordAction(pacer1.GetID(), up, std::chrono::duration_cast<std::chrono::microseconds>(
+                                  std::chrono::steady_clock::now().time_since_epoch()));
 
     // Check map size (number of agents with recorded actions)
     CHECK(actionLog.getActions().size() == 2);
 
     // Check individual agent actions
-    CHECK(actionLog.getActionsByAgent(pacer1).size() == 2);
-    CHECK(actionLog.getActionsByAgent(guard1).size() == 1);
+    CHECK(actionLog.getActionsByAgent(pacer1.GetID()).size() == 2);
+    CHECK(actionLog.getActionsByAgent(guard1.GetID()).size() == 1);
 
     // Clear the log
     actionLog.clear();
@@ -92,7 +101,7 @@ TEST_CASE("Test adding agents into the ActionLog", "[core]") {
 
     // Verify it's empty
     CHECK(actionLog.getActions().empty());
-    CHECK(actionLog.getActionsByAgent(pacer1).empty());
-    CHECK(actionLog.getActionsByAgent(guard1).empty());
+    CHECK(actionLog.getActionsByAgent(pacer1.GetID()).empty());
+    CHECK(actionLog.getActionsByAgent(guard1.GetID()).empty());
   }
 }
