@@ -4,17 +4,17 @@ This document will serve as the link directory of all of the available documenta
 Ordered alphabetically.
 
 ## Template Files
-- [C++ Classes](docs/templates/CLASSTEMPLATE.md)
-- [Modules](docs/templates/MODULETEMPLATE.md)
-- [Tests](docs/templates/TESTTEMPLATE.md)
+- [C++ Classes](templates/CLASSTEMPLATE.md)
+- [Modules](templates/MODULETEMPLATE.md)
+- [Tests](templates/TESTTEMPLATE.md)
 
 ## Agents
-- [AI Agents](docs/modules/AIAgents.md)
-- [Classic Agents](docs/modules/ClassicAgents.md)
+- [AI Agents](modules/AIAgents.md)
+- [Classic Agents](modules/ClassicAgents.md)
 
 ## Worlds
-- [Dynamic World](docs/modules/DynamicWorld.md)
-- [Interaction World](docs/modules/InteractionHeavyWorld.md)
+- [Dynamic World](modules/DynamicWorld.md)
+- [Interaction World](modules/InteractionHeavyWorld.md)
 
 ## Database
 - [Database Guide](DATABASE_GUIDE.md)
@@ -23,12 +23,12 @@ Ordered alphabetically.
 - [Data Analytics](DataAnalytics.md)
 
 ## Web Interface
-- [WebButton](docs/classes/WebButton.md)
-- [WebCanvas](docs/classes/WebCanvas.md)
-- [WebImage](docs/classes/WebImage.md)
-- [WebInterface Module](docs/modules/WebInterface.md)
-- [WebLayout](docs/classes/WebLayout.md)
-- [WebTextbox](docs/classes/WebTextbox.md)
+- [WebButton](classes/WebButton.md)
+- [WebCanvas](classes/WebCanvas.md)
+- [WebImage](classes/WebImage.md)
+- [WebInterface Module](modules/WebInterface.md)
+- [WebLayout](classes/WebLayout.md)
+- [WebTextbox](classes/WebTextbox.md)
 
 ## Miscellaneous
-- [Syntax Guidelines](docs/GUIDELINES.md)
+- [Syntax Guidelines](GUIDELINES.md)
