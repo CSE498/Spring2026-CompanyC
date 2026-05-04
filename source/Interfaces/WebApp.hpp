@@ -210,6 +210,8 @@ public:
 
   void PerformSave();
   void PerformLoad();
+  void SaveDatabaseToLocalStorage();
+  void LoadDatabaseFromLocalStorage();
 };
 
 /// Single application instance — defined in WebApp.cpp, used by

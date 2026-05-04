@@ -130,7 +130,10 @@ int main()
       g_app->ShowEndGameHtml(html);
     });
   } else if (run_mode == "sokoban") {
-    g_app->Initialize<cse498::SokobanWorld>();
+    auto& world = g_app->Initialize<cse498::SokobanWorld>();
+    world.SetDatabase(&g_app->GetDatabase());
+    g_app->SetSaveCallback([&world]() { world.SaveState("sokoban"); });
+    g_app->SetLoadCallback([&world]() { world.LoadState("sokoban"); });
   } else {  // run_mode == "stub"
     auto& stub = g_app->Initialize<cse498::StubWorld>();
     stub.SetDatabase(&g_app->GetDatabase());

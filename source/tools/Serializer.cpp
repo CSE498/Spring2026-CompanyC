@@ -12,7 +12,7 @@
 namespace cse498 {
 
 bool Serializer::IsTypeRegistered(const std::string& type_id) const {
-    return registry_.count(type_id) > 0;
+    return registry_.contains(type_id);
 }
 
 // ------ serialize primitives ------
@@ -56,7 +56,7 @@ std::string Serializer::Serialize(long long value) const {
 }
 
 std::string Serializer::Serialize(unsigned long long value) const {
-    return "l:" + std::to_string(value) + ";";
+    return "L:" + std::to_string(value) + ";";
 }
 
 std::string Serializer::Serialize(float value) const {
@@ -68,7 +68,7 @@ std::string Serializer::Serialize(long value) const {
 }
 
 std::string Serializer::Serialize(unsigned int value) const {
-    return Serialize(static_cast<long long>(value));
+    return Serialize(static_cast<unsigned long long>(value));
 }
 
 std::string Serializer::Serialize(unsigned long value) const {
@@ -228,7 +228,7 @@ std::optional<long long> Serializer::DeserializeLongLongAt(const std::string& da
 std::optional<unsigned long long> Serializer::DeserializeUnsignedLongLongAt(const std::string& data,
                                                                             size_t& pos) const {
     if (pos + TAG_PREFIX_LEN >= data.size()) return std::nullopt;
-    if (data[pos] != 'l' || data[pos + 1] != ':') return std::nullopt;
+    if (data[pos] != 'L' || data[pos + 1] != ':') return std::nullopt;
     pos += TAG_PREFIX_LEN;
 
     size_t semi = data.find(';', pos);
