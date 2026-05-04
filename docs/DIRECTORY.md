@@ -8,17 +8,19 @@ Ordered alphabetically.
 - [Modules](/templates/MODULETEMPLATE.md)
 - [Tests](/templates/TESTTEMPLATE.md)
 
-## AI Agents
+## Agents
+- [AI Agents](/modules/AIAgents.md)
+- [Classic Agents](/modules/ClassicAgents.md)
 
-## Classic Agents
-
-## Dynamic World
-
-## Interaction World
+## Worlds
+- [Dynamic World](/modules/DynamicWorld.md)
+- [Interaction World](/modules/InteractionHeavyWorld.md)
 
 ## Database
+- [Database Guide](DATABASE_GUIDE.md)
 
 ## Data Analytics
+- [Data Analytics](DataAnalytics.md)
 
 ## Web Interface
 - [WebButton](/classes/WebButton.md)

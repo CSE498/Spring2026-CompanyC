@@ -63,7 +63,7 @@ std::string SQLiteConnection::LastErrorMessage() const {
 
 
 
-//executions and querys
+// executions and queries
 std::expected<void, SQLiteError> SQLiteConnection::Execute(const std::string& sql) {
     if (!mDb) return std::unexpected(SQLiteError::OpenFailed);
 
@@ -112,6 +112,7 @@ std::expected<void, SQLiteError> SQLiteConnection::Query(const std::string& sql,
 std::expected<void, SQLiteError> SQLiteConnection::UpsertBlob(const std::string& table, const std::string& key, const std::vector<uint8_t>& value, const std::string& type_tag) {
     if (!mDb) return std::unexpected(SQLiteError::OpenFailed);
 
+    // `table` must be a hardcoded constant (e.g. kTableName) — never pass user input here.
     const std::string sql =
         "INSERT INTO " + table + " (key, value, type_tag, created_at, updated_at) "
         "VALUES (?1, ?2, ?3, datetime('now'), datetime('now')) "

@@ -12,6 +12,7 @@
 #include "../tools/BehaviorTree.hpp"
 #include "../core/WorldBase.hpp"
 #include "../tools/PathGenerator.hpp"
+#include "../tools/DynamicTreeBuilder.hpp"
 
 namespace cse498 {
 
@@ -26,8 +27,10 @@ enum class Direction {
 namespace {
 
 bool IsInBounds(const WorldGrid& grid, const WorldPosition& p) {
-    return p.CellX() < grid.GetWidth() &&
-           p.CellY() < grid.GetHeight();
+    return p.CellX() < grid.GetWidth() && 
+           p.CellY() < grid.GetHeight() && 
+           p.CellX() > 0 && 
+           p.CellY() > 0;
 }
 
 Direction StepToDirection(const Point& a, const Point& b) {
@@ -56,93 +59,29 @@ std::string DirectionToString(Direction dir) {
 
 
 void ClassicAgent::BuildTree() {
-    auto root = std::make_shared<Selector>("Root");
+    auto default_root = std::make_shared<Selector>("BaseSurvivalRoot");
 
-    // --------------------------------------------------
-    // Branch 1: If enemy nearby -> attack
-    // --------------------------------------------------
-    auto attack_branch = std::make_shared<Sequence>("AttackBranch");
-
-    auto enemy_nearby = std::make_shared<ConditionNode>(
-        "EnemyNearby",
-        [](const Blackboard & bb) -> bool {
-            auto it = bb.find("enemy_nearby");
-            return it != bb.end() && std::get<bool>(it->second);
-        }
-    );
-
-    auto attack_action = std::make_shared<ActionNode>(
-        "Attack",
-        [](Blackboard & bb) -> Status {
-            bb["chosen_action"].emplace<std::string>("attack");
-            return Status::Success;
-        }
-    );
-
-    attack_branch->addChild(enemy_nearby);
-    attack_branch->addChild(attack_action);
-
-    // --------------------------------------------------
-    // Branch 2: If material nearby -> gather
-    // --------------------------------------------------
-    auto gather_branch = std::make_shared<Sequence>("GatherBranch");
-
-    auto material_nearby = std::make_shared<ConditionNode>(
-        "MaterialNearby",
-        [](const Blackboard & bb) -> bool {
-            auto it = bb.find("material_nearby");
-            return it != bb.end() && std::get<bool>(it->second);
-        }
-    );
-
-    auto gather_action = std::make_shared<ActionNode>(
-        "Gather",
-        [](Blackboard & bb) -> Status {
-            bb["chosen_action"].emplace<std::string>("gather");
-            return Status::Success;
-        }
-    );
-
-    gather_branch->addChild(material_nearby);
-    gather_branch->addChild(gather_action);
-
-    // --------------------------------------------------
-    // Branch 3: Otherwise -> explore
-    // Explore now expects Sense() to have already placed
-    // a valid movement string into "chosen_action".
-    // --------------------------------------------------
-    auto explore_action = std::make_shared<ActionNode>(
-        "Explore",
+    auto wander_action = std::make_shared<ActionNode>(
+        "DefaultWander",
         [](Blackboard & bb) -> Status {
             auto it = bb.find("chosen_action");
-            if (it == bb.end()) return Status::Failure;
-
-            if (!std::holds_alternative<std::string>(it->second)) {
-                return Status::Failure;
+            if (it == bb.end() || 
+                (std::get_if<std::string>(&it->second) != nullptr &&
+                 *std::get_if<std::string>(&it->second) == "remain_still")) {
+                    
+                bb["chosen_action"].emplace<std::string>("remain_still"); // Placeholder
             }
-
-            const std::string& action = std::get<std::string>(it->second);
-
-            if (action == "up" ||
-                action == "down" ||
-                action == "left" ||
-                action == "right") {
-                return Status::Success;
-            }
-
-            return Status::Failure;
+            return Status::Success;
         }
     );
 
-    //TODO: root->addChild(attack_branch);
-    //TODO: root->addChild(gather_branch);
-    root->addChild(explore_action);
-
-    tree.setRoot(root);
+    default_root->addChild(wander_action);
+    tree.setRoot(default_root);
 }
 
-
 void ClassicAgent::Sense( WorldGrid& grid) {
+    tree.setMemory<std::any>("grid", std::cref(grid));
+
     bool enemy_nearby = false;
     bool material_nearby = false;
 
@@ -251,13 +190,52 @@ void ClassicAgent::Sense( WorldGrid& grid) {
     tree.setMemory("enemy_nearby", enemy_nearby);
     tree.setMemory("material_nearby", material_nearby);
 
+    const auto& inventory = world.GetWorldGlobalCounts();
+
+    tree.setMemory<int>("wood_count", inventory.count("wood") ? inventory.at("wood") : 0);
+    tree.setMemory<int>("stone_count", inventory.count("stone") ? inventory.at("stone") : 0);
+    tree.setMemory<int>("steel_count", inventory.count("steel") ? inventory.at("steel") : 0);
+    tree.setMemory<int>("wheat_count", inventory.count("wheat") ? inventory.at("wheat") : 0);
+
     // --------------------------------------------------
     // Compute explore move from shared knowledge.
     // --------------------------------------------------
+    WorldView agent_world_view(grid.GetWidth(), grid.GetHeight());
+
+    for (const auto& [pos, tile] : shared.tiles){
+        if (tile.walkable_known && !tile.is_walkable){
+            agent_world_view.SetBlocked(StateGridPosition(pos.CellX(), pos.CellY()));
+        }
+    }
+
     PathGenerator generator;
+    generator.SetWorldView(agent_world_view);
 
     StateGridPosition start(m_pos.CellX(), m_pos.CellY());
-    WorldPath path = generator.GenerateExplorePath(start, shared, std::nullopt);
+
+    std::optional<StateGridPosition> target_resource;
+    int min_dist = 999999;
+
+    for(const auto& [pos,tile] : shared.tiles){
+        if(tile.has_resource){
+            int dist = std::abs(static_cast<int>(pos.CellX() - m_pos.CellX())) +
+                       std::abs(static_cast<int>(pos.CellY() - m_pos.CellY()));
+
+            if (dist > 0 && dist < min_dist){
+                min_dist = dist;
+                target_resource = StateGridPosition(pos.CellX(), pos.CellY());
+            }
+        }
+    }
+    WorldPath path;
+
+    if (target_resource.has_value()){
+        path = generator.GenerateShortestPath(start, target_resource.value());
+    }
+
+    if (path.size() < 2){
+        path = generator.GenerateExplorePath(start, shared, std::nullopt);
+    }
 
     std::string explore_move;
 
@@ -270,10 +248,11 @@ void ClassicAgent::Sense( WorldGrid& grid) {
     }
 
     if (!explore_move.empty()) {
-        tree.setMemory(
-            "chosen_action",
-            BBValue(std::in_place_type<std::string>, explore_move)
-        );
+        const auto& bb = tree.getBlackboard();
+        auto it = bb.find("chosen_action");
+        if (it == bb.end() || std::get<std::string>(it->second) == "remain_still") {
+            tree.setMemory("chosen_action", explore_move);
+        }
     }
 }
 
@@ -294,6 +273,13 @@ size_t ClassicAgent::GetAction() const {
     }
 
     return action_it->second;
+}
+
+size_t ClassicAgent::SelectAction(WorldGrid & grid) {
+    tree.setMemory("chosen_action", std::string("remain_still"));
+    Sense(grid);
+    tree.update();
+    return GetAction();
 }
 
 } // namespace cse498

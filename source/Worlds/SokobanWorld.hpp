@@ -6,8 +6,11 @@
 #pragma once
 
 #include <cassert>
+#include <string>
 
+#include "../core/Database.hpp"
 #include "../core/WorldBase.hpp"
+#include "../core/WorldHelpers.hpp"
 #include "../core/WorldPosition.hpp"
 
 namespace cse498 {
@@ -29,6 +32,8 @@ namespace cse498 {
     size_t level_num = 0;
     size_t cur_pressed = 0;
     size_t target_buttons = 0;
+
+    Database* db_ = nullptr;  ///< Non-owning pointer to the persistence database (set by caller).
 
     /// Provide the agent with movement actions.
     void ConfigAgent(AgentBase & agent) override {
@@ -121,6 +126,20 @@ namespace cse498 {
         break;
       case 3:
         main_grid.Load(std::vector<std::string>{
+          "   #####   ",
+          "####   #   ",
+          "#  #O  ####",
+          "# OO      #",
+          "#   #O O# #",
+          "### #   # #",
+          " #  ##### #",
+          " #  ooooo #",
+          " ##########"} );
+        agent_set[0]->SetLocation(WorldPosition{2,2});
+        exit_pos = WorldPosition{0,4};
+        break;
+      case 4:
+        main_grid.Load(std::vector<std::string>{
           "                                      ",
           "                                      ",
           "                                      ",
@@ -161,6 +180,37 @@ namespace cse498 {
       LoadLevel();
     }
     ~SokobanWorld() = default;
+
+    /// Attach the persistence database. Must be called before SaveState/LoadState.
+    void SetDatabase(Database* db) { db_ = db; }
+
+    /// Serialize current game state (grid, agent position, level progress) to the database.
+    void SaveState(const std::string& world_name) {
+      if (!db_) return;
+      (void)SaveWorld(*db_, world_name, *this);
+      (void)db_->Store("world:" + world_name + ":level_num",      static_cast<int>(level_num));
+      (void)db_->Store("world:" + world_name + ":cur_pressed",    static_cast<int>(cur_pressed));
+      (void)db_->Store("world:" + world_name + ":target_buttons", static_cast<int>(target_buttons));
+      (void)db_->Store("world:" + world_name + ":exit_pos_x",     exit_pos.X());
+      (void)db_->Store("world:" + world_name + ":exit_pos_y",     exit_pos.Y());
+    }
+
+    /// Restore game state from the database. No-op if no save exists.
+    void LoadState(const std::string& world_name) {
+      if (!db_) return;
+      auto result = LoadWorld(*db_, world_name, *this);
+      if (!result) return;
+
+      if (auto v = db_->Load<int>("world:" + world_name + ":level_num"))
+        level_num = static_cast<size_t>(*v);
+      if (auto v = db_->Load<int>("world:" + world_name + ":cur_pressed"))
+        cur_pressed = static_cast<size_t>(*v);
+      if (auto v = db_->Load<int>("world:" + world_name + ":target_buttons"))
+        target_buttons = static_cast<size_t>(*v);
+      if (auto x = db_->Load<double>("world:" + world_name + ":exit_pos_x"))
+        if (auto y = db_->Load<double>("world:" + world_name + ":exit_pos_y"))
+          exit_pos = WorldPosition{*x, *y};
+    }
 
     /// Allow the agents to move around the maze.
     int DoAction(AgentBase & agent, size_t action_id) override {
