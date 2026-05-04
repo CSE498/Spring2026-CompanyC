@@ -109,6 +109,10 @@ public:
   /// The callback should read world state from the Database.
   void SetLoadCallback(std::function<void()> cb) { load_callback_ = std::move(cb); }
 
+  /// Set the callback invoked once when the world reports IsRunOver().
+  /// The callback should call ShowEndGameHtml() with the appropriate HTML.
+  void SetGameOverCallback(std::function<void()> cb) { game_over_callback_ = std::move(cb); }
+
   /// Configure automatic simulation tick interval in milliseconds.
   /// Values are clamped to a small positive minimum for safety.
   void SetAutoTickMs(int ms);
@@ -135,6 +139,14 @@ public:
     kActionDownRight = 14,
     kActionZoomIn    = 15,
     kActionZoomOut   = 16,
+    // Group 8 (InteractionHeavyWorld) actions
+    kActionPay           = 17,
+    kActionBreakBoulder  = 18,
+    kActionThrowUp       = 19,
+    kActionThrowDown     = 20,
+    kActionThrowLeft     = 21,
+    kActionThrowRight    = 22,
+    kActionInventory     = 23,
   };
 
   static std::string ActionIdForCode(int code);
@@ -188,6 +200,7 @@ public:
 
   std::function<void()> save_callback_;
   std::function<void()> load_callback_;
+  std::function<void()> game_over_callback_;
 
   long poll_timer_id_ = 0;
   long auto_tick_timer_id_ = 0;

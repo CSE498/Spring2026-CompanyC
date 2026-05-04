@@ -113,7 +113,6 @@ class WebInterface : public InterfaceBase {
   int         selected_x_     = 0;
   int         selected_y_     = 0;
   std::string status_message_;
-  std::string panel_text_;
   std::string world_name_     = "World";
   std::map<std::string, int>                  resources_;
   std::string                                 panel_text_;

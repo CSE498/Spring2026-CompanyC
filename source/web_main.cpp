@@ -10,8 +10,11 @@
 #include <cstdlib>
 
 #include "Interfaces/WebApp.hpp"
+#include "tools/EndGameScreen.hpp"
 
 #include "Agents/ClassicAgent.hpp"
+#include "Agents/GoblinAgent.hpp"
+#include "Agents/HunterAgent.hpp"
 #include "Agents/PacingAgent.hpp"
 #include "Agents/SmartAgent.hpp"
 #include "Agents/TendencyAgent.hpp"
@@ -75,12 +78,22 @@ int main() {
     g_app->SetPlayerVisible(false);
     g_app->EnableViewport(32);
   } else if (run_mode == "interaction") {
-    using agent_t = cse498::PacingAgent;
     auto& world = g_app->Initialize<cse498::InteractionHeavyWorld>();
-    world.AddAgent<agent_t>("Pacer 1").SetLocation(WorldPosition{3, 1});
-    world.AddAgent<agent_t>("Pacer 2").SetLocation(WorldPosition{6, 1});
-    world.AddAgent<agent_t>("Guard 1").SetHorizontal().SetLocation(WorldPosition{7, 7});
-    world.AddAgent<agent_t>("Guard 2").SetHorizontal().ToggleDirection().SetLocation(WorldPosition{8, 8});
+    int hunter_idx = 0;
+    for (const auto& pos : world.GetHunterSpawnPositions()) {
+      world.AddAgent<cse498::HunterAgent>("Hunter " + std::to_string(++hunter_idx)).SetLocation(pos);
+    }
+    int goblin_idx = 0;
+    for (const auto& pos : world.GetGoblinSpawnPositions()) {
+      world.AddAgent<cse498::GoblinAgent>("Goblin " + std::to_string(++goblin_idx)).SetLocation(pos);
+    }
+    int pacer_idx = 0;
+    for (const auto& pos : world.GetPacingSpawnPositions()) {
+      world.AddAgent<cse498::PacingAgent>("Pacer " + std::to_string(++pacer_idx)).SetLocation(pos);
+    }
+    g_app->SetGameOverCallback([&world]() {
+      g_app->ShowEndGameHtml(world.GetEndGameHtml());
+    });
   } else if (run_mode == "maze") {
     using agent_t = cse498::PacingAgent;
     auto& world = g_app->Initialize<cse498::MazeWorld>();
@@ -88,6 +101,13 @@ int main() {
     world.AddAgent<agent_t>("Pacer 2").SetLocation(WorldPosition{6, 1});
     world.AddAgent<agent_t>("Guard 1").SetHorizontal().SetLocation(WorldPosition{7, 7});
     world.AddAgent<agent_t>("Guard 2").SetHorizontal().ToggleDirection().SetLocation(WorldPosition{8, 8});
+    g_app->SetGameOverCallback([&world]() {
+      const int size = static_cast<int>(std::max(world.GetWidth(), world.GetHeight()));
+      std::string html = cse498::BuildEndGameHtml(
+          false, 0.0, world.GetPlaytimeSeconds(), {}, world.GetPositionLog(), size,
+          /*precision=*/2, /*playerOnlyHeatmap=*/true);
+      g_app->ShowEndGameHtml(html);
+    });
   } else if (run_mode == "sokoban") {
     g_app->Initialize<cse498::SokobanWorld>();
   } else {  // run_mode == "stub"
@@ -138,8 +158,31 @@ int main() {
   g_app->RegisterActionMeta("down",    Meta{"Down",    "S",     true});
   g_app->RegisterActionMeta("left",    Meta{"Left",    "A",     true});
   g_app->RegisterActionMeta("right",   Meta{"Right",   "D",     true});
-  g_app->RegisterActionMeta("collect", Meta{"Collect", "E",     true});
-  g_app->RegisterActionMeta("build",   Meta{"Build",   "B",     true});
+  g_app->RegisterActionMeta("collect",         Meta{"Collect",      "E", true});
+  g_app->RegisterActionMeta("build",           Meta{"Build",        "B", true});
+  g_app->RegisterActionMeta("pay",             Meta{"Pay",          "O", true});
+  g_app->RegisterActionMeta("break_boulder",   Meta{"Break Boulder","F", true});
+  g_app->RegisterActionMeta("throw_up",        Meta{"Throw Up",     "I", true});
+  g_app->RegisterActionMeta("throw_down",      Meta{"Throw Down",   "K", true});
+  g_app->RegisterActionMeta("throw_left",      Meta{"Throw Left",   "J", true});
+  g_app->RegisterActionMeta("throw_right",     Meta{"Throw Right",  "L", true});
+  g_app->RegisterActionMeta("print_inventory", Meta{"Inventory",    "P", true});
+
+  // InteractionHeavyWorld has no Setup/Live phase: enable all its buttons immediately.
+  if (run_mode == "interaction") {
+    g_app->RegisterActionMeta("up",             Meta{"Up",           "W", false});
+    g_app->RegisterActionMeta("down",           Meta{"Down",         "S", false});
+    g_app->RegisterActionMeta("left",           Meta{"Left",         "A", false});
+    g_app->RegisterActionMeta("right",          Meta{"Right",        "D", false});
+    g_app->RegisterActionMeta("collect",        Meta{"Collect",      "E", false});
+    g_app->RegisterActionMeta("pay",            Meta{"Pay",          "O", false});
+    g_app->RegisterActionMeta("break_boulder",  Meta{"Break Boulder","F", false});
+    g_app->RegisterActionMeta("throw_up",       Meta{"Throw Up",     "I", false});
+    g_app->RegisterActionMeta("throw_down",     Meta{"Throw Down",   "K", false});
+    g_app->RegisterActionMeta("throw_left",     Meta{"Throw Left",   "J", false});
+    g_app->RegisterActionMeta("throw_right",    Meta{"Throw Right",  "L", false});
+    g_app->RegisterActionMeta("print_inventory",Meta{"Inventory",    "P", false});
+  }
 
   // Connect to SaveServer for save/load persistence.
   // Default: ws://localhost:8080, override with ?server=ws://host:port
