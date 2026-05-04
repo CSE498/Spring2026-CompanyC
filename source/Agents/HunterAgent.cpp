@@ -1,20 +1,42 @@
 /**
  * @file HunterAgent.cpp
- * @author Ahmed Ezaz Labib, Shashank Papani
+ * @author Ahmed Ezaz Labib, Shashank Papani, Jose Hernandez
  *
- * Hunter enemy agent for InteractionHeavyWorld.
+ * HunterAgent is a roaming enemy for InteractionHeavyWorld that detects the
+ * player, remembers the last known target position, and pursues using greedy
+ * movement until the chase expires.
  **/
 
 #include "HunterAgent.hpp"
+#include "../core/WorldBase.hpp"
 #include <algorithm>
-#include <array>
-#include <cmath>
+#include <charconv>
+#include <climits>
 #include <cstdlib>
-#include <limits>
-#include <string>
+#include <iostream>
+#include <optional>
+#include <string_view>
+#include <vector>
 
 namespace cse498
 {
+    namespace
+    {
+        std::optional<int> ParseInt(std::string_view text)
+        {
+            int value = 0;
+            const char *begin = text.data();
+            const char *end = begin + text.size();
+            const auto [ptr, ec] = std::from_chars(begin, end, value);
+
+            if (ec != std::errc{} || ptr != end)
+            {
+                return std::nullopt;
+            }
+
+            return value;
+        }
+    }
 
     bool HunterAgent::Initialize()
     {
@@ -39,10 +61,16 @@ namespace cse498
             const size_t comma = message.find(',');
             if (comma != std::string::npos)
             {
-                mTargetX = std::atoi(message.substr(0, comma).c_str());
-                mTargetY = std::atoi(message.substr(comma + 1).c_str());
-                mState = State::Chase;
-                mChaseMemory = mChaseMemoryTicks;
+                const auto target_x = ParseInt(std::string_view(message).substr(0, comma));
+                const auto target_y = ParseInt(std::string_view(message).substr(comma + 1));
+
+                if (target_x && target_y)
+                {
+                    mTargetX = *target_x;
+                    mTargetY = *target_y;
+                    mState = State::Chase;
+                    mChaseMemory = mChaseMemoryTicks;
+                }
             }
         }
         else if (msg_type == "action_failed")
@@ -115,10 +143,13 @@ namespace cse498
                 chosen = last_action;
             else
             {
-                static const std::array<std::string, 4> kDirs = {"up", "down", "left", "right"};
-                for (const std::string &a : kDirs)
+                for (const std::string &a : {"up", "down", "left", "right"})
                 {
-                    if (IsMoveValid(a, grid)) { chosen = a; break; }
+                    if (IsMoveValid(a, grid))
+                    {
+                        chosen = a;
+                        break;
+                    }
                 }
             }
             break;
@@ -149,10 +180,43 @@ namespace cse498
                                     int radius) const
     {
         const WorldPosition cur = GetLocation().AsWorldPosition();
-        const int cx = static_cast<int>(cur.X());
-        const int cy = static_cast<int>(cur.Y());
+        const int cx = static_cast<int>(cur.CellX());
+        const int cy = static_cast<int>(cur.CellY());
 
-        int best_dist = std::numeric_limits<int>::max(), best_x = -1, best_y = -1;
+        int best_dist = INT_MAX, best_x = -1, best_y = -1;
+
+        for (const size_t agent_id : world.GetKnownAgents(*this))
+        {
+            if (agent_id == GetID())
+                continue;
+
+            const AgentBase &candidate = world.GetAgent(agent_id);
+            if (!candidate.GetLocation().IsPosition())
+                continue;
+            if (!candidate.IsInterface() && candidate.GetName() != "Player")
+                continue;
+
+            const WorldPosition pos = candidate.GetLocation().AsWorldPosition();
+            if (!grid.IsValid(pos))
+                continue;
+
+            const int dx = static_cast<int>(pos.CellX()) - cx;
+            const int dy = static_cast<int>(pos.CellY()) - cy;
+            const int dist = std::max(std::abs(dx), std::abs(dy));
+            if (dist <= radius && dist < best_dist)
+            {
+                best_dist = dist;
+                best_x = static_cast<int>(pos.CellX());
+                best_y = static_cast<int>(pos.CellY());
+            }
+        }
+
+        if (best_dist != INT_MAX)
+        {
+            out_x = best_x;
+            out_y = best_y;
+            return true;
+        }
 
         for (int dy = -radius; dy <= radius; ++dy)
         {
@@ -172,7 +236,12 @@ namespace cse498
                 if (tile == "player" || tile == "agent")
                 {
                     const int dist = std::max(std::abs(dx), std::abs(dy));
-                    if (dist < best_dist) { best_dist = dist; best_x = nx; best_y = ny; }
+                    if (dist < best_dist)
+                    {
+                        best_dist = dist;
+                        best_x = nx;
+                        best_y = ny;
+                    }
                 }
             }
         }
@@ -219,7 +288,10 @@ namespace cse498
             for (const std::string &action : kDirs)
             {
                 if (SupportsAction(action) && IsMoveValid(action, grid))
-                { best_action = action; break; }
+                {
+                    best_action = action;
+                    break;
+                }
             }
         }
 

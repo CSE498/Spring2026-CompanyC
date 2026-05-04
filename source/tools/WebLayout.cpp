@@ -235,9 +235,26 @@ void WebLayout::createShell()
     worldLabel->element.set("textContent", std::string("World:"));
 
     Node* worldSelect = createElement(topbar, "select", "cse498_world_select");
-    Node* worldOption = createElement(worldSelect, "option");
-    worldOption->element.set("value", std::string("stub"));
-    worldOption->element.set("textContent", std::string("Stub World"));
+    // Dropdown options for the world select UI
+    Node* stubWorldOption = createElement(worldSelect, "option");
+    stubWorldOption->element.set("value", std::string("stub"));
+    stubWorldOption->element.set("textContent", std::string("Stub World"));
+
+    Node* mazeWorldOption = createElement(worldSelect, "option");
+    mazeWorldOption->element.set("value", std::string("maze"));
+    mazeWorldOption->element.set("textContent", std::string("Maze World"));
+
+    Node* interactionWorldOption = createElement(worldSelect, "option");
+    interactionWorldOption->element.set("value", std::string("interaction"));
+    interactionWorldOption->element.set("textContent", std::string("Interaction World"));
+
+    Node* sokobanWorldOption = createElement(worldSelect, "option");
+    sokobanWorldOption->element.set("value", std::string("sokoban"));
+    sokobanWorldOption->element.set("textContent", std::string("Sokoban World"));
+
+    Node* dynamicWorldOption = createElement(worldSelect, "option");
+    dynamicWorldOption->element.set("value", std::string("dynamic"));
+    dynamicWorldOption->element.set("textContent", std::string("Dynamic World"));
 
     // Topbar buttons
     Node* startBtn = createElement(topbar, "button", "cse498btn-1");
@@ -252,9 +269,15 @@ void WebLayout::createShell()
     Node* loadBtn = createElement(topbar, "button", "cse498btn-4");
     loadBtn->element.set("textContent", std::string("Load"));
 
+    
     // Sidebar containers
     createElement(sidebar, "div", "cse498_actions");
     createElement(sidebar, "div", "cse498_hud_host");
+
+    Node* analysisLabel = createElement(sidebar, "div", "cse498_analysis_label");
+    analysisLabel->element.set("innerHTML", std::string("<strong>Analyzed Data</strong>"));
+
+    createElement(sidebar, "div", "cse498_analysis_host");
     createElement(sidebar, "div", "cse498_log_host");
 }
 

@@ -27,7 +27,10 @@
 
 #pragma once
 
+#include <algorithm>
+#include <climits>
 #include <string>
+#include <vector>
 #include "../core/AgentBase.hpp"
 
 namespace cse498
@@ -37,13 +40,35 @@ namespace cse498
     {
     public:
         /** Sets the detection radius. */
-        HunterAgent &SetDetectRadius(int v) { mDetectRadius = v; return *this; }
+        HunterAgent &SetDetectRadius(int v)
+        {
+            mDetectRadius = std::max(0, v);
+            mChaseRadius = std::max(mChaseRadius, mDetectRadius);
+            return *this;
+        }
 
         /** Sets the chase radius. */
-        HunterAgent &SetChaseRadius(int v) { mChaseRadius = v; return *this; }
+        HunterAgent &SetChaseRadius(int v)
+        {
+            mChaseRadius = std::max(mDetectRadius, v);
+            return *this;
+        }
 
         /** Sets the number of chase-memory ticks. */
-        HunterAgent &SetChaseMemory(int v) { mChaseMemoryTicks = v; return *this; }
+        HunterAgent &SetChaseMemory(int v)
+        {
+            mChaseMemoryTicks = std::max(0, v);
+            return *this;
+        }
+
+        /** Gets the detection radius. */
+        [[nodiscard]] int GetDetectRadius() const { return mDetectRadius; }
+
+        /** Gets the chase radius. */
+        [[nodiscard]] int GetChaseRadius() const { return mChaseRadius; }
+
+        /** Gets the chase-memory tick count. */
+        [[nodiscard]] int GetChaseMemoryTicks() const { return mChaseMemoryTicks; }
 
         enum class State
         {
@@ -53,8 +78,7 @@ namespace cse498
         };
 
         HunterAgent(size_t id, const std::string &name, WorldBase &world)
-            : AgentBase(id, name, world),
-              last_action() {}
+            : AgentBase(id, name, world) {}
 
         ~HunterAgent() = default;
 
