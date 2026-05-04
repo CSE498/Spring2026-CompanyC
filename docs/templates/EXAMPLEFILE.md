@@ -1,1 +1,0 @@
-# Example Markdown Class File
