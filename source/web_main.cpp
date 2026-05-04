@@ -6,8 +6,9 @@
 // To swap in a different world, replace the Initialize<...>() call and the
 // SetCellVisual / RegisterActionMeta configuration below.
 
-#include <emscripten.h>
 #include <cstdlib>
+#include <emscripten.h>
+#include <random>
 
 #include "Interfaces/WebApp.hpp"
 #include "tools/EndGameScreen.hpp"
@@ -18,6 +19,7 @@
 #include "Agents/PacingAgent.hpp"
 #include "Agents/SmartAgent.hpp"
 #include "Agents/TendencyAgent.hpp"
+#include "Agents/HunterAgent.hpp"
 
 #include "Worlds/DynamicWorld.hpp"
 #include "Worlds/InteractionHeavyWorld.hpp"
@@ -74,15 +76,15 @@ int main() {
 
     using world_t = cse498::DynamicWorld;
     auto & world = g_app->Initialize<world_t>();
-    world.AddAgent<StubAgent>(std::string("builder")).SetLocation(Location{{0, 0}});
+    world.AddAgent<TendencyAgent>("Leader").SetLocation(Location{{0, 0}});
 
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<int> x_pos(0, world.GetWidth() - 1);
     std::uniform_int_distribution<int> y_pos(0, world.GetHeight() - 1);
     for (int i = 0; i < basicAgentCount; i++) {
-      std::string name = "Basic Agent " + std::to_string(i + 1);
-      world.AddAgent<StubAgent>(name).SetLocation(cse498::WorldPosition{x_pos(gen), y_pos(gen)});
+        std::string name = "Basic Agent " + std::to_string(i+1);
+        world.AddAgent<TendencyAgent>(name).SetLocation(cse498::WorldPosition{x_pos(gen), y_pos(gen)});
     }
     g_app->SetPlayerVisible(false);
     g_app->EnableViewport(32);

@@ -19,8 +19,8 @@
  *   The hunter only needs to reach an adjacent cell.
  *
  * Target detection:
- *   Scans each tick for the player/interface agent in the world. Older worlds
- *   can still expose target cells named "player" or "agent" in the grid.
+ *   Scans each tick for cells named "player" or "agent". TendencyAgents must
+ *   be registered as "agent" cells in the world for multi-target detection.
  *
  * Supported actions: up, down, left, right
  **/
@@ -88,14 +88,18 @@ namespace cse498
                     const std::string &msg_type = "none") override;
 
     private:
+        static constexpr int kDefaultDetectRadius = 8;
+        static constexpr int kDefaultChaseRadius = 12;
+        static constexpr int kDefaultChaseMemoryTicks = 10;
+
         /** Chebyshev radius within which the hunter detects any target. */
-        int mDetectRadius = 8;
+        int mDetectRadius = kDefaultDetectRadius;
 
         /** Chebyshev radius within which the hunter maintains active chase; should be >= mDetectRadius. */
-        int mChaseRadius = 12;
+        int mChaseRadius = kDefaultChaseRadius;
 
         /** Ticks the hunter continues chasing after losing sight of the target. */
-        int mChaseMemoryTicks = 10;
+        int mChaseMemoryTicks = kDefaultChaseMemoryTicks;
 
     protected:
 

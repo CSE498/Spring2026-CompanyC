@@ -75,14 +75,10 @@ namespace cse498
         }
         else if (msg_type == "action_failed")
         {
-            if (message == "up")
-                ++fail_up;
-            else if (message == "down")
-                ++fail_down;
-            else if (message == "left")
-                ++fail_left;
-            else if (message == "right")
-                ++fail_right;
+            if (message == "up")         ++fail_up;
+            else if (message == "down")  ++fail_down;
+            else if (message == "left")  ++fail_left;
+            else if (message == "right") ++fail_right;
         }
         else if (msg_type == "reset")
         {
@@ -175,8 +171,9 @@ namespace cse498
     }
 
     /**
-     * Scans known world agents first so the player does not need to be written into
-     * the terrain/resource grid. Falls back to grid cell names for older worlds.
+     * Scans a (2*radius+1)^2 area centred on the hunter for cells named "player" or "agent".
+     * Returns the nearest such cell by Chebyshev distance via out_x and out_y.
+     * TendencyAgents must be represented as "agent" grid cells, or use Notify to push positions directly.
      */
     bool HunterAgent::ScanForTarget(const WorldGrid &grid,
                                     int &out_x, int &out_y,
@@ -225,16 +222,15 @@ namespace cse498
         {
             for (int dx = -radius; dx <= radius; ++dx)
             {
-                if (dx == 0 && dy == 0)
-                    continue;
+                if (dx == 0 && dy == 0) continue;
 
                 const int nx = cx + dx;
                 const int ny = cy + dy;
-                const WorldPosition cand(static_cast<size_t>(std::max(0, nx)),
-                                         static_cast<size_t>(std::max(0, ny)));
+                if (nx < 0 || ny < 0) continue;
 
-                if (!grid.IsValid(cand))
-                    continue;
+                const WorldPosition cand(nx, ny);
+
+                if (!grid.IsValid(cand)) continue;
 
                 const std::string tile = grid.GetCellTypeName(grid[cand]);
                 if (tile == "player" || tile == "agent")
@@ -250,8 +246,7 @@ namespace cse498
             }
         }
 
-        if (best_dist == INT_MAX)
-            return false;
+        if (best_dist == std::numeric_limits<int>::max()) return false;
         out_x = best_x;
         out_y = best_y;
         return true;
@@ -264,19 +259,19 @@ namespace cse498
     std::string HunterAgent::ChaseMove(const WorldGrid &grid,
                                        int tx, int ty) const
     {
-        static const std::vector<std::string> kDirs = {"up", "down", "left", "right"};
+        static const std::array<std::string, 4> kDirs = {"up", "down", "left", "right"};
 
         std::string best_action;
-        int best_dist = INT_MAX, best_fails = INT_MAX;
+        double best_dist = std::numeric_limits<double>::infinity();
+        int best_fails = std::numeric_limits<int>::max();
 
         for (const std::string &action : kDirs)
         {
-            if (!SupportsAction(action) || !IsMoveValid(action, grid))
-                continue;
+            if (!SupportsAction(action) || !IsMoveValid(action, grid)) continue;
 
             const WorldPosition npos = NextPos(action);
-            const int nd = std::max(std::abs((int)npos.CellX() - tx),
-                                    std::abs((int)npos.CellY() - ty));
+            const double nd = std::max(std::abs(npos.X() - static_cast<double>(tx)),
+                                       std::abs(npos.Y() - static_cast<double>(ty)));
             const int fc = FailCount(action);
 
             if (nd < best_dist || (nd == best_dist && fc < best_fails))
@@ -309,7 +304,7 @@ namespace cse498
      */
     std::string HunterAgent::RoamMove(const WorldGrid &grid)
     {
-        static const std::vector<std::string> kDirs = {"up", "right", "down", "left"};
+        static const std::array<std::string, 4> kDirs = {"up", "right", "down", "left"};
 
         ++mRoamTicks;
         if (mRoamTicks >= mRoamChangeTick)
@@ -352,28 +347,20 @@ namespace cse498
     WorldPosition HunterAgent::NextPos(const std::string &action) const
     {
         const WorldPosition cur = GetLocation().AsWorldPosition();
-        if (action == "up")
-            return cur.Up();
-        if (action == "down")
-            return cur.Down();
-        if (action == "left")
-            return cur.Left();
-        if (action == "right")
-            return cur.Right();
+        if (action == "up")    return cur.Up();
+        if (action == "down")  return cur.Down();
+        if (action == "left")  return cur.Left();
+        if (action == "right") return cur.Right();
         return cur;
     }
 
     /** Returns the consecutive failure count for the given action direction. */
     int HunterAgent::FailCount(const std::string &action) const
     {
-        if (action == "up")
-            return fail_up;
-        if (action == "down")
-            return fail_down;
-        if (action == "left")
-            return fail_left;
-        if (action == "right")
-            return fail_right;
+        if (action == "up")    return fail_up;
+        if (action == "down")  return fail_down;
+        if (action == "left")  return fail_left;
+        if (action == "right") return fail_right;
         return 0;
     }
 

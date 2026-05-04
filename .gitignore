@@ -78,3 +78,4 @@ test_saves/
 
 #clang
 .clangd
+source/emsdk

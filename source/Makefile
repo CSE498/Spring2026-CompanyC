@@ -50,7 +50,7 @@ grumpy: grumpy-agent
 BASE_SOURCES = Agents/ClassicAgent.cpp   \
                Agents/GoblinAgent.cpp    \
                Agents/TendencyAgent.cpp  \
-			   Agents/HunterAgent.cpp  \
+               Agents/HunterAgent.cpp    \
                tools/BehaviorTree.cpp    \
                tools/CompositeNodes.cpp  \
                tools/LeafNodes.cpp       \
@@ -58,7 +58,7 @@ BASE_SOURCES = Agents/ClassicAgent.cpp   \
                tools/Timer.cpp           \
                tools/WorldPath.cpp       \
                Worlds/DynamicWorld.cpp	 \
-			   Worlds/InteractionHeavyWorld.cpp
+			         Worlds/InteractionHeavyWorld.cpp
 
 # SaveServer needs extra .cpp sources for Database + WebSocket stack
 SAVESERVER_SRCS = \
