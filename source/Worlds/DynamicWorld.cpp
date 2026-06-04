@@ -1,12 +1,26 @@
 #include <algorithm>
+
 #include "./DynamicWorld.hpp"
 
-const std::unordered_map<std::string, size_t> ResourceTick = {
+constexpr std::array<std::pair<std::string_view, size_t>, 4> kResourceTick = {{
   {"wood", 20},
   {"steel", 10},
   {"stone", 10},
   {"wheat", 10}
-};
+}};
+constexpr size_t ResourceTickRate(std::string_view name) {
+  for (const auto& [n, rate] : kResourceTick) {
+    if (n == name) return rate;
+  }
+  return 0;
+}
+
+
+// Number of ticks between each spawner agent spawn.
+constexpr size_t kSpawnerTickInterval = 60;
+
+// Max ring radius searched outward from a spawner for an open grass cell.
+constexpr int kMaxSpawnSearchRadius = 10;
 
 // Amount of wood required to build a town hall (win condition).
 constexpr size_t townHallWoodWinCondition = 500;
@@ -37,7 +51,6 @@ constexpr size_t farmWoodBuildCondition = 20;
 int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
   const WorldPosition cur = agent.GetLocation().AsWorldPosition();
   WorldPosition next = cur;
-
   switch (action_id) {
   case REMAIN_STILL:
     next = cur;
@@ -84,66 +97,50 @@ int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
     return 0;
   }
   case BUILD_LUMBERYARD: {
-    if (main_grid[cur] != mGrassId)
-      return 0;
-    if (mWorldResourceCounts.at(ResourceIndex("wood")) < lumberyardWoodBuildCondition || mWorldResourceCounts.at(ResourceIndex("steel")) < lumberyardSteelBuildCondition)
-      return 0;
-    mWorldResourceCounts[ResourceIndex("wood")] -= lumberyardWoodBuildCondition;
-    mWorldResourceCounts[ResourceIndex("steel")] -= lumberyardSteelBuildCondition;
+    if (main_grid[cur] != mGrassId) return 0;
+    if (!HasResources({{"wood", lumberyardWoodBuildCondition}, {"steel", lumberyardSteelBuildCondition}})) return 0;
+    SpendResources({{"wood", lumberyardWoodBuildCondition}, {"steel", lumberyardSteelBuildCondition}});
     main_grid[cur] = mLumberyardId;
     Building lumberyard(mUpdateCounter);
-    lumberyard.AddResource("wood", ResourceTick.at("wood"));
+      lumberyard.AddResource("wood", ResourceTickRate("wood"));
     mBuildings.push_back(lumberyard);
-    return 1; 
+    return 1;
   }
   case BUILD_QUARRY: {
-    if (main_grid[cur] != mGrassId)
-      return 0;
-    if (mWorldResourceCounts.at(ResourceIndex("stone")) < quarryStoneBuildCondition || mWorldResourceCounts.at(ResourceIndex("wood")) < quarryWoodBuildCondition)
-      return 0;
-    mWorldResourceCounts[ResourceIndex("stone")] -= quarryStoneBuildCondition;
-    mWorldResourceCounts[ResourceIndex("wood")] -= quarryWoodBuildCondition;
+    if (main_grid[cur] != mGrassId) return 0;
+    if (!HasResources({{"stone", quarryStoneBuildCondition}, {"wood", quarryWoodBuildCondition}})) return 0;
+    SpendResources({{"stone", quarryStoneBuildCondition}, {"wood", quarryWoodBuildCondition}});
     main_grid[cur] = mQuarryId;
     Building quarry(mUpdateCounter);
-    quarry.AddResource("steel", ResourceTick.at("steel"));
-    quarry.AddResource("stone", ResourceTick.at("stone"));
+      quarry.AddResource("steel", ResourceTickRate("steel"));
+      quarry.AddResource("stone", ResourceTickRate("stone"));
     mBuildings.push_back(quarry);
     return 1;
   }
   case BUILD_SPAWNER: {
-    if (main_grid[cur] != mGrassId)
-      return 0;
-    if (mWorldResourceCounts.at(ResourceIndex("stone")) < spawnerStoneBuildCondition || mWorldResourceCounts.at(ResourceIndex("wheat")) < spawnerWheatBuildCondition)
-      return 0;
-    mWorldResourceCounts[ResourceIndex("stone")] -= spawnerStoneBuildCondition;
-    mWorldResourceCounts[ResourceIndex("wheat")] -= spawnerWheatBuildCondition;
+    if (main_grid[cur] != mGrassId) return 0;
+    if (!HasResources({{"stone", spawnerStoneBuildCondition}, {"wheat", spawnerWheatBuildCondition}})) return 0;
+    SpendResources({{"stone", spawnerStoneBuildCondition}, {"wheat", spawnerWheatBuildCondition}});
     main_grid[cur] = mSpawnerId;
     mSpawners.push_back({cur, mUpdateCounter});
     return 1;
   }
   case BUILD_FARM: {
-    if (main_grid[cur] != mGrassId)
-      return 0;
-    if (mWorldResourceCounts.at(ResourceIndex("wheat")) < farmWheatBuildCondition || mWorldResourceCounts.at(ResourceIndex("wood")) < farmWoodBuildCondition)
-      return 0;
-    mWorldResourceCounts[ResourceIndex("wheat")] -= farmWheatBuildCondition;
-    mWorldResourceCounts[ResourceIndex("wood")] -= farmWoodBuildCondition;
+    if (main_grid[cur] != mGrassId) return 0;
+    if (!HasResources({{"wheat", farmWheatBuildCondition}, {"wood", farmWoodBuildCondition}})) return 0;
+    SpendResources({{"wheat", farmWheatBuildCondition}, {"wood", farmWoodBuildCondition}});
     main_grid[cur] = mFarmId;
     Building farm(mUpdateCounter);
-    farm.AddResource("wheat", ResourceTick.at("wheat"));
+      farm.AddResource("wheat", ResourceTickRate("wheat"));
     mBuildings.push_back(farm);
     return 1;
   }
   case BUILD_TOWNHALL: {
-    if (main_grid[cur] != mGrassId)
-      return 0;
-    if (mWorldResourceCounts.at(ResourceIndex("wood")) < townHallWoodWinCondition || mWorldResourceCounts.at(ResourceIndex("stone")) < townHallStoneWinCondition ||
-        mWorldResourceCounts.at(ResourceIndex("steel")) < townHallSteelWinCondition || mWorldResourceCounts.at(ResourceIndex("wheat")) < townHallWheatWinCondition)
-      return 0;
-    mWorldResourceCounts[ResourceIndex("wood")] -= townHallWoodWinCondition;
-    mWorldResourceCounts[ResourceIndex("stone")] -= townHallStoneWinCondition;
-    mWorldResourceCounts[ResourceIndex("steel")] -= townHallSteelWinCondition;
-    mWorldResourceCounts[ResourceIndex("wheat")] -= townHallWheatWinCondition;
+    if (main_grid[cur] != mGrassId) return 0;
+    if (!HasResources({{"wood", townHallWoodWinCondition}, {"stone", townHallStoneWinCondition},
+                       {"steel", townHallSteelWinCondition}, {"wheat", townHallWheatWinCondition}})) return 0;
+    SpendResources({{"wood", townHallWoodWinCondition}, {"stone", townHallStoneWinCondition},
+                    {"steel", townHallSteelWinCondition}, {"wheat", townHallWheatWinCondition}});
     main_grid[cur] = mTownhallId;
     run_over = true;
     return 1;
@@ -155,7 +152,7 @@ int cse498::DynamicWorld::DoAction(AgentBase &agent, size_t action_id) {
   if (action_id >= REMAIN_STILL && action_id <= MOVE_DOWN_RIGHT) {
     if (!main_grid.IsValid(next))
       return 0;
-    if (!main_grid.IsTraversable(main_grid[next]))
+    if (!main_grid.IsTraversable(main_grid[next]) && agent.GetName() != kGhostAgentName)
       return 0;
     agent.SetLocation(next);
     return 1;
@@ -170,23 +167,23 @@ void cse498::DynamicWorld::UpdateWorld() {
 
   for(const auto& building : mBuildings){
     if (building.GetResources().size() == 0) continue;
-    for (const auto& resource : building.GetResources()){
+    for (const auto& [name, tick_rate] : building.GetResources()){
       const size_t ticks_since_built = mUpdateCounter - building.GetBuiltTime();
-      if (resource.second > 0 && ticks_since_built % resource.second == 0) {
-        ++mWorldResourceCounts[ResourceIndex(resource.first)];
+      if (tick_rate > 0 && ticks_since_built % tick_rate == 0) {
+        ++mWorldResourceCounts[ResourceIndex(name)];
       }
     }
   }
 
-  // Spawner logic: spawn a PacingAgent at the closest grass cell every 60 ticks
+  // Spawner logic: spawn a TendencyAgent at the closest grass cell every 60 ticks
   for (const auto & [pos, built_time] : mSpawners) {
     size_t ticks_since_built = mUpdateCounter - built_time;
-    if (ticks_since_built > 0 && ticks_since_built % 60 == 0) {
+    if (ticks_since_built > 0 && ticks_since_built % kSpawnerTickInterval == 0) {
       // Search outward for the nearest grass cell to place the new agent
       int sx = static_cast<int>(pos.X());
       int sy = static_cast<int>(pos.Y());
       bool placed = false;
-      for (int radius = 1; radius <= 10 && !placed; ++radius) {
+      for (int radius = 1; radius <= kMaxSpawnSearchRadius && !placed; ++radius) {
         for (int dy = -radius; dy <= radius && !placed; ++dy) {
           for (int dx = -radius; dx <= radius && !placed; ++dx) {
             if (abs(dx) != radius && abs(dy) != radius) continue;
@@ -195,7 +192,8 @@ void cse498::DynamicWorld::UpdateWorld() {
             if (!main_grid.IsValid(nx, ny)) continue;
             WorldPosition spawn_pos(nx, ny);
             if (main_grid[spawn_pos] == mGrassId) {
-              auto & agent = AddAgent<PacingAgent>("spawned_agent");
+              // auto & agent = AddAgent<ClassicDynamicAgent>("spawned_agent");
+              auto & agent = AddAgent<TendencyAgent>("spawned_agent");
               agent.SetLocation(spawn_pos);
               placed = true;
             }
@@ -205,7 +203,8 @@ void cse498::DynamicWorld::UpdateWorld() {
     }
   }
 
-  if (mCutoffTime >= mUpdateCounter) {
+  if (mCutoffTime <= mUpdateCounter) {
     run_over = true;
+    this->GetTimer().Stop("Game::Session");
   }
 }

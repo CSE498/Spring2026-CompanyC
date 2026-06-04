@@ -40,7 +40,8 @@ public:
   double Average(const std::string& name) const; // avg duration over runs (0.0 if none)
   std::size_t Count(const std::string& name) const; // number of completed runs (0 if none)
 
-  // optional helper API to make Timer easier to integrate later on... may change based on company discussion/preference.
+  double Elapsed(const std::string& name) const; // current elapsed if running, else last (0.0 if missing)
+
   Stats GetStats(const std::string& name) const;
   std::vector<std::pair<std::string, Stats>> GetAllStats() const;
 

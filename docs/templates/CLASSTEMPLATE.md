@@ -1,3 +1,5 @@
+[Directory](/DIRECTORY.md)
+
 # CLASS NAME
 Documented By: (Author of the Documention)
 

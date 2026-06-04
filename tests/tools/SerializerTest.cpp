@@ -12,11 +12,6 @@
 #include "../../source/tools/Serializer.hpp"
 
 // ================================================================
-//  Shared fixture
-// ================================================================
-static cse498::Serializer s;
-
-// ================================================================
 //  Helper: Agent custom type
 // ================================================================
 struct Agent {
@@ -30,12 +25,12 @@ struct Inventory {
     std::vector<int> quantities;
 };
 
-static void registerAgent() {
+static void registerAgent(cse498::Serializer& s) {
     s.RegisterType<Agent>("Agent",
-        [](const Agent& a) -> std::string {
+        [&s](const Agent& a) -> std::string {
             return s.Serialize(a.name) + s.Serialize(a.health) + s.Serialize(a.level);
         },
-        [](const std::string& data) -> std::optional<Agent> {
+        [&s](const std::string& data) -> std::optional<Agent> {
             Agent a;
             size_t pos = 0;
             auto name   = s.DeserializeAt<std::string>(data, pos);
@@ -52,6 +47,8 @@ static void registerAgent() {
 //  1. int — basic
 // ================================================================
 TEST_CASE("int basic round-trips", "[int]") {
+    cse498::Serializer s;
+
     REQUIRE(s.DeserializeInt(s.Serialize(42)).value_or(-1)  == 42);
     REQUIRE(s.DeserializeInt(s.Serialize(-7)).value_or(0)   == -7);
     REQUIRE(s.DeserializeInt(s.Serialize(0)).value_or(-1)   == 0);
@@ -64,6 +61,8 @@ TEST_CASE("int basic round-trips", "[int]") {
 //  2. double — basic
 // ================================================================
 TEST_CASE("double basic round-trips", "[double]") {
+    cse498::Serializer s;
+
     auto r = s.DeserializeDouble(s.Serialize(3.14159265358979323));
     REQUIRE(r.has_value());
     REQUIRE(*r == 3.14159265358979323);
@@ -83,6 +82,8 @@ TEST_CASE("double basic round-trips", "[double]") {
 //  3. bool — basic
 // ================================================================
 TEST_CASE("bool basic round-trips", "[bool]") {
+    cse498::Serializer s;
+
     REQUIRE(s.DeserializeBool(s.Serialize(true)).value_or(false)  == true);
     REQUIRE(s.DeserializeBool(s.Serialize(false)).value_or(true)  == false);
     CHECK_FALSE(s.DeserializeBool("i:1;").has_value());
@@ -92,6 +93,8 @@ TEST_CASE("bool basic round-trips", "[bool]") {
 //  4. char — basic
 // ================================================================
 TEST_CASE("char basic round-trips", "[char]") {
+    cse498::Serializer s;
+
     REQUIRE(s.DeserializeChar(s.Serialize('A')).value_or('\0') == 'A');
     REQUIRE(s.DeserializeChar(s.Serialize('z')).value_or('\0') == 'z');
     CHECK_FALSE(s.DeserializeChar("s:1:A;").has_value());
@@ -101,6 +104,8 @@ TEST_CASE("char basic round-trips", "[char]") {
 //  5. string — basic
 // ================================================================
 TEST_CASE("string basic round-trips", "[string]") {
+    cse498::Serializer s;
+
     REQUIRE(s.DeserializeString(s.Serialize(std::string("hello"))).value_or("") == "hello");
 
     auto empty = s.DeserializeString(s.Serialize(std::string("")));
@@ -117,6 +122,8 @@ TEST_CASE("string basic round-trips", "[string]") {
 //  6. vector — basic
 // ================================================================
 TEST_CASE("vector basic round-trips", "[vector]") {
+    cse498::Serializer s;
+
     std::vector<int> vi = {1, 2, 3};
     REQUIRE(s.DeserializeVector<int>(s.Serialize(vi)).value_or(std::vector<int>{}) == vi);
 
@@ -138,6 +145,8 @@ TEST_CASE("vector basic round-trips", "[vector]") {
 //  7. map — basic
 // ================================================================
 TEST_CASE("map basic round-trips", "[map]") {
+    cse498::Serializer s;
+
     std::map<std::string, int> msi = {{"alice", 1}, {"bob", 2}};
     REQUIRE(s.DeserializeMap<std::string, int>(s.Serialize(msi)).value_or(decltype(msi){}) == msi);
 
@@ -159,6 +168,8 @@ TEST_CASE("map basic round-trips", "[map]") {
 //  8. Nested containers — basic
 // ================================================================
 TEST_CASE("nested containers basic round-trips", "[nested]") {
+    cse498::Serializer s;
+
     std::vector<std::vector<int>> vvi = {{1, 2}, {3, 4, 5}};
     REQUIRE(s.DeserializeVector<std::vector<int>>(s.Serialize(vvi)).value_or(decltype(vvi){}) == vvi);
 
@@ -172,13 +183,14 @@ TEST_CASE("nested containers basic round-trips", "[nested]") {
 //  9. Custom type (Agent) — basic
 // ================================================================
 TEST_CASE("custom type Agent basic", "[custom]") {
-    registerAgent();
+    cse498::Serializer s;
+    registerAgent(s);
 
     CHECK(s.IsTypeRegistered("Agent"));
     CHECK_FALSE(s.IsTypeRegistered("Unknown"));
 
     Agent agent{"Steve", 100.0, 7};
-    std::string data = s.Serialize<Agent>("Agent", agent);
+    std::string data = s.Serialize<Agent>("Agent", agent).value();
     REQUIRE(data.substr(0, 13) == "custom:Agent:");
 
     auto restored = s.Deserialize<Agent>("Agent", data);
@@ -188,14 +200,14 @@ TEST_CASE("custom type Agent basic", "[custom]") {
     REQUIRE(restored->level  == 7);
 
     Agent agent2{"A;special:name", -0.5, 0};
-    auto r2 = s.Deserialize<Agent>("Agent", s.Serialize<Agent>("Agent", agent2));
+    auto r2 = s.Deserialize<Agent>("Agent", s.Serialize<Agent>("Agent", agent2).value());
     REQUIRE(r2.has_value());
     REQUIRE(r2->name == "A;special:name");
     REQUIRE(std::abs(r2->health - (-0.5)) < 1e-15);
     REQUIRE(r2->level == 0);
 
     Agent agent3{"", 0.0, -1};
-    auto r3 = s.Deserialize<Agent>("Agent", s.Serialize<Agent>("Agent", agent3));
+    auto r3 = s.Deserialize<Agent>("Agent", s.Serialize<Agent>("Agent", agent3).value());
     REQUIRE(r3.has_value());
     REQUIRE(r3->name.empty());
     REQUIRE(r3->health == 0.0);
@@ -210,6 +222,8 @@ TEST_CASE("custom type Agent basic", "[custom]") {
 //  10. int — edge cases
 // ================================================================
 TEST_CASE("int edge cases", "[int][edge]") {
+    cse498::Serializer s;
+
     SECTION("boundary values") {
         REQUIRE(s.DeserializeInt(s.Serialize(INT_MAX)).value_or(0) == INT_MAX);
         REQUIRE(s.DeserializeInt(s.Serialize(INT_MIN)).value_or(0) == INT_MIN);
@@ -240,6 +254,8 @@ TEST_CASE("int edge cases", "[int][edge]") {
 //  11. double — edge cases
 // ================================================================
 TEST_CASE("double edge cases", "[double][edge]") {
+    cse498::Serializer s;
+
     SECTION("extreme values") {
         REQUIRE(s.DeserializeDouble(s.Serialize(1e308)).value_or(0.0)   == 1e308);
         REQUIRE(s.DeserializeDouble(s.Serialize(-1e308)).value_or(0.0)  == -1e308);
@@ -288,6 +304,8 @@ TEST_CASE("double edge cases", "[double][edge]") {
 //  12. bool — edge cases
 // ================================================================
 TEST_CASE("bool edge cases", "[bool][edge]") {
+    cse498::Serializer s;
+
     SECTION("invalid digit values") {
         CHECK_FALSE(s.DeserializeBool("b:2;").has_value());
         CHECK_FALSE(s.DeserializeBool("b:9;").has_value());
@@ -314,6 +332,8 @@ TEST_CASE("bool edge cases", "[bool][edge]") {
 //  13. char — edge cases
 // ================================================================
 TEST_CASE("char edge cases", "[char][edge]") {
+    cse498::Serializer s;
+
     SECTION("special characters") {
         REQUIRE(s.DeserializeChar(s.Serialize(' ')).value_or('\0')  == ' ');
         REQUIRE(s.DeserializeChar(s.Serialize('0')).value_or('\0')  == '0');
@@ -341,6 +361,8 @@ TEST_CASE("char edge cases", "[char][edge]") {
 //  14. string — edge cases
 // ================================================================
 TEST_CASE("string edge cases", "[string][edge]") {
+    cse498::Serializer s;
+
     SECTION("special content") {
         REQUIRE(s.DeserializeString(s.Serialize(std::string("\t\n\r"))).value_or("") == "\t\n\r");
         REQUIRE(s.DeserializeString(s.Serialize(std::string("i:42;"))).value_or("") == "i:42;");
@@ -376,6 +398,8 @@ TEST_CASE("string edge cases", "[string][edge]") {
 //  15. vector — edge cases
 // ================================================================
 TEST_CASE("vector edge cases", "[vector][edge]") {
+    cse498::Serializer s;
+
     SECTION("special element types") {
         std::vector<int> single = {42};
         REQUIRE(s.DeserializeVector<int>(s.Serialize(single)).value_or(decltype(single){}) == single);
@@ -414,6 +438,8 @@ TEST_CASE("vector edge cases", "[vector][edge]") {
 //  16. map — edge cases
 // ================================================================
 TEST_CASE("map edge cases", "[map][edge]") {
+    cse498::Serializer s;
+
     SECTION("various key/value types") {
         std::map<std::string, int>  single = {{"only", 1}};
         REQUIRE(s.DeserializeMap<std::string, int>(s.Serialize(single)).value_or(decltype(single){}) == single);
@@ -444,6 +470,8 @@ TEST_CASE("map edge cases", "[map][edge]") {
 //  17. nested containers — edge cases
 // ================================================================
 TEST_CASE("nested containers edge cases", "[nested][edge]") {
+    cse498::Serializer s;
+
     SECTION("3-level deep vector") {
         std::vector<std::vector<std::vector<int>>> deep = {{{1, 2}, {3}}, {{4, 5, 6}}};
         REQUIRE(s.DeserializeVector<std::vector<std::vector<int>>>(s.Serialize(deep)).value_or(decltype(deep){}) == deep);
@@ -485,16 +513,19 @@ TEST_CASE("nested containers edge cases", "[nested][edge]") {
 //  18. custom type — edge cases
 // ================================================================
 TEST_CASE("custom type edge cases", "[custom][edge]") {
+    cse498::Serializer s;
+    registerAgent(s);
+
     SECTION("re-registration overwrites previous entry") {
         s.RegisterType<Agent>("AgentOverwrite",
             [](const Agent&) -> std::string { return ""; },
             [](const std::string&) -> std::optional<Agent> { return std::nullopt; }
         );
         s.RegisterType<Agent>("AgentOverwrite",
-            [](const Agent& a) -> std::string {
+            [&s](const Agent& a) -> std::string {
                 return s.Serialize(a.name) + s.Serialize(a.health) + s.Serialize(a.level);
             },
-            [](const std::string& data) -> std::optional<Agent> {
+            [&s](const std::string& data) -> std::optional<Agent> {
                 Agent a; size_t pos = 0;
                 auto name   = s.DeserializeAt<std::string>(data, pos);
                 auto health = s.DeserializeAt<double>(data, pos);
@@ -505,7 +536,7 @@ TEST_CASE("custom type edge cases", "[custom][edge]") {
             }
         );
         Agent testAgent{"Overwrite", 50.0, 3};
-        auto r = s.Deserialize<Agent>("AgentOverwrite", s.Serialize<Agent>("AgentOverwrite", testAgent));
+        auto r = s.Deserialize<Agent>("AgentOverwrite", s.Serialize<Agent>("AgentOverwrite", testAgent).value());
         REQUIRE(r.has_value());
         REQUIRE(r->name == "Overwrite");
     }
@@ -516,7 +547,7 @@ TEST_CASE("custom type edge cases", "[custom][edge]") {
     }
 
     SECTION("missing trailing semicolon") {
-        std::string valid = s.Serialize<Agent>("Agent", Agent{"Bob", 50.0, 2});
+        std::string valid = s.Serialize<Agent>("Agent", Agent{"Bob", 50.0, 2}).value();
         CHECK_FALSE(s.Deserialize<Agent>("Agent", valid.substr(0, valid.size() - 1)).has_value());
     }
 
@@ -525,7 +556,21 @@ TEST_CASE("custom type edge cases", "[custom][edge]") {
     }
 
     SECTION("type_id mismatch") {
-        std::string agentData = s.Serialize<Agent>("Agent", Agent{"Mix", 1.0, 1});
+        s.RegisterType<Agent>("AgentOverwrite",
+            [&s](const Agent& a) -> std::string {
+                return s.Serialize(a.name) + s.Serialize(a.health) + s.Serialize(a.level);
+            },
+            [&s](const std::string& data) -> std::optional<Agent> {
+                Agent a; size_t pos = 0;
+                auto name   = s.DeserializeAt<std::string>(data, pos);
+                auto health = s.DeserializeAt<double>(data, pos);
+                auto level  = s.DeserializeAt<int>(data, pos);
+                if (!name || !health || !level) return std::nullopt;
+                a.name = *name; a.health = *health; a.level = *level;
+                return a;
+            }
+        );
+        std::string agentData = s.Serialize<Agent>("Agent", Agent{"Mix", 1.0, 1}).value();
         CHECK_FALSE(s.Deserialize<Agent>("AgentOverwrite", agentData).has_value());
     }
 
@@ -536,17 +581,17 @@ TEST_CASE("custom type edge cases", "[custom][edge]") {
 
     SECTION("separate serializer instances have independent registries") {
         cse498::Serializer s2;
-        std::string agentData = s.Serialize<Agent>("Agent", Agent{"Iso", 1.0, 1});
+        std::string agentData = s.Serialize<Agent>("Agent", Agent{"Iso", 1.0, 1}).value();
         CHECK_FALSE(s2.IsTypeRegistered("Agent"));
         CHECK_FALSE(s2.Deserialize<Agent>("Agent", agentData).has_value());
     }
 
     SECTION("custom type with container fields") {
         s.RegisterType<Inventory>("Inventory",
-            [](const Inventory& inv) -> std::string {
+            [&s](const Inventory& inv) -> std::string {
                 return s.Serialize(inv.item) + s.Serialize(inv.quantities);
             },
-            [](const std::string& data) -> std::optional<Inventory> {
+            [&s](const std::string& data) -> std::optional<Inventory> {
                 Inventory inv; size_t pos = 0;
                 auto item = s.DeserializeAt<std::string>(data, pos);
                 auto qty  = s.DeserializeAt<std::vector<int>>(data, pos);
@@ -557,26 +602,40 @@ TEST_CASE("custom type edge cases", "[custom][edge]") {
         );
 
         Inventory inv{"Sword", {1, 5, 10}};
-        auto r = s.Deserialize<Inventory>("Inventory", s.Serialize<Inventory>("Inventory", inv));
+        auto r = s.Deserialize<Inventory>("Inventory", s.Serialize<Inventory>("Inventory", inv).value());
         REQUIRE(r.has_value());
         REQUIRE(r->item == "Sword");
         REQUIRE(r->quantities == std::vector<int>({1, 5, 10}));
 
         Inventory emptyInv{"Nothing", {}};
-        auto r2 = s.Deserialize<Inventory>("Inventory", s.Serialize<Inventory>("Inventory", emptyInv));
+        auto r2 = s.Deserialize<Inventory>("Inventory", s.Serialize<Inventory>("Inventory", emptyInv).value());
         REQUIRE(r2.has_value());
         REQUIRE(r2->item == "Nothing");
         REQUIRE(r2->quantities.empty());
     }
 
     SECTION("multiple custom types coexist") {
+        s.RegisterType<Inventory>("Inventory",
+            [&s](const Inventory& inv) -> std::string {
+                return s.Serialize(inv.item) + s.Serialize(inv.quantities);
+            },
+            [&s](const std::string& data) -> std::optional<Inventory> {
+                Inventory inv; size_t pos = 0;
+                auto item = s.DeserializeAt<std::string>(data, pos);
+                auto qty  = s.DeserializeAt<std::vector<int>>(data, pos);
+                if (!item || !qty) return std::nullopt;
+                inv.item = *item; inv.quantities = *qty;
+                return inv;
+            }
+        );
+
         CHECK(s.IsTypeRegistered("Agent"));
         CHECK(s.IsTypeRegistered("Inventory"));
 
         Agent a1{"Multi", 99.0, 5};
         Inventory i1{"Shield", {2, 3}};
-        auto ar = s.Deserialize<Agent>("Agent", s.Serialize<Agent>("Agent", a1));
-        auto ir = s.Deserialize<Inventory>("Inventory", s.Serialize<Inventory>("Inventory", i1));
+        auto ar = s.Deserialize<Agent>("Agent", s.Serialize<Agent>("Agent", a1).value());
+        auto ir = s.Deserialize<Inventory>("Inventory", s.Serialize<Inventory>("Inventory", i1).value());
 
         REQUIRE(ar.has_value());
         REQUIRE(ar->name == "Multi");
@@ -585,7 +644,7 @@ TEST_CASE("custom type edge cases", "[custom][edge]") {
         REQUIRE(ir->quantities == std::vector<int>({2, 3}));
 
         // Cross-deserialize should fail
-        CHECK_FALSE(s.Deserialize<Agent>("Agent", s.Serialize<Inventory>("Inventory", i1)).has_value());
+        CHECK_FALSE(s.Deserialize<Agent>("Agent", s.Serialize<Inventory>("Inventory", i1).value()).has_value());
     }
 }
 
@@ -593,6 +652,8 @@ TEST_CASE("custom type edge cases", "[custom][edge]") {
 //  19. DeserializeAt — positional parsing edge cases
 // ================================================================
 TEST_CASE("DeserializeAt positional parsing", "[deserializeAt]") {
+    cse498::Serializer s;
+
     SECTION("sequential mixed types") {
         std::string combined = s.Serialize(42) + s.Serialize(std::string("hi")) +
                                s.Serialize(true) + s.Serialize('Z') + s.Serialize(3.14);
@@ -660,6 +721,8 @@ TEST_CASE("DeserializeAt positional parsing", "[deserializeAt]") {
 //  20. Cross-type rejection — systematic
 // ================================================================
 TEST_CASE("cross-type rejection", "[cross-type]") {
+    cse498::Serializer s;
+
     std::string intData  = s.Serialize(42);
     std::string dblData  = s.Serialize(3.14);
     std::string boolData = s.Serialize(true);
@@ -736,6 +799,8 @@ TEST_CASE("cross-type rejection", "[cross-type]") {
 //  21. strtod quirks (now locale-safe via strtod_l)
 // ================================================================
 TEST_CASE("strtod parser quirks", "[double][quirks]") {
+    cse498::Serializer s;
+
     CHECK(s.DeserializeDouble("d:0x1.0p0;").value_or(0.0) == 1.0);
 
     auto rSpace = s.DeserializeDouble("d: 3.14;");
@@ -761,6 +826,8 @@ TEST_CASE("strtod parser quirks", "[double][quirks]") {
 //  22. stoi quirks
 // ================================================================
 TEST_CASE("stoi parser quirks", "[int][quirks]") {
+    cse498::Serializer s;
+
     REQUIRE(s.DeserializeInt("i:007;").value_or(-1) == 7);
     REQUIRE(s.DeserializeInt("i:-0;").value_or(-1)  == 0);
 
@@ -773,6 +840,9 @@ TEST_CASE("stoi parser quirks", "[int][quirks]") {
 //  23. trailing data ignored by public API
 // ================================================================
 TEST_CASE("trailing data ignored by public Deserialize functions", "[trailing]") {
+    cse498::Serializer s;
+    registerAgent(s);
+
     REQUIRE(s.DeserializeInt("i:42;JUNK").value_or(-1)                   == 42);
     REQUIRE(std::abs(s.DeserializeDouble("d:3.14;JUNK").value_or(0.0) - 3.14) < 1e-12);
     REQUIRE(s.DeserializeBool("b:1;JUNK").value_or(false)                == true);
@@ -789,7 +859,7 @@ TEST_CASE("trailing data ignored by public Deserialize functions", "[trailing]")
     REQUIRE(rm->size() == 1);
 
     Agent a{"Test", 1.0, 1};
-    std::string agentData = s.Serialize<Agent>("Agent", a) + "JUNK";
+    std::string agentData = s.Serialize<Agent>("Agent", a).value() + "JUNK";
     auto ra = s.Deserialize<Agent>("Agent", agentData);
     REQUIRE(ra.has_value());
     REQUIRE(ra->name == "Test");
@@ -799,6 +869,8 @@ TEST_CASE("trailing data ignored by public Deserialize functions", "[trailing]")
 //  24. vector<bool> direct serialization
 // ================================================================
 TEST_CASE("vector<bool> direct serialization", "[vector][bool]") {
+    cse498::Serializer s;
+
     std::vector<bool> vb = {true, false, true, true, false};
     auto r = s.DeserializeVector<bool>(s.Serialize(vb));
     REQUIRE(r.has_value());
@@ -833,6 +905,8 @@ TEST_CASE("vector<bool> direct serialization", "[vector][bool]") {
 //  25. const char* overload routes to string
 // ================================================================
 TEST_CASE("const char* overload serializes as string", "[string][const-char]") {
+    cse498::Serializer s;
+
     std::string data = s.Serialize("hello");
     REQUIRE(data.substr(0, 2) == "s:");
     REQUIRE(s.DeserializeString(data).value_or("") == "hello");
@@ -846,9 +920,11 @@ TEST_CASE("const char* overload serializes as string", "[string][const-char]") {
 }
 
 // ================================================================
-//  26. serialize → deserialize → serialize idempotency
+//  26. serialize -> deserialize -> serialize idempotency
 // ================================================================
 TEST_CASE("serialize/deserialize idempotency", "[idempotent]") {
+    cse498::Serializer s;
+
     auto s1 = s.Serialize(42);
     REQUIRE(s.Serialize(*s.DeserializeInt(s1)) == s1);
 
@@ -880,6 +956,8 @@ TEST_CASE("serialize/deserialize idempotency", "[idempotent]") {
 //  27. double precision extremes
 // ================================================================
 TEST_CASE("double precision extremes", "[double][precision]") {
+    cse498::Serializer s;
+
     double denorm = std::numeric_limits<double>::denorm_min();
     REQUIRE(s.DeserializeDouble(s.Serialize(denorm)).value_or(0.0) == denorm);
 
@@ -901,6 +979,8 @@ TEST_CASE("double precision extremes", "[double][precision]") {
 //  28. deeply nested containers (5 levels)
 // ================================================================
 TEST_CASE("deeply nested containers", "[nested][deep]") {
+    cse498::Serializer s;
+
     SECTION("5-level vector") {
         std::vector<std::vector<std::vector<std::vector<std::vector<int>>>>> deep =
             {{{{{1, 2}, {3}}}, {{{4}}}}, {{{{5, 6, 7}}}}};
@@ -937,29 +1017,31 @@ TEST_CASE("deeply nested containers", "[nested][deep]") {
 //  29. custom type_id special characters
 // ================================================================
 TEST_CASE("custom type_id special characters", "[custom][type_id]") {
+    cse498::Serializer s;
+
     s.RegisterType<int>("my:type",
-        [](const int& v) -> std::string { return s.Serialize(v); },
-        [](const std::string& data) -> std::optional<int> { return s.DeserializeInt(data); }
+        [&s](const int& v) -> std::string { return s.Serialize(v); },
+        [&s](const std::string& data) -> std::optional<int> { return s.DeserializeInt(data); }
     );
-    REQUIRE(s.Deserialize<int>("my:type", s.Serialize<int>("my:type", 42)).value_or(-1) == 42);
+    REQUIRE(s.Deserialize<int>("my:type", s.Serialize<int>("my:type", 42).value()).value_or(-1) == 42);
 
     s.RegisterType<int>("semi;type",
-        [](const int& v) -> std::string { return s.Serialize(v); },
-        [](const std::string& data) -> std::optional<int> { return s.DeserializeInt(data); }
+        [&s](const int& v) -> std::string { return s.Serialize(v); },
+        [&s](const std::string& data) -> std::optional<int> { return s.DeserializeInt(data); }
     );
-    REQUIRE(s.Deserialize<int>("semi;type", s.Serialize<int>("semi;type", 7)).value_or(-1) == 7);
+    REQUIRE(s.Deserialize<int>("semi;type", s.Serialize<int>("semi;type", 7).value()).value_or(-1) == 7);
 
     s.RegisterType<int>("",
-        [](const int& v) -> std::string { return s.Serialize(v); },
-        [](const std::string& data) -> std::optional<int> { return s.DeserializeInt(data); }
+        [&s](const int& v) -> std::string { return s.Serialize(v); },
+        [&s](const std::string& data) -> std::optional<int> { return s.DeserializeInt(data); }
     );
-    REQUIRE(s.Deserialize<int>("", s.Serialize<int>("", 99)).value_or(-1) == 99);
+    REQUIRE(s.Deserialize<int>("", s.Serialize<int>("", 99).value()).value_or(-1) == 99);
 
     s.RegisterType<int>("custom",
-        [](const int& v) -> std::string { return s.Serialize(v); },
-        [](const std::string& data) -> std::optional<int> { return s.DeserializeInt(data); }
+        [&s](const int& v) -> std::string { return s.Serialize(v); },
+        [&s](const std::string& data) -> std::optional<int> { return s.DeserializeInt(data); }
     );
-    REQUIRE(s.Deserialize<int>("custom", s.Serialize<int>("custom", 77)).value_or(-1) == 77);
+    REQUIRE(s.Deserialize<int>("custom", s.Serialize<int>("custom", 77).value()).value_or(-1) == 77);
 
     CHECK(s.IsTypeRegistered("my:type"));
     CHECK(s.IsTypeRegistered("semi;type"));
@@ -971,6 +1053,8 @@ TEST_CASE("custom type_id special characters", "[custom][type_id]") {
 //  30. strings with embedded null bytes
 // ================================================================
 TEST_CASE("strings with embedded null bytes", "[string][null]") {
+    cse498::Serializer s;
+
     std::string withNull("hel\0lo", 6);
     REQUIRE(withNull.size() == 6);
     auto r = s.DeserializeString(s.Serialize(withNull));
@@ -995,6 +1079,8 @@ TEST_CASE("strings with embedded null bytes", "[string][null]") {
 //  31. map key ordering preservation
 // ================================================================
 TEST_CASE("map key ordering preserved through round-trip", "[map][ordering]") {
+    cse498::Serializer s;
+
     std::map<std::string, int> m = {{"cherry", 3}, {"apple", 1}, {"banana", 2}};
     auto r = s.DeserializeMap<std::string, int>(s.Serialize(m));
     REQUIRE(r.has_value());
@@ -1010,6 +1096,8 @@ TEST_CASE("map key ordering preserved through round-trip", "[map][ordering]") {
 //  32. char special values
 // ================================================================
 TEST_CASE("char special values", "[char][special]") {
+    cse498::Serializer s;
+
     REQUIRE(s.DeserializeChar(s.Serialize('\0')).value_or('X')              == '\0');
     REQUIRE(s.DeserializeChar(s.Serialize(static_cast<char>(0xFF))).value_or('\0')
             == static_cast<char>(0xFF));
@@ -1022,6 +1110,8 @@ TEST_CASE("char special values", "[char][special]") {
 //  33. stoul negative wrapping — bug-revealing test
 // ================================================================
 TEST_CASE("stoul negative wrapping does not crash", "[vector][map][bug]") {
+    cse498::Serializer s;
+
     SECTION("vector negative count") {
         REQUIRE_NOTHROW([&]{ CHECK_FALSE(s.DeserializeVector<int>("v:-1:i:1;").has_value()); }());
     }
@@ -1051,6 +1141,8 @@ TEST_CASE("stoul negative wrapping does not crash", "[vector][map][bug]") {
 //  34. double round-trip precision (locale-safe)
 // ================================================================
 TEST_CASE("double round-trip precision locale-safe", "[double][precision][locale]") {
+    cse498::Serializer s;
+
     double values[] = {3.14159265358979323, 1.0/3.0, 1e-15, -2.718281828459045, 0.1};
     for (double v : values) {
         auto r = s.DeserializeDouble(s.Serialize(v));
@@ -1063,6 +1155,8 @@ TEST_CASE("double round-trip precision locale-safe", "[double][precision][locale
 //  35. float round-trip
 // ================================================================
 TEST_CASE("float round-trip", "[float]") {
+    cse498::Serializer s;
+
     SECTION("basic values") {
         float values[] = {3.14f, -1.0f, 0.0f, 1e10f, 1e-10f};
         for (float v : values) {
@@ -1086,6 +1180,8 @@ TEST_CASE("float round-trip", "[float]") {
 //      unsigned long long, size_t)
 // ================================================================
 TEST_CASE("extended integer round-trips", "[int64]") {
+    cse498::Serializer s;
+
     SECTION("long long") {
         long long values[] = {0LL, 1LL, -1LL, 42LL, -42LL};
         for (long long v : values) {
@@ -1136,6 +1232,8 @@ TEST_CASE("extended integer round-trips", "[int64]") {
 //  37. 64-bit boundary values
 // ================================================================
 TEST_CASE("64-bit boundary values", "[int64][boundary]") {
+    cse498::Serializer s;
+
     SECTION("values beyond INT_MAX") {
         long long big = static_cast<long long>(INT_MAX) + 1;
         auto r = s.DeserializeLongLong(s.Serialize(big));
@@ -1169,6 +1267,8 @@ TEST_CASE("64-bit boundary values", "[int64][boundary]") {
 //  38. negative 64-bit values
 // ================================================================
 TEST_CASE("negative 64-bit values", "[int64][negative]") {
+    cse498::Serializer s;
+
     long long negvals[] = {-1LL, -1000000000000LL, LLONG_MIN};
     for (long long v : negvals) {
         auto r = s.DeserializeLongLong(s.Serialize(v));
@@ -1177,6 +1277,7 @@ TEST_CASE("negative 64-bit values", "[int64][negative]") {
     }
 
     // unsigned long long rejects negative (from_chars for unsigned fails)
+    // Note: signed uses "l:" tag, unsigned uses "L:" tag — they are now distinct
     std::string neg_data = s.Serialize(-1LL);
     CHECK_FALSE(s.DeserializeUnsignedLongLong(neg_data).has_value());
 }
@@ -1185,6 +1286,8 @@ TEST_CASE("negative 64-bit values", "[int64][negative]") {
 //  39. DeserializeAt chain after failed parse
 // ================================================================
 TEST_CASE("DeserializeAt chain after failed parse", "[deserializeAt][pos]") {
+    cse498::Serializer s;
+
     SECTION("tag mismatch does not corrupt pos") {
         std::string data = s.Serialize(3.14) + s.Serialize(42);
         size_t pos = 0;
@@ -1221,6 +1324,7 @@ TEST_CASE("DeserializeAt chain after failed parse", "[deserializeAt][pos]") {
 //  40. variant — basic round-trip
 // ================================================================
 TEST_CASE("variant basic round-trip", "[variant]") {
+    cse498::Serializer s;
     using V = std::variant<int, double, std::string>;
 
     SECTION("int alternative") {
@@ -1255,6 +1359,7 @@ TEST_CASE("variant basic round-trip", "[variant]") {
 //  41. variant — index preservation
 // ================================================================
 TEST_CASE("variant index preservation", "[variant]") {
+    cse498::Serializer s;
     using V = std::variant<int, double>;
 
     V as_int = int(0);
@@ -1276,6 +1381,7 @@ TEST_CASE("variant index preservation", "[variant]") {
 //  42. variant — Datum-style (string, double, bool)
 // ================================================================
 TEST_CASE("variant Datum-style round-trip", "[variant]") {
+    cse498::Serializer s;
     using Datum = std::variant<std::string, double, bool>;
 
     SECTION("string") {
@@ -1307,6 +1413,7 @@ TEST_CASE("variant Datum-style round-trip", "[variant]") {
 //  43. variant — BBValue-style (int, double, string, bool)
 // ================================================================
 TEST_CASE("variant BBValue-style round-trip", "[variant]") {
+    cse498::Serializer s;
     using BBValue = std::variant<int, double, std::string, bool>;
 
     BBValue vals[] = {
@@ -1328,6 +1435,7 @@ TEST_CASE("variant BBValue-style round-trip", "[variant]") {
 //  44. variant — nested in vector
 // ================================================================
 TEST_CASE("variant nested in vector", "[variant][vector]") {
+    cse498::Serializer s;
     using V = std::variant<int, std::string>;
     std::vector<V> vec = { V(42), V(std::string("abc")), V(7) };
 
@@ -1344,6 +1452,7 @@ TEST_CASE("variant nested in vector", "[variant][vector]") {
 //  45. variant — positional DeserializeAt chaining
 // ================================================================
 TEST_CASE("variant DeserializeAt positional", "[variant][deserializeAt]") {
+    cse498::Serializer s;
     using V = std::variant<int, std::string>;
 
     V v1 = 10;
@@ -1366,6 +1475,7 @@ TEST_CASE("variant DeserializeAt positional", "[variant][deserializeAt]") {
 //  46. variant — error cases
 // ================================================================
 TEST_CASE("variant error cases", "[variant][error]") {
+    cse498::Serializer s;
     using V = std::variant<int, double>;
 
     SECTION("wrong tag") {
@@ -1399,6 +1509,7 @@ TEST_CASE("variant error cases", "[variant][error]") {
 //  47. variant — map with variant values
 // ================================================================
 TEST_CASE("variant as map values", "[variant][map]") {
+    cse498::Serializer s;
     using V = std::variant<int, std::string>;
     std::map<std::string, V> m;
     m["x"] = V(42);
@@ -1410,4 +1521,15 @@ TEST_CASE("variant as map values", "[variant][map]") {
     REQUIRE(r->size() == 2);
     REQUIRE(std::get<int>(r->at("x")) == 42);
     REQUIRE(std::get<std::string>(r->at("y")) == "hello");
+}
+
+// ================================================================
+//  48. custom Serialize returns error for unregistered type
+// ================================================================
+TEST_CASE("custom Serialize returns error for unregistered type", "[custom][expected]") {
+    cse498::Serializer s;
+
+    auto result = s.Serialize<int>("NonExistent", 42);
+    REQUIRE_FALSE(result.has_value());
+    REQUIRE(result.error() == cse498::SerializeError::UnregisteredType);
 }

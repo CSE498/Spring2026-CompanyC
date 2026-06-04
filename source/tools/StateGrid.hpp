@@ -46,10 +46,9 @@ public:
     };
     
     bool InBounds(StateGridPosition pos) const {
-      return pos.GetX() < mWidth &&
-        pos.GetX() >= 0 && 
-        pos.GetY() < mHeight &&
-        pos.GetY() >= 0;
+      return pos.GetX() >= 0 && pos.GetY() >= 0 &&
+        static_cast<size_t>(pos.GetX()) < mWidth &&
+        static_cast<size_t>(pos.GetY()) < mHeight;
     };
 
 private:

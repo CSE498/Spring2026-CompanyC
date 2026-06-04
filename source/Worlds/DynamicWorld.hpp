@@ -1,14 +1,37 @@
 #pragma once
 
-#include <random>
-#include <iostream>
 #include <algorithm>
+#include <array>
+#include <cassert>
+#include <iostream>
+#include <random>
+#include <stdexcept>
 
 #include "../core/WorldBase.hpp"
 #include "../core/Building.hpp"
+#include "../Agents/ClassicDynamicAgent.hpp"
 #include "../Agents/PacingAgent.hpp"
+#include "../Agents/TendencyAgent.hpp"
 
 namespace cse498 {
+
+// Default side length used by the no-arg DynamicWorld constructor.
+inline constexpr size_t kDefaultWorldSize = 80;
+
+// Tick interval at which Run() dumps global resource counts to stdout.
+inline constexpr size_t kStdoutDumpInterval = 500;
+
+// Default tick at which a run ends if no win condition has been met.
+inline constexpr size_t kDefaultCutoffTime = 15000;
+
+// Minimum width/height required for cluster generation.
+inline constexpr size_t kMinWorldDim = 5;
+
+// Margin (in cells) kept clear at the world edges when placing clusters.
+inline constexpr int kClusterEdgeMargin = 2;
+
+// Cluster radii placed for each clustered resource type (trees, stone, wheat).
+inline constexpr std::array<int, 5> kClusterSizes = {2, 3, 4, 4, 5};
 
 /**
  * @class DynamicWorld
@@ -45,7 +68,7 @@ public:
   /**
    * @brief Construct a DynamicWorld with default size and configured cell types.
    */
-  DynamicWorld() : DynamicWorld(80, 80) { }
+  DynamicWorld() : DynamicWorld(kDefaultWorldSize, kDefaultWorldSize) { }
   /**
    * @brief Construct a DynamicWorld with default size and configured cell types.
    * @param width the width of the world
@@ -73,24 +96,85 @@ public:
   void Run() override {
     run_over = false;
     while (!run_over) {
-      RunAgents();
-      UpdateWorld();
+      Tick();
 
-      if (mUpdateCounter % 500 == 0) {
+      if (mUpdateCounter % kStdoutDumpInterval == 0) {
         for (size_t i = 0; i < mWorldResourceNames.size(); ++i) {
           std::cout << mWorldResourceNames[i] << ": " << mWorldResourceCounts[i] << " ";
         }
-        std::cout << std::endl;
+      }
+    }
+  }
+
+  int GetGlobalCount(const std::string& resource) const {
+    auto it = world_global_counts.find(resource);
+    if (it == world_global_counts.end()) return 0;
+    return it->second;
+  }
+
+  size_t GetUpdateCounter() const {
+    return mUpdateCounter;
+  }
+
+protected:
+/**
+ * @brief Run the agents and update the world one time
+ */
+  void Tick() override {
+    if (!mSessionStarted) {
+      GetTimer().Start("Game::Session");
+      mSessionStarted = true;
+    }
+    RunAgents();
+    UpdateWorld();
+    RecordAnalyticsSnapshot();
+
+    const std::string message = BuildStatusMessage();
+    for (const auto & agent_ptr : agent_set) {
+      if (agent_ptr->GetName() == kGhostAgentName) {
+        agent_ptr->Notify(message);
       }
     }
   }
 
   /**
-   * @brief Run the agents and update the world one time
+   * @brief Builds a human-readable status string summarizing the current world
+   *        state — tick count, agents, buildings, resource totals, and per-type
+   *        production counts. Used to notify the ghost ("Player") agent.
    */
-  void Tick() override {
-      RunAgents();
-      UpdateWorld();
+  std::string BuildStatusMessage() const {
+    const size_t wood  = mWorldResourceCounts[ResourceIndex("wood")];
+    const size_t stone = mWorldResourceCounts[ResourceIndex("stone")];
+    const size_t steel = mWorldResourceCounts[ResourceIndex("steel")];
+    const size_t wheat = mWorldResourceCounts[ResourceIndex("wheat")];
+
+    size_t lumberyards = 0;
+    size_t quarries = 0;
+    size_t farms = 0;
+    for (const auto & building : mBuildings) {
+      const auto & resources = building.GetResources();
+      if (resources.count("wood") && resources.size() == 1) {
+        ++lumberyards;
+      }
+      else if (resources.count("wheat") && resources.size() == 1) {
+        ++farms;
+      }
+      else if (resources.count("stone") && resources.count("steel")) {
+        ++quarries;
+      }
+    }
+
+    return
+      "Tick " + std::to_string(mUpdateCounter) +
+      " | Agents: " + std::to_string(agent_set.size()) +
+      " | Buildings: " + std::to_string(mBuildings.size()) + "\n" +
+      "Resources -> Wood: " + std::to_string(wood) +
+      ", Stone: " + std::to_string(stone) +
+      ", Steel: " + std::to_string(steel) +
+      ", Wheat: " + std::to_string(wheat) + "\n" +
+      "Production -> Lumberyards: " + std::to_string(lumberyards) +
+      ", Quarries: " + std::to_string(quarries) +
+      ", Farms: " + std::to_string(farms);
   }
 
   /**
@@ -106,48 +190,17 @@ public:
   }
 
   /**
-   * @brief Initialize an agent that only has the ability to move in order to be used by UI team.
-  */
-  template <typename AGENT_T>
-  void AddGhostAgent() {
-    auto agent_ptr = std::make_unique<AGENT_T>(agent_set.size(), "ghost", *this);
-    
-    if (agent_ptr->Initialize() == false) {
-      std::cerr << "Failed to initialize ghost agent." << std::endl;
-    }
-
-    mGhostAgent = std::move(agent_ptr);
-    AddMovementFunctions(*mGhostAgent);
-  }
-
-  /**
-   * @brief Calls DoAction on the metaparameter GhostAgent given an action_id
-  */
-  void PerformGhostAction(size_t action_id) {
-    assert(mGhostAgent != nullptr);
-    DoAction(*mGhostAgent, action_id);
-  }
-
-  /**
-   * @brief Returns location object of ghost object
-  */
-  Location GetGhostLocation() {
-    assert(mGhostAgent != nullptr);
-    return mGhostAgent->GetLocation();
-  }
-
-  /**
    * @brief Getters for Ids
    */
-  size_t GetGrassId()      const { return mGrassId; }
-  size_t GetTreeId()       const { return mTreeId; }
-  size_t GetStoneId()      const { return mStoneId; }
-  size_t GetWheatId()      const { return mWheatId; }
-  size_t GetQuarryId()     const { return mQuarryId; }
-  size_t GetLumberyardId() const { return mLumberyardId; }
-  size_t GetFarmId()       const { return mFarmId; }
-  size_t GetSpawnerId()    const { return mSpawnerId; }
-  size_t GetTownhallId()   const { return mTownhallId; }
+  [[nodiscard]] size_t GetGrassId()      const { return mGrassId; }
+  [[nodiscard]] size_t GetTreeId()       const { return mTreeId; }
+  [[nodiscard]] size_t GetStoneId()      const { return mStoneId; }
+  [[nodiscard]] size_t GetWheatId()      const { return mWheatId; }
+  [[nodiscard]] size_t GetQuarryId()     const { return mQuarryId; }
+  [[nodiscard]] size_t GetLumberyardId() const { return mLumberyardId; }
+  [[nodiscard]] size_t GetFarmId()       const { return mFarmId; }
+  [[nodiscard]] size_t GetSpawnerId()    const { return mSpawnerId; }
+  [[nodiscard]] size_t GetTownhallId()   const { return mTownhallId; }
 
 private:
 
@@ -155,7 +208,7 @@ private:
   size_t mUpdateCounter = 0;
 
   /// @brief The tick counter cutoff for ending the run
-  size_t mCutoffTime = 15000;
+  size_t mCutoffTime = kDefaultCutoffTime;
 
   /// @brief Stores all buildings currently in the world.
   std::vector<Building> mBuildings;
@@ -163,13 +216,30 @@ private:
   /// @brief Tracks spawner positions and their last spawn tick.
   std::vector<std::pair<WorldPosition, size_t>> mSpawners;
 
-  /// @brief Indicates whether the leader agent has been assigned.
-  bool mLeaderAgentSet = false;
-
-  /// @brief An agent that only has movement capabilities (For UI purposes)
-  std::unique_ptr<AgentBase> mGhostAgent;
 
   /// @brief Cell type IDs for terrain and structures.
+  /**
+   * @brief Check whether the world has enough of each listed resource.
+   * @param costs List of (resource name, amount) pairs to check.
+   * @return true if all resources are available in sufficient quantity.
+   */
+  bool HasResources(std::initializer_list<std::pair<std::string, size_t>> costs) const {
+    for (const auto & [name, amount] : costs) {
+      if (mWorldResourceCounts.at(ResourceIndex(name)) < amount) return false;
+    }
+    return true;
+  }
+
+  /**
+   * @brief Deduct the listed resources from the world's counts.
+   * @param costs List of (resource name, amount) pairs to deduct.
+   */
+  void SpendResources(std::initializer_list<std::pair<std::string, size_t>> costs) {
+    for (const auto & [name, amount] : costs) {
+      mWorldResourceCounts[ResourceIndex(name)] -= amount;
+    }
+  }
+
   size_t mGrassId = 0;
   size_t mTreeId = 0;
   size_t mStoneId = 0;
@@ -180,6 +250,17 @@ private:
   size_t mSpawnerId = 0;
   size_t mTownhallId = 0;
 
+  /// @brief Name reserved for the ghost agent — bypasses traversability for UI/spectator purposes.
+  static constexpr std::string_view kGhostAgentName = "Player";
+  static constexpr std::string_view kBuilderAgentName = "builder";
+
+  /// @brief  Flag to track if the session timer has started.
+  bool mSessionStarted = false;
+
+  /**
+  * @brief Configure an agent with movement actions.
+  * @param agent The agent to configure.
+  */
   void AddMovementFunctions(AgentBase & agent) {
     agent.AddAction("up", MOVE_UP);
     agent.AddAction("down", MOVE_DOWN);
@@ -191,24 +272,37 @@ private:
     agent.AddAction("down_right", MOVE_DOWN_RIGHT);
   }
 
-   /** @brief Configure an agent with available actions.
-   *
-   * The first agent added becomes the "leader" and gains build abilities.
-   *
-   * @param agent The agent to configure.
-   */
+  /**
+ * @brief Configure an agent with available actions based on its name.
+ *
+ * Agents are assigned actions according to their name:
+ * - An agent named "builder" gains all build actions
+ *   (lumberyard, quarry, spawner, farm, townhall) in addition to
+ *   movement and collection.
+ * - The ghost agent (named kGhostAgentName, currently "Player") receives
+ *   only movement actions — no collect, no build. It also bypasses
+ *   traversability checks elsewhere in the world (see DoAction).
+ * - Any other agent receives movement actions plus the collect action.
+ *
+ * @note This replaces the earlier "leader agent" model in which the first
+ *       agent added was implicitly assigned build abilities. Build access
+ *       is now opt-in by name ("builder") rather than by insertion order.
+ *
+ * @param agent The agent to configure.
+ */
   void ConfigAgent(AgentBase & agent) override {
-    if (!mLeaderAgentSet) {
+    if (agent.GetName() == kBuilderAgentName) {
       agent.AddAction("build_lumberyard", BUILD_LUMBERYARD);
       agent.AddAction("build_quarry", BUILD_QUARRY);
       agent.AddAction("build_spawner", BUILD_SPAWNER);
       agent.AddAction("build_farm", BUILD_FARM);
       agent.AddAction("build_townhall", BUILD_TOWNHALL);
-      mLeaderAgentSet = true;
     }
 
     AddMovementFunctions(agent);
-    agent.AddAction("collect", COLLECT);
+    if (agent.GetName() != kGhostAgentName) {
+      agent.AddAction("collect", COLLECT);
+    }
   }
 
   /**
@@ -259,37 +353,45 @@ private:
    * @param height Height of the world.
    */
   void GenerateWorld(size_t width, size_t height) {
+    // Resource cell types must be configured before world generation.
+    assert(mGrassId != 0 && mTreeId != 0 && mStoneId != 0 && mWheatId != 0);
+    if (mGrassId == 0 || mTreeId == 0 || mStoneId == 0 || mWheatId == 0) {
+      throw std::logic_error(
+        "GenerateWorld called before resource cell types were configured");
+    }
 
-    assert(mGrassId != 0 && mTreeId != 0 && mStoneId != 0 && mWheatId != 0); // Ensure cell types are configured before generating world.
-    assert(mQuarryId != 0 && mLumberyardId != 0 && mFarmId != 0 && mSpawnerId != 0 && mTownhallId != 0); // Ensure all building types are configured.
+    // Building cell types must be configured before world generation.
+    assert(mQuarryId != 0 && mLumberyardId != 0 && mFarmId != 0 &&
+           mSpawnerId != 0 && mTownhallId != 0);
+    if (mQuarryId == 0 || mLumberyardId == 0 || mFarmId == 0 ||
+        mSpawnerId == 0 || mTownhallId == 0) {
+      throw std::logic_error(
+        "GenerateWorld called before building cell types were configured");
+        }
+
+    assert(width >= kMinWorldDim && height >= kMinWorldDim);
+    if (width < kMinWorldDim || height < kMinWorldDim) {
+      throw std::invalid_argument(
+        "GenerateWorld requires width >= " + std::to_string(kMinWorldDim) +
+        " and height >= " + std::to_string(kMinWorldDim));
+    }
 
     main_grid.Resize(width, height, mGrassId);
-
     std::random_device rd;
     std::mt19937 gen(rd());
 
-    std::uniform_int_distribution<int> x_dist(2, static_cast<int>(width) - 3);
-    std::uniform_int_distribution<int> y_dist(2, static_cast<int>(height) - 3);
+    const int x_max = static_cast<int>(width) - kClusterEdgeMargin - 1;
+    const int y_max = static_cast<int>(height) - kClusterEdgeMargin - 1;
+    std::uniform_int_distribution<int> x_dist(kClusterEdgeMargin, x_max);
+    std::uniform_int_distribution<int> y_dist(kClusterEdgeMargin, y_max);
 
-    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 2);
-    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 3);
-    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 4);
-    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 4);
-    PlaceCluster(mTreeId, x_dist(gen), y_dist(gen), 5);
-
-    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 2);
-    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 3);
-    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 4);
-    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 4);
-    PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), 5);
-
-    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 2);
-    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 3);
-    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 4);
-    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 4);
-    PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), 5);
+    for (int size : kClusterSizes) PlaceCluster(mTreeId,  x_dist(gen), y_dist(gen), size);
+    for (int size : kClusterSizes) PlaceCluster(mStoneId, x_dist(gen), y_dist(gen), size);
+    for (int size : kClusterSizes) PlaceCluster(mWheatId, x_dist(gen), y_dist(gen), size);
   }
 
+
+protected:
 
   /**
    * @brief Update the world state each tick.
@@ -298,7 +400,9 @@ private:
    */
   void UpdateWorld() override;
 
-  /** 
+public:
+
+  /**
    * @brief  Override to return the current tick count for use in agents or buildings.
    * @return the current tick count since the world started running.
    */

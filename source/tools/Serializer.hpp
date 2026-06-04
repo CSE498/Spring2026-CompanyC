@@ -3,21 +3,23 @@
 //
 // Text-based serialization for C++ types.
 // Each type gets a tag prefix so we know what we're reading back:
-//   int:    i:<value>;
-//   double: d:<value>;
-//   bool:   b:<0|1>;
-//   char:   c:<ch>;
-//   string: s:<len>:<content>;
-//   long:   l:<value>;
-//   vector: v:<size>:<elements>
-//   map:           m:<size>:<kv pairs>
-//   unordered_map: u:<size>:<kv pairs>   (added as requested by other teams)
-//   custom:        custom:<type_id>:<len>:<content>;
-//   variant:       t:<active_index>:<serialized_value>
+//   int:                i:<value>;
+//   double:             d:<value>;
+//   bool:               b:<0|1>;
+//   char:               c:<ch>;
+//   string:             s:<len>:<content>;
+//   long long:          l:<value>;
+//   unsigned long long: L:<value>;
+//   vector:             v:<size>:<elements>
+//   map:                m:<size>:<kv pairs>
+//   unordered_map:      u:<size>:<kv pairs>   (added as requested by other teams)
+//   custom:             custom:<type_id>:<len>:<content>;
+//   variant:            t:<active_index>:<serialized_value>
 // Claude assistance used for custom vector and map serialisation
 
 #include <string>
 #include <optional>
+#include <expected>
 #include <vector>
 #include <map>
 #include <variant>
@@ -29,6 +31,10 @@
 #include <limits>
 
 namespace cse498 {
+
+enum class SerializeError {
+    UnregisteredType
+};
 
 class Serializer {
 
@@ -58,7 +64,7 @@ class Serializer {
     std::unordered_map<std::string, TypeEntry> registry_;
 
     // named constants for fixed-size token lengths
-    static constexpr size_t TAG_PREFIX_LEN = 2;  // "i:", "d:", "s:", "v:", "m:", "c:", "b:", "l:"
+    static constexpr size_t TAG_PREFIX_LEN = 2;  // "i:", "d:", "s:", "v:", "m:", "c:", "b:", "l:", "L:"
     static constexpr size_t BOOL_TOKEN_LEN = 4;  // "b:0;" or "b:1;"
     static constexpr size_t CHAR_TOKEN_LEN = 4;  // "c:X;"
 
@@ -142,9 +148,9 @@ public:
 
     // wraps the inner content with: custom:<type_id>:<length>:<content>;
     template <typename T>
-    std::string Serialize(const std::string& type_id, const T& value) const {
+    [[nodiscard]] std::expected<std::string, SerializeError> Serialize(const std::string& type_id, const T& value) const {
         auto it = registry_.find(type_id);
-        if (it == registry_.end()) return "";
+        if (it == registry_.end()) return std::unexpected(SerializeError::UnregisteredType);
         std::string inner = it->second.serialize_fn(static_cast<const void*>(&value));
         return "custom:" + type_id + ":" + std::to_string(inner.size()) + ":" + inner + ";";
     }
@@ -282,7 +288,7 @@ public:
         else if constexpr (is_variant<T>::value)
             return DeserializeVariantAt<T>(data, pos);
         else
-            static_assert(!std::is_same_v<T, T>, "Unsupported type for deserialization");
+            static_assert(false, "Unsupported type for deserialization");
     }
 
 private:
@@ -316,7 +322,12 @@ private:
 
         pos = colon + 1;
 
-        // reject obviously bogus counts before we try to allocate
+        // Reject obviously bogus counts before we try to allocate.
+        // The shortest serialized token is "b:0;" (4 chars), so a strict lower
+        // bound would be remaining/4.  We use remaining/3 + 1 to give a small
+        // margin for single-char tokens like "c:X;" (also 4 chars) while still
+        // catching absurdly large counts that would blow up allocation.  The +1
+        // ensures a count of 1 is never rejected when remaining >= 1.
         size_t remaining = data.size() - pos;
         if (count > remaining / 3 + 1) return std::nullopt;
 
@@ -347,7 +358,7 @@ private:
 
         pos = colon + 1;
 
-        // same sanity check as vectors
+        // Same sanity check as vectors — see comment in DeserializeVectorAt.
         size_t remaining = data.size() - pos;
         if (count > remaining / 3 + 1) return std::nullopt;
 
@@ -379,7 +390,7 @@ private:
 
         pos = colon + 1;
 
-        // same sanity check as vectors/maps
+        // Same sanity check as vectors — see comment in DeserializeVectorAt.
         size_t remaining = data.size() - pos;
         if (count > remaining / 3 + 1) return std::nullopt;
 

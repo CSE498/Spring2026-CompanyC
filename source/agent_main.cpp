@@ -6,15 +6,19 @@
 
 // Include the modules that we will be using.
 #include "Agents/ClassicAgent.hpp"
-
+#include "Agents/ClassicDynamicAgent.hpp"
+#include "Agents/PacingAgent.hpp"
 #include "Interfaces/TrashInterface.hpp"
+#include "Worlds/DynamicWorld.hpp"
 #include "Worlds/MazeWorld.hpp"
 
 using namespace cse498;
 
 int main()
 {
-  MazeWorld world;
-  world.AddAgent<ClassicAgent>("Classic 1").SetLocation(WorldPosition{3,1});
-  world.AddAgent<TrashInterface>("Interface").SetSymbol('@').SetLocation(WorldPosition{1,1});
+  DynamicWorld world;
+
+  world.AddAgent<ClassicDynamicAgent>("Dynamic Classic Agent").SetLocation(WorldPosition{1,1});
+
+  world.Run();
 }
